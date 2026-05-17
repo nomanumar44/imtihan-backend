@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Imtihan.pk Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f8f9fa;--card:#fff;--txt:#1a1a2e;--sub:#6b7280;--mute:#9ca3af;--brd:#e5e7eb;--green:#1D9E75;--green-dk:#0F6E56;--r:8px}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .lc{background:var(--card);border-radius:12px;padding:40px;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.06);border:.5px solid var(--brd)}
+    .ll{font-size:22px;font-weight:600;color:var(--txt);text-align:center;margin-bottom:6px}.ll span{color:var(--green)}
+    .ls{text-align:center;font-size:13px;color:var(--mute);margin-bottom:32px}
+    .fg{margin-bottom:18px}
+    .fg label{display:block;font-size:12px;font-weight:500;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px}
+    .fg input{width:100%;padding:10px 14px;border:.5px solid var(--brd);border-radius:var(--r);font-size:14px;font-family:inherit;outline:none;transition:border-color .15s;background:var(--bg);color:var(--txt)}
+    .fg input:focus{border-color:var(--green)}
+    .bl{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s}
+    .bl:hover{background:var(--green-dk);transform:translateY(-1px)}
+    .ae{background:#FCEBEB;color:#A32D2D;padding:10px 14px;border-radius:var(--r);font-size:13px;margin-bottom:16px;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="lc">
+    <div class="ll">Imtihan<span>.pk</span></div>
+    <div class="ls">Admin Portal Login</div>
+    {% if messages %}{% for message in messages %}<div class="ae">{{ message }}</div>{% endfor %}{% endif %}
+    <form method="post" action="{% url 'dashboard_login' %}">
+      {% csrf_token %}
+      <div class="fg"><label for="username">Username</label><input type="text" id="username" name="username" placeholder="Enter username" required autofocus></div>
+      <div class="fg"><label for="password">Password</label><input type="password" id="password" name="password" placeholder="Enter password" required></div>
+      <button type="submit" class="bl">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

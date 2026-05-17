@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+{% block title %}MCQ Bank{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">MCQ Bank</div>
+    <div class="page-subtitle">{{ total_count }} questions in the database</div>
+  </div>
+  <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
+</div>
+
+<div class="filter-bar">
+  <select onchange="location.href='?exam='+this.value">
+    <option value="">All Exams</option>
+    {% for exam in exams %}<option value="{{ exam.slug }}">{{ exam.name }}</option>{% endfor %}
+  </select>
+  <select onchange="location.href='?subject='+this.value">
+    <option value="">All Subjects</option>
+    {% for s in subjects %}<option value="{{ s.slug }}">{{ s.name }}</option>{% endfor %}
+  </select>
+  <select onchange="location.href='?status='+this.value">
+    <option value="">All Status</option>
+    <option value="published">Published</option>
+    <option value="draft">Draft</option>
+    <option value="flagged">Flagged</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Question</th><th>Exam</th><th>Subject</th><th>Correct</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for mcq in mcqs %}
+      <tr>
+        <td class="truncate">{{ mcq.question_text|truncatechars:55 }}</td>
+        <td><span class="badge badge-{{ mcq.exam.badge_color }}">{{ mcq.exam.name }}</span></td>
+        <td>{{ mcq.subject.name }}</td>
+        <td><span class="badge badge-green">{{ mcq.correct_option }}</span></td>
+        <td>
+          {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
+          {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--color-text-tertiary)">{{ mcq.created_at|date:"d M Y" }}</td>
+        <td><button class="action-btn">Edit</button><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=mcqs %}
+{% endblock %}

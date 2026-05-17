@@ -1,0 +1,35 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div><div class="page-title">Settings</div><div class="page-subtitle">Platform configuration</div></div>
+</div>
+<div class="two-col">
+  <div class="card-box">
+    <div class="section-label">Account Info</div>
+    <div class="activity-item">
+      <div class="activity-dot" style="background:#1D9E75"></div>
+      <div><div class="activity-text"><strong>Username:</strong> {{ request.user.username }}</div></div>
+    </div>
+    <div class="activity-item">
+      <div class="activity-dot" style="background:#185FA5"></div>
+      <div><div class="activity-text"><strong>Email:</strong> {{ request.user.email|default:"Not set" }}</div></div>
+    </div>
+    <div class="activity-item">
+      <div class="activity-dot" style="background:#854F0B"></div>
+      <div><div class="activity-text"><strong>Joined:</strong> {{ request.user.date_joined|date:"d M Y" }}</div></div>
+    </div>
+  </div>
+  <div class="card-box">
+    <div class="section-label">Quick Links</div>
+    <a href="/admin/" class="quick-action" target="_blank">
+      <div class="qa-icon" style="background:#E1F5EE"><i class="ti ti-settings" style="color:#0F6E56;font-size:16px"></i></div>
+      <span class="qa-label">Django Admin Panel</span>
+    </a>
+    <a href="/api/" class="quick-action" target="_blank">
+      <div class="qa-icon" style="background:#E6F1FB"><i class="ti ti-api" style="color:#185FA5;font-size:16px"></i></div>
+      <span class="qa-label">API Browser</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

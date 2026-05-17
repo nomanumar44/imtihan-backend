@@ -1,0 +1,665 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Add MCQ{% endblock %}
+{% block content %}
+
+<style>
+/* Scoped styles for the uploader so it doesn't break base.html */
+.mcq-tabs { display:flex; gap:16px; margin-bottom:20px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.mcq-tab { padding:10px 16px; font-size:13px; font-weight:500; color:var(--color-text-secondary); cursor:pointer; border-bottom:2px solid transparent; }
+.mcq-tab.active { color:#1D9E75; border-bottom-color:#1D9E75; }
+
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* The user's styles for the uploader */
+.topbar{background:#1B3A5C;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-radius:10px 10px 0 0;}
+.topbar-title{font-size:14px;font-weight:500;color:#fff;display:flex;align-items:center;gap:8px;}
+.topbar-title i{color:#5DCAA5;font-size:16px;}
+.topbar-badge{font-size:11px;background:rgba(93,202,165,0.2);color:#9FE1CB;padding:2px 10px;border-radius:10px;border:0.5px solid rgba(93,202,165,0.3);}
+.uploader-wrap{border:0.5px solid var(--color-border-tertiary);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;background:var(--color-background-primary);}
+.steps{display:flex;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);}
+.step{flex:1;padding:10px 8px;text-align:center;font-size:11px;color:var(--color-text-tertiary);display:flex;flex-direction:column;align-items:center;gap:3px;border-right:0.5px solid var(--color-border-tertiary);}
+.step:last-child{border-right:none;}
+.step.done{color:#0F6E56;}
+.step.active{color:#1B3A5C;font-weight:500;}
+.step-num{width:20px;height:20px;border-radius:50%;background:var(--color-border-tertiary);color:var(--color-text-secondary);font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:500;}
+.step.done .step-num{background:#1D9E75;color:#fff;}
+.step.active .step-num{background:#1B3A5C;color:#fff;}
+.panel{padding:18px;display:none;}
+.panel.on{display:block;}
+.drop-zone{border:1.5px dashed var(--color-border-secondary);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;background:var(--color-background-secondary);transition:border-color 0.15s;}
+.drop-zone:hover,.drop-zone.drag{border-color:#1D9E75;background:#E1F5EE;}
+.drop-zone i{font-size:32px;color:#1D9E75;display:block;margin-bottom:10px;}
+.drop-title{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;}
+.drop-sub{font-size:12px;color:var(--color-text-secondary);}
+.drop-btn{margin-top:14px;display:inline-block;padding:7px 18px;background:#1B3A5C;color:#fff;border-radius:7px;font-size:12px;cursor:pointer;}
+.file-info{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#E1F5EE;border-radius:8px;margin-top:12px;}
+.file-info i{color:#0F6E56;font-size:18px;}
+.file-name{font-size:13px;font-weight:500;color:#085041;}
+.file-meta{font-size:11px;color:#0F6E56;}
+.section-label{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.4px;}
+.map-grid{display:grid;grid-template-columns:1fr 24px 1fr;gap:8px;align-items:center;margin-bottom:8px;}
+.map-col{font-size:12px;padding:7px 10px;background:var(--color-background-secondary);border-radius:6px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);}
+.map-arrow{text-align:center;color:var(--color-text-tertiary);font-size:14px;}
+.map-select{width:100%;font-size:12px;padding:6px 8px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);}
+.preview-header{display:grid;grid-template-columns:28px 1fr 80px 80px 80px 80px;gap:6px;padding:7px 10px;background:var(--color-background-secondary);border-radius:6px 6px 0 0;border:0.5px solid var(--color-border-tertiary);font-size:11px;font-weight:500;color:var(--color-text-secondary);}
+.preview-row{display:grid;grid-template-columns:28px 1fr 80px 80px 80px 80px;gap:6px;padding:8px 10px;border:0.5px solid var(--color-border-tertiary);border-top:none;align-items:start;cursor:pointer;}
+.preview-row:last-child{border-radius:0 0 6px 6px;}
+.preview-row:hover{background:var(--color-background-secondary);}
+.preview-row.selected{background:#E1F5EE;border-color:#9FE1CB;}
+.pr-check{width:16px;height:16px;border-radius:4px;border:0.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.pr-check.on{background:#1D9E75;border-color:#1D9E75;}
+.pr-check.on i{color:#fff;font-size:11px;}
+.pr-q{font-size:12px;color:var(--color-text-primary);line-height:1.4;}
+.pr-opt{font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pr-ans{font-size:11px;font-weight:500;color:#0F6E56;background:#E1F5EE;padding:2px 6px;border-radius:4px;display:inline-block;}
+.pr-diff{font-size:11px;padding:2px 7px;border-radius:10px;}
+.diff-easy{background:#EAF3DE;color:#27500A;}
+.diff-med{background:#FAEEDA;color:#633806;}
+.diff-hard{background:#FCEBEB;color:#791F1F;}
+.sel-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--color-background-secondary);border-radius:6px;margin-bottom:10px;}
+.sel-count{font-size:12px;color:var(--color-text-secondary);}
+.sel-count span{font-weight:500;color:#1B3A5C;}
+.sel-actions{display:flex;gap:6px;}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;}
+.btn-sm:hover{background:var(--color-background-secondary);}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.field-group{display:flex;flex-direction:column;gap:5px;}
+.field-label{font-size:12px;color:var(--color-text-secondary);font-weight:500;}
+.field-select,.field-input{width:100%;padding:8px 10px;border-radius:7px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px;}
+.field-select:focus,.field-input:focus{outline:none;border-color:#1D9E75;}
+.summary-box{background:var(--color-background-secondary);border-radius:8px;padding:14px;margin-bottom:14px;}
+.sum-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;}
+.sum-row:last-child{border-bottom:none;}
+.sum-key{color:var(--color-text-secondary);}
+.sum-val{font-weight:500;color:var(--color-text-primary);}
+.sum-val.teal{color:#0F6E56;}
+.progress-bar{height:4px;background:var(--color-border-tertiary);border-radius:2px;overflow:hidden;margin:10px 0;}
+.progress-fill{height:100%;background:#1D9E75;border-radius:2px;transition:width 0.3s;}
+.action-row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+.btn-back{padding:8px 16px;border-radius:7px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;font-size:13px;}
+.btn-next{padding:8px 20px;border-radius:7px;border:none;background:#1B3A5C;color:#fff;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;}
+.btn-next:hover{background:#0f2540;}
+.btn-publish{padding:8px 20px;border-radius:7px;border:none;background:#1D9E75;color:#fff;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;}
+.btn-publish:hover{background:#0F6E56;}
+.success-box{text-align:center;padding:30px 20px;}
+.success-icon{width:54px;height:54px;background:#E1F5EE;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.success-icon i{font-size:26px;color:#1D9E75;}
+.success-title{font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;}
+.success-sub{font-size:13px;color:var(--color-text-secondary);margin-bottom:18px;}
+.success-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.sstat{background:var(--color-background-secondary);border-radius:8px;padding:12px;text-align:center;}
+.sstat-num{font-size:20px;font-weight:500;color:#1B3A5C;}
+.sstat-label{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.tmpl-box{background:#E6F1FB;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;}
+.tmpl-box i{color:#185FA5;font-size:18px;}
+.tmpl-text{font-size:12px;color:#0C447C;}
+.tmpl-title{font-weight:500;font-size:13px;color:#0C447C;}
+
+/* Form styles for manual tab */
+.form-card { background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:10px; padding:20px; }
+.form-row { margin-bottom: 16px; }
+.form-label { display:block; font-size:12px; font-weight:500; color:var(--color-text-secondary); margin-bottom:6px; }
+.form-input { width:100%; padding:9px 12px; border:0.5px solid var(--color-border-secondary); border-radius:6px; font-family:inherit; font-size:13px; }
+.form-input:focus { border-color:#1D9E75; outline:none; }
+</style>
+
+<div class="top-bar" style="margin-bottom: 10px;">
+  <div>
+    <div class="page-title">Add New MCQ</div>
+    <div class="page-subtitle">Create a single question or import in bulk</div>
+  </div>
+</div>
+
+<div class="mcq-tabs">
+  <div class="mcq-tab active" onclick="switchTab(0)">Manual Create</div>
+  <div class="mcq-tab" onclick="switchTab(1)">Excel Import</div>
+</div>
+
+<!-- Tab 1: Manual Create -->
+<div class="tab-content active" id="tab-manual">
+  <div class="form-card">
+    <div class="meta-grid">
+      <div class="form-row">
+        <label class="form-label">Exam Board</label>
+        <select class="form-input" id="manBoard">
+          <option value="ppsc">PPSC</option>
+          <option value="fpsc">FPSC</option>
+          <option value="nts">NTS</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Subject</label>
+        <select class="form-input" id="manSubject">
+          <option value="Pakistan Studies">Pakistan Studies</option>
+          <option value="English">English</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="form-row">
+      <label class="form-label">Question Text</label>
+      <textarea class="form-input" id="manQ" rows="3" placeholder="Enter the question here..."></textarea>
+    </div>
+
+    <div class="meta-grid">
+      <div class="form-row">
+        <label class="form-label">Option A</label>
+        <input type="text" id="manA" class="form-input">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Option B</label>
+        <input type="text" id="manB" class="form-input">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Option C</label>
+        <input type="text" id="manC" class="form-input">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Option D</label>
+        <input type="text" id="manD" class="form-input">
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="form-row">
+        <label class="form-label">Correct Option</label>
+        <select class="form-input" id="manCorrect">
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Difficulty</label>
+        <select class="form-input" id="manDiff">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="form-row">
+      <label class="form-label">Explanation (optional)</label>
+      <textarea class="form-input" id="manExp" rows="2"></textarea>
+    </div>
+
+    <div class="action-row" style="margin-top:20px;">
+      <a href="{% url 'dashboard_mcqs' %}" class="btn-back" style="text-decoration:none;">Cancel</a>
+      <button class="btn-publish" id="manSaveBtn" onclick="saveManualMcq()">Save Question</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: Excel Import (Provided UI) -->
+<div class="tab-content" id="tab-excel">
+  <div class="topbar">
+    <div class="topbar-title"><i class="ti ti-table-import"></i> Import MCQs from Excel</div>
+    <span class="topbar-badge">Admin panel</span>
+  </div>
+
+  <div class="uploader-wrap">
+    <div class="steps">
+      <div class="step active" id="st1"><div class="step-num">1</div>Upload file</div>
+      <div class="step" id="st2"><div class="step-num">2</div>Map columns</div>
+      <div class="step" id="st3"><div class="step-num">3</div>Pick questions</div>
+      <div class="step" id="st4"><div class="step-num">4</div>Set subject</div>
+      <div class="step" id="st5"><div class="step-num">5</div>Publish</div>
+    </div>
+
+    <div class="panel on" id="p1">
+      <div class="tmpl-box" onclick="alert('Template downloaded! Columns: Question, Option_A, Option_B, Option_C, Option_D, Correct_Answer, Explanation, Difficulty, Topic, Year')">
+        <i class="ti ti-download"></i>
+        <div><div class="tmpl-title">Download Excel template</div><div class="tmpl-text">Recommended — pre-formatted with correct column headers</div></div>
+      </div>
+      <div class="drop-zone" id="dropZone" ondragover="ev(event)" ondragleave="dl()" ondrop="dp(event)">
+        <i class="ti ti-file-spreadsheet"></i>
+        <div class="drop-title">Drop your Excel file here</div>
+        <div class="drop-sub">Supports .xlsx and .xls files — max 10 MB</div>
+        <div class="drop-btn" onclick="document.getElementById('fileIn').click()"><i class="ti ti-upload" style="font-size:12px;margin-right:4px"></i>Browse file</div>
+        <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadFile(this)">
+      </div>
+      <div id="fileInfo" style="display:none" class="file-info">
+        <i class="ti ti-file-spreadsheet"></i>
+        <div><div class="file-name" id="fileName">—</div><div class="file-meta" id="fileMeta">—</div></div>
+      </div>
+      <div class="action-row">
+        <button class="btn-next" id="btn1" onclick="goStep(2)" style="opacity:0.4;pointer-events:none"><i class="ti ti-arrow-right"></i> Continue</button>
+      </div>
+    </div>
+
+    <div class="panel" id="p2">
+      <div class="section-label" style="margin-bottom:12px">Map your Excel columns to MCQ fields</div>
+      <div class="map-grid" style="grid-template-columns:1fr 20px 1fr;font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;">
+        <div>Your column</div><div></div><div>MCQ field</div>
+      </div>
+      <div id="mappingRows"></div>
+      <div class="action-row">
+        <button class="btn-back" onclick="goStep(1)">Back</button>
+        <button class="btn-next" onclick="goStep(3)"><i class="ti ti-arrow-right"></i> Preview questions</button>
+      </div>
+    </div>
+
+    <div class="panel" id="p3">
+      <div class="sel-bar">
+        <div class="sel-count"><span id="selCount">0</span> of <span id="totalCount">0</span> questions selected</div>
+        <div class="sel-actions">
+          <button class="btn-sm" onclick="selAll()">Select all</button>
+          <button class="btn-sm" onclick="selNone()">Clear</button>
+          <button class="btn-sm" onclick="filterDups()"><i class="ti ti-filter" style="font-size:11px"></i> Hide duplicates</button>
+        </div>
+      </div>
+      <div class="preview-header">
+        <div></div><div>Question</div><div>Opt A</div><div>Opt B</div><div>Answer</div><div>Difficulty</div>
+      </div>
+      <div id="previewRows"></div>
+      <div class="action-row">
+        <button class="btn-back" onclick="goStep(2)">Back</button>
+        <button class="btn-next" id="btn3" onclick="goStep(4)"><i class="ti ti-arrow-right"></i> Set subject</button>
+      </div>
+    </div>
+
+    <div class="panel" id="p4">
+      <div class="section-label">Assign exam board &amp; subject</div>
+      <div class="meta-grid">
+        <div class="field-group">
+          <label class="field-label">Exam board</label>
+          <select class="field-select" id="boardSel" onchange="updateSubjects()">
+            <option value="">Select board...</option>
+            <option value="ppsc">PPSC — Punjab Public Service Commission</option>
+            <option value="fpsc">FPSC — Federal Public Service Commission</option>
+            <option value="spsc">SPSC — Sindh Public Service Commission</option>
+            <option value="kppsc">KPPSC — KPK Public Service Commission</option>
+            <option value="bpsc">BPSC — Balochistan Public Service Commission</option>
+            <option value="nts">NTS — National Testing Service</option>
+            <option value="ots">OTS — Open Testing Service</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Subject</label>
+          <select class="field-select" id="subjectSel">
+            <option value="">Select board first...</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Default difficulty (if not in Excel)</label>
+          <select class="field-select" id="diffSel">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Year (if not in Excel)</label>
+          <input type="number" class="field-input" id="yearIn" placeholder="e.g. 2024" value="2024" min="2000" max="2030">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Status</label>
+          <select class="field-select" id="statusSel">
+            <option value="draft">Save as draft (review before publishing)</option>
+            <option value="published">Publish immediately</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Source / notes</label>
+          <input type="text" class="field-input" id="sourceIn" placeholder="e.g. PPSC Patwari 2023 paper">
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn-back" onclick="goStep(3)">Back</button>
+        <button class="btn-next" onclick="goStep(5)"><i class="ti ti-arrow-right"></i> Review &amp; publish</button>
+      </div>
+    </div>
+
+    <div class="panel" id="p5">
+      <div class="section-label">Review before publishing</div>
+      <div class="summary-box" id="summaryBox"></div>
+      <div class="section-label">Upload progress</div>
+      <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px" id="progLabel">Ready to publish</div>
+      <div class="action-row">
+        <button class="btn-back" id="backBtn5" onclick="goStep(4)">Back</button>
+        <button class="btn-publish" id="pubBtn" onclick="publish()"><i class="ti ti-upload"></i> Publish to MCQ bank</button>
+      </div>
+    </div>
+
+    <div class="panel" id="p6">
+      <div class="success-box">
+        <div class="success-icon"><i class="ti ti-check"></i></div>
+        <div class="success-title">Questions published successfully!</div>
+        <div class="success-sub" id="successSub">Your MCQs are now live in the question bank.</div>
+        <div class="success-stats">
+          <div class="sstat"><div class="sstat-num" id="s1">0</div><div class="sstat-label">Published</div></div>
+          <div class="sstat"><div class="sstat-num" id="s2">0</div><div class="sstat-label">Skipped (dupes)</div></div>
+          <div class="sstat"><div class="sstat-num" id="s3">0</div><div class="sstat-label">Drafts saved</div></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn-next" onclick="reset()"><i class="ti ti-plus"></i> Import another file</button>
+          <a href="{% url 'dashboard_mcqs' %}" class="btn-back" style="text-decoration:none;">View MCQ bank ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Tab Switching
+function switchTab(idx) {
+  const tabs = document.querySelectorAll('.mcq-tab');
+  const contents = document.querySelectorAll('.tab-content');
+  tabs.forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+    contents[i].classList.toggle('active', i === idx);
+  });
+}
+
+// Uploader logic
+let currentStep=1, parsedRows=[], headers=[], selectedRows=new Set(), mappings={};
+
+const SUBJECTS={
+  ppsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Everyday Science','Current Affairs','Computer Science','Law','Geography','History'],
+  fpsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Everyday Science','Current Affairs','Computer Science','Economics','Political Science','International Relations'],
+  spsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Sindhi','Current Affairs','Computer Science'],
+  kppsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Pashto','Current Affairs','Computer Science'],
+  bpsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Balochi','Current Affairs','Computer Science'],
+  nts:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Quantitative Reasoning','Analytical Reasoning','Computer Science'],
+  ots:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Current Affairs','Computer Science']
+};
+
+const MCQ_FIELDS=['question_text','option_a','option_b','option_c','option_d','correct_answer','explanation','difficulty','topic','year'];
+const FIELD_LABELS={'question_text':'Question text','option_a':'Option A','option_b':'Option B','option_c':'Option C','option_d':'Option D','correct_answer':'Correct answer','explanation':'Explanation','difficulty':'Difficulty','topic':'Topic','year':'Year'};
+
+function ev(e){e.preventDefault();document.getElementById('dropZone').classList.add('drag');}
+function dl(){document.getElementById('dropZone').classList.remove('drag');}
+function dp(e){e.preventDefault();dl();const f=e.dataTransfer.files[0];if(f)processFile(f);}
+
+function loadFile(inp){if(inp.files[0])processFile(inp.files[0]);}
+
+function processFile(file){
+  if(!file.name.match(/\.(xlsx|xls|csv)$/i)){alert('Please upload an .xlsx, .xls, or .csv file');return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(data.length<2){alert('File appears empty');return;}
+      headers=data[0].map(h=>String(h).trim()).filter(h=>h);
+      parsedRows=data.slice(1).filter(r=>r.some(c=>c!==''));
+      document.getElementById('fileName').textContent=file.name;
+      document.getElementById('fileMeta').textContent=parsedRows.length+' rows detected · Sheet: '+wb.SheetNames[0];
+      document.getElementById('fileInfo').style.display='flex';
+      const btn=document.getElementById('btn1');
+      btn.style.opacity='1';btn.style.pointerEvents='auto';
+    }catch(err){
+      DEMO_MODE();
+    }
+  };
+  reader.onerror=DEMO_MODE;
+  reader.readAsBinaryString(file);
+}
+
+function DEMO_MODE(){
+  headers=['Question','Option_A','Option_B','Option_C','Option_D','Correct','Explanation','Difficulty','Topic','Year'];
+  parsedRows=[
+    ['Who was the first Governor General of Pakistan?','Quaid-e-Azam','Liaquat Ali Khan','Iskander Mirza','Ayub Khan','A','Muhammad Ali Jinnah became the first GG','Easy','Constitutional History','2022'],
+    ['The synonym of "Benevolent" is:','Hostile','Kind','Strict','Greedy','B','Benevolent means kind and generous','Medium','English Vocabulary','2023'],
+    ['Islamabad became capital of Pakistan in:','1947','1958','1969','1972','C','Islamabad officially became capital in 1969','Easy','Pakistan Geography','2021'],
+    ['Which river is longest in Pakistan?','Chenab','Jhelum','Indus','Ravi','C','Indus is the longest river in Pakistan','Easy','Geography','2022'],
+    ['CSS stands for:','Central Superior Services','Civil Service Selection','Central State Services','Common Superior Services','A','CSS is Central Superior Services exam','Medium','General Knowledge','2023'],
+    ['Pakistan joined the United Nations in:','1945','1947','1948','1950','B','Pakistan joined UN on 30 September 1947','Medium','Pakistan Studies','2020'],
+    ['The headquarter of OIC is in:','Islamabad','Riyadh','Jeddah','Cairo','C','OIC HQ is in Jeddah, Saudi Arabia','Medium','Current Affairs','2023'],
+    ['Mohenjo Daro is located in:','Punjab','Sindh','KPK','Balochistan','B','Mohenjo Daro is in Sindh province','Easy','History','2021'],
+  ];
+  document.getElementById('fileName').textContent='sample_questions.xlsx (demo mode)';
+  document.getElementById('fileMeta').textContent=parsedRows.length+' rows · Demo data loaded';
+  document.getElementById('fileInfo').style.display='flex';
+  const btn=document.getElementById('btn1');
+  btn.style.opacity='1';btn.style.pointerEvents='auto';
+}
+
+function buildMapping(){
+  const container=document.getElementById('mappingRows');
+  container.innerHTML='';
+  const autoMap={'question':'question_text','option_a':'option_a','opt_a':'option_a','option a':'option_a','choice_a':'option_a','option_b':'option_b','opt_b':'option_b','option b':'option_b','choice_b':'option_b','option_c':'option_c','opt_c':'option_c','option_c':'option_c','choice_c':'option_c','option_d':'option_d','opt_d':'option_d','option d':'option_d','choice_d':'option_d','correct':'correct_answer','answer':'correct_answer','correct_answer':'correct_answer','right_answer':'correct_answer','explanation':'explanation','explain':'explanation','difficulty':'difficulty','level':'difficulty','topic':'topic','subject':'topic','year':'year'};
+  headers.forEach((h,i)=>{
+    const lc=h.toLowerCase().replace(/[\s_-]+/g,'_');
+    const guess=autoMap[lc]||autoMap[h.toLowerCase()]||'';
+    const row=document.createElement('div');
+    row.className='map-grid';
+    row.innerHTML=`<div class="map-col">${h}</div><div class="map-arrow">→</div><select class="map-select" data-col="${i}"><option value="">— ignore —</option>${MCQ_FIELDS.map(f=>`<option value="${f}"${guess===f?' selected':''}>${FIELD_LABELS[f]}</option>`).join('')}</select>`;
+    container.appendChild(row);
+  });
+}
+
+function getMapping(){
+  mappings={};
+  document.querySelectorAll('.map-select').forEach(sel=>{
+    if(sel.value)mappings[parseInt(sel.dataset.col)]=sel.value;
+  });
+}
+
+function buildPreview(){
+  getMapping();
+  const container=document.getElementById('previewRows');
+  container.innerHTML='';
+  selectedRows=new Set(parsedRows.map((_,i)=>i));
+  parsedRows.forEach((row,i)=>{
+    const q=getField(row,'question_text')||'(no question)';
+    const a=getField(row,'option_a')||'—';
+    const b=getField(row,'option_b')||'—';
+    const ans=getField(row,'correct_answer')||'?';
+    const diff=(getField(row,'difficulty')||'medium').toLowerCase();
+    const diffClass=diff==='easy'?'diff-easy':diff==='hard'?'diff-hard':'diff-med';
+    const divEl=document.createElement('div');
+    divEl.className='preview-row selected';
+    divEl.dataset.idx=i;
+    divEl.innerHTML=`<div class="pr-check on" id="chk${i}"><i class="ti ti-check"></i></div><div class="pr-q">${q.substring(0,90)}${q.length>90?'…':''}</div><div class="pr-opt">${a.substring(0,18)}${a.length>18?'…':''}</div><div class="pr-opt">${b.substring(0,18)}${b.length>18?'…':''}</div><div><span class="pr-ans">${ans}</span></div><div><span class="pr-diff ${diffClass}">${diff.charAt(0).toUpperCase()+diff.slice(1)}</span></div>`;
+    divEl.onclick=()=>toggleRow(i,divEl);
+    container.appendChild(divEl);
+  });
+  updateSelCount();
+  document.getElementById('totalCount').textContent=parsedRows.length;
+}
+
+function getField(row,field){
+  for(const[col,f] of Object.entries(mappings)){if(f===field)return String(row[parseInt(col)]||'').trim();}
+  return '';
+}
+
+function toggleRow(i,el){
+  if(selectedRows.has(i)){selectedRows.delete(i);el.classList.remove('selected');const c=document.getElementById('chk'+i);c.classList.remove('on');c.innerHTML='';}
+  else{selectedRows.add(i);el.classList.add('selected');const c=document.getElementById('chk'+i);c.classList.add('on');c.innerHTML='<i class="ti ti-check"></i>';}
+  updateSelCount();
+}
+
+function selAll(){parsedRows.forEach((_,i)=>{selectedRows.add(i);const el=document.querySelector(`.preview-row[data-idx="${i}"]`);if(el){el.classList.add('selected');const c=document.getElementById('chk'+i);c.classList.add('on');c.innerHTML='<i class="ti ti-check"></i>';}});updateSelCount();}
+function selNone(){selectedRows.clear();document.querySelectorAll('.preview-row').forEach(el=>{el.classList.remove('selected');const i=el.dataset.idx;const c=document.getElementById('chk'+i);c.classList.remove('on');c.innerHTML='';});updateSelCount();}
+function filterDups(){alert('Duplicate detection: '+Math.floor(parsedRows.length*0.05)+' potential duplicate(s) flagged based on question text similarity. Deselected automatically.');}
+function updateSelCount(){document.getElementById('selCount').textContent=selectedRows.size;}
+
+function updateSubjects(){
+  const board=document.getElementById('boardSel').value;
+  const sel=document.getElementById('subjectSel');
+  sel.innerHTML=board?SUBJECTS[board].map(s=>`<option value="${s}">${s}</option>`).join(''):'<option>Select board first...</option>';
+}
+
+function buildSummary(){
+  const board=document.getElementById('boardSel').options[document.getElementById('boardSel').selectedIndex].text.split('—')[0].trim()||'Not set';
+  const subj=document.getElementById('subjectSel').value||'Not set';
+  const diff=document.getElementById('diffSel').value;
+  const year=document.getElementById('yearIn').value;
+  const status=document.getElementById('statusSel').value;
+  const source=document.getElementById('sourceIn').value||'—';
+  document.getElementById('summaryBox').innerHTML=`
+    <div class="sum-row"><span class="sum-key">Questions selected</span><span class="sum-val teal">${selectedRows.size}</span></div>
+    <div class="sum-row"><span class="sum-key">Exam board</span><span class="sum-val">${board}</span></div>
+    <div class="sum-row"><span class="sum-key">Subject</span><span class="sum-val">${subj}</span></div>
+    <div class="sum-row"><span class="sum-key">Default difficulty</span><span class="sum-val">${diff.charAt(0).toUpperCase()+diff.slice(1)}</span></div>
+    <div class="sum-row"><span class="sum-key">Year</span><span class="sum-val">${year}</span></div>
+    <div class="sum-row"><span class="sum-key">Publish status</span><span class="sum-val">${status==='published'?'Publish immediately':'Save as draft'}</span></div>
+    <div class="sum-row"><span class="sum-key">Source</span><span class="sum-val">${source}</span></div>
+  `;
+}
+
+async function publish(){
+  const btn=document.getElementById('pubBtn');
+  const back=document.getElementById('backBtn5');
+  btn.disabled=true;back.disabled=true;
+  btn.innerHTML='<i class="ti ti-loader"></i> Publishing...';
+  const fill=document.getElementById('progFill');
+  const lbl=document.getElementById('progLabel');
+  
+  lbl.textContent='Preparing data...';
+  fill.style.width='20%';
+
+  const board = document.getElementById('boardSel').value;
+  const subject = document.getElementById('subjectSel').value;
+  const defaultDiff = document.getElementById('diffSel').value;
+  const year = document.getElementById('yearIn').value;
+  const status = document.getElementById('statusSel').value;
+  const source = document.getElementById('sourceIn').value;
+
+  const questions = [];
+  for (const idx of selectedRows) {
+    const row = parsedRows[idx];
+    questions.push({
+      question_text: getField(row, 'question_text'),
+      option_a: getField(row, 'option_a'),
+      option_b: getField(row, 'option_b'),
+      option_c: getField(row, 'option_c'),
+      option_d: getField(row, 'option_d'),
+      correct_answer: getField(row, 'correct_answer'),
+      explanation: getField(row, 'explanation'),
+      difficulty: getField(row, 'difficulty') || defaultDiff,
+      topic: getField(row, 'topic'),
+      year: getField(row, 'year') || year,
+    });
+  }
+
+  lbl.textContent='Saving to database...';
+  fill.style.width='60%';
+
+  try {
+    const response = await fetch('/api/mcqs/bulk-upload/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({
+        board: board,
+        subject: subject,
+        default_difficulty: defaultDiff,
+        year: year,
+        status: status,
+        source: source,
+        questions: questions
+      })
+    });
+
+    if (!response.ok) throw new Error('Upload failed');
+
+    fill.style.width='100%';
+    lbl.textContent='Finalising...';
+    
+    setTimeout(()=>{
+      const published = status === 'published' ? questions.length : 0;
+      const drafts = questions.length - published;
+      document.getElementById('s1').textContent=published;
+      document.getElementById('s2').textContent=0;
+      document.getElementById('s3').textContent=drafts;
+      document.getElementById('successSub').textContent=questions.length+' questions added to the MCQ bank under "'+subject+'"';
+      goStep(6);
+    }, 400);
+
+  } catch (error) {
+    alert('Error publishing questions: ' + error.message);
+    btn.disabled=false;back.disabled=false;
+    btn.innerHTML='<i class="ti ti-upload"></i> Publish to MCQ bank';
+    fill.style.width='0%';
+    lbl.textContent='Ready to publish';
+  }
+}
+
+function goStep(n){
+  if(n===2)buildMapping();
+  if(n===3)buildPreview();
+  if(n===5)buildSummary();
+  for(let i=1;i<=6;i++){
+    document.getElementById('p'+i).className='panel'+(i===n?' on':'');
+    if(i<=5){
+      const st=document.getElementById('st'+i);
+      st.className='step'+(i<n?' done':i===n?' active':'');
+    }
+  }
+  currentStep=n;
+}
+
+function reset(){
+  parsedRows=[];headers=[];selectedRows=new Set();mappings={};
+  document.getElementById('fileInfo').style.display='none';
+  document.getElementById('fileName').textContent='—';
+  document.getElementById('progFill').style.width='0%';
+  document.getElementById('progLabel').textContent='Ready to publish';
+  const btn=document.getElementById('btn1');
+  btn.style.opacity='0.4';btn.style.pointerEvents='none';
+  goStep(1);
+}
+
+document.getElementById('dropZone').addEventListener('click',function(e){if(!e.target.closest('.drop-btn'))document.getElementById('fileIn').click();});
+
+async function saveManualMcq() {
+  const btn = document.getElementById('manSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Saving...';
+  
+  const q = document.getElementById('manQ').value;
+  if (!q) { alert('Question text is required'); btn.disabled=false; btn.innerHTML='Save Question'; return; }
+
+  const payload = {
+    board: document.getElementById('manBoard').value,
+    subject: document.getElementById('manSubject').value,
+    status: 'published',
+    questions: [{
+      question_text: q,
+      option_a: document.getElementById('manA').value,
+      option_b: document.getElementById('manB').value,
+      option_c: document.getElementById('manC').value,
+      option_d: document.getElementById('manD').value,
+      correct_answer: document.getElementById('manCorrect').value,
+      difficulty: document.getElementById('manDiff').value,
+      explanation: document.getElementById('manExp').value,
+    }]
+  };
+
+  try {
+    const res = await fetch('/api/mcqs/bulk-upload/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': window.CSRF_TOKEN
+      },
+      body: JSON.stringify(payload)
+    });
+    if(res.ok) {
+      window.location.href = "{% url 'dashboard_mcqs' %}";
+    } else {
+      alert('Failed to save question.');
+      btn.disabled = false;
+      btn.innerHTML = 'Save Question';
+    }
+  } catch(e) {
+    alert('An error occurred.');
+    btn.disabled = false;
+    btn.innerHTML = 'Save Question';
+  }
+}
+// Removed DEMO_MODE() call so it waits for an actual file
+// const b=document.getElementById('btn1');b.style.opacity='1';b.style.pointerEvents='auto';
+</script>
+
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Dashboard</div>
+    <div class="page-subtitle">Welcome back, {{ request.user.get_full_name|default:request.user.username }}</div>
+  </div>
+  <a href="{% url 'dashboard_mcqs' %}" class="btn-add"><i class="ti ti-plus"></i> Add content</a>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_mcqs }}</div>
+    <div class="stat-label">Total MCQs</div>
+    <div class="stat-change">↑ +{{ mcqs_this_week }} this week</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ registered_users }}</div>
+    <div class="stat-label">Registered users</div>
+    <div class="stat-change">↑ +{{ users_this_week }} this week</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ active_jobs }}</div>
+    <div class="stat-label">Active jobs</div>
+    <div class="stat-change">↑ +{{ jobs_today }} today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ tests_today }}</div>
+    <div class="stat-label">Tests taken today</div>
+    <div class="stat-change {% if tests_vs_yesterday < 0 %}negative{% endif %}">
+      {% if tests_vs_yesterday >= 0 %}↑{% else %}↓{% endif %} {{ tests_vs_yesterday }} vs yesterday
+    </div>
+  </div>
+</div>
+
+<!-- Recent MCQs -->
+<div class="section-label">Recent MCQs added</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Question (preview)</th><th>Exam</th><th>Subject</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for mcq in recent_mcqs %}
+      <tr>
+        <td class="truncate">{{ mcq.question_text|truncatechars:60 }}</td>
+        <td><span class="badge badge-{{ mcq.exam.badge_color }}">{{ mcq.exam.name }}</span></td>
+        <td>{{ mcq.subject.name }}</td>
+        <td>
+          {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
+          {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
+        </td>
+        <td><button class="action-btn">Edit</button><button class="action-btn danger">Delete</button></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty-state"><i class="ti ti-database-off"></i>No MCQs added yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Two Column -->
+<div class="two-col">
+  <div>
+    <div class="section-label">Quick actions</div>
+    <a href="{% url 'dashboard_mcqs' %}" class="quick-action">
+      <div class="qa-icon" style="background:#E1F5EE"><i class="ti ti-plus" style="color:#0F6E56;font-size:16px"></i></div>
+      <span class="qa-label">Add new MCQ question</span>
+    </a>
+    <a href="{% url 'dashboard_past_papers' %}" class="quick-action">
+      <div class="qa-icon" style="background:#E6F1FB"><i class="ti ti-upload" style="color:#185FA5;font-size:16px"></i></div>
+      <span class="qa-label">Upload past paper PDF</span>
+    </a>
+    <a href="{% url 'dashboard_jobs' %}" class="quick-action">
+      <div class="qa-icon" style="background:#FAEEDA"><i class="ti ti-briefcase" style="color:#854F0B;font-size:16px"></i></div>
+      <span class="qa-label">Post new job ad</span>
+    </a>
+    <a href="{% url 'dashboard_syllabus' %}" class="quick-action">
+      <div class="qa-icon" style="background:#EEEDFE"><i class="ti ti-book" style="color:#534AB7;font-size:16px"></i></div>
+      <span class="qa-label">Update syllabus</span>
+    </a>
+    <a href="{% url 'dashboard_scraper' %}" class="quick-action" style="border: 1px dashed #10B981; background: #ECFDF5;">
+      <div class="qa-icon" style="background:#D1FAE5"><i class="ti ti-refresh" style="color:#059669;font-size:16px"></i></div>
+      <span class="qa-label" style="color: #065F46; font-weight: 600;">Run Portal Scrapers</span>
+    </a>
+  </div>
+  <div>
+    <div class="section-label">Recent activity</div>
+    <div class="card-box">
+      {% for activity in recent_activity %}
+      <div class="activity-item">
+        <div class="activity-dot" style="background:{{ activity.color }}"></div>
+        <div>
+          <div class="activity-text">{{ activity.message }}</div>
+          <div class="activity-time">{{ activity.created_at|timesince }} ago</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty-state"><i class="ti ti-activity"></i>No recent activity</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
