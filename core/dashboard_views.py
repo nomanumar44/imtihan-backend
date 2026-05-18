@@ -12,7 +12,7 @@ from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog
 )
-from .forms import JobListingForm, SyllabusForm, PastPaperForm
+from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
 
 
 def dashboard_login(request):
@@ -125,8 +125,34 @@ def dashboard_mcqs(request):
 @login_required(login_url='/dashboard/login/')
 def dashboard_mcq_create(request):
     """MCQ creation and Excel upload page."""
-    context = {'active_page': 'mcqs'}
+    exams = Exam.objects.all()
+    subjects = Subject.objects.all()
+    context = {
+        'active_page': 'mcqs',
+        'exams': exams,
+        'subjects': subjects,
+    }
     return render(request, 'dashboard/mcq_create.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_mcq_edit(request, pk):
+    mcq = get_object_or_404(MCQ, pk=pk)
+    if request.method == 'POST':
+        form = MCQForm(request.POST, instance=mcq)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'MCQ updated successfully!')
+            return redirect('dashboard_mcqs')
+    else:
+        form = MCQForm(instance=mcq)
+    
+    context = {
+        'form': form,
+        'title': 'Edit MCQ',
+        'active_page': 'mcqs'
+    }
+    return render(request, 'dashboard/form.html', context)
 
 
 @login_required(login_url='/dashboard/login/')

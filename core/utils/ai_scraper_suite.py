@@ -1,5 +1,5 @@
 """
-imtihan.pk — Unified AI-Powered Crawling and Optimization Suite
+imtihanhub.com.pk — Unified AI-Powered Crawling and Optimization Suite
 Fixed version — all 4 bugs resolved:
   1. Correct CSS selectors for MCQ and job sites
   2. Junk HTML filtering (form fields, nav links, announcements)
@@ -418,8 +418,8 @@ class AIScraperSuite:
 
         scraped_results = []
 
-        class ImtihanSpider(scrapy.Spider):
-            name = 'imtihan_spider'
+        class ImtihanHubSpider(scrapy.Spider):
+            name = 'imtihanhub_spider'
             start_urls = urls
             custom_settings = {
                 'USER_AGENT': (
@@ -440,7 +440,7 @@ class AIScraperSuite:
 
         try:
             process = CrawlerProcess()
-            process.crawl(ImtihanSpider)
+            process.crawl(ImtihanHubSpider)
             process.start()
             print(f'[Scrapy] {len(scraped_results)} elements scraped.')
             return scraped_results

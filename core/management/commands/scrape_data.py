@@ -1,5 +1,5 @@
 """
-imtihan.pk — Django Management Command: scrape_data
+imtihanhub.com.pk — Django Management Command: scrape_data
 Fixed version — resolves all 4 bugs:
   1. update_or_create instead of get_or_create (was saving 0 records)
   2. Correct CSS selectors for real MCQ content
@@ -251,7 +251,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING(
             '\n====================================================\n'
-            '  imtihan.pk - AI-Powered Scraping Pipeline\n'
+            '  ImtihanHub - AI-Powered Scraping Pipeline\n'
             '===================================================='
         ))
 
@@ -691,10 +691,34 @@ class Command(BaseCommand):
                 'engine':   'playwright',
             },
             {
+                'url':      'https://www.fpsc.gov.pk/Jobs?section=GR',
+                'board':    'fpsc',
+                'selector': 'table tr td a, .job-title, .announcement a, .news-item a, a[href*="job"], a[href*="advertisement"]',
+                'engine':   'playwright',
+            },
+            {
+                'url':      'https://www.fpsc.gov.pk/api/jobs',
+                'board':    'fpsc',
+                'selector': 'a[href*="job"], table tr td a',
+                'engine':   'api',
+            },
+            {
                 'url':      'https://spsc.gos.pk/jobs',
                 'board':    'spsc',
                 'selector': 'table tr td a, .job-title, h4 a',
                 'engine':   'static',
+            },
+            {
+                'url':      'https://spsc.gos.pk/',
+                'board':    'spsc',
+                'selector': 'table tr td a, .job-title, h4 a, a[href*="job"], a[href*="advertisement"]',
+                'engine':   'static',
+            },
+            {
+                'url':      'https://www.bpsc.gob.pk/BPSC/pages?jobs',
+                'board':    'bpsc',
+                'selector': 'table tr td a, .job-title, h4 a, a[href*="job"], tr td:nth-child(2)',
+                'engine':   'playwright',
             },
             {
                 'url':      'https://www.nts.org.pk/nts/latest-jobs.php',
@@ -711,20 +735,48 @@ class Command(BaseCommand):
                 f'  [Scrape] {src["board"].upper()} — {src["url"]}'
             ))
 
-            # Choose engine
-            if src['engine'] == 'playwright':
+            elements = []
+            if src['engine'] == 'api':
+                try:
+                    resp = suite.session.get(src['url'], timeout=suite.timeout)
+                    if resp.status_code == 200:
+                        try:
+                            # Try to parse as JSON
+                            data = resp.json()
+                            jobs_list = []
+                            if isinstance(data, list):
+                                jobs_list = data
+                            elif isinstance(data, dict):
+                                jobs_list = data.get('jobs') or data.get('results') or data.get('data') or []
+                            
+                            if isinstance(jobs_list, list):
+                                for job_item in jobs_list:
+                                    title = job_item.get('title') or job_item.get('name') or job_item.get('job_title')
+                                    desc = job_item.get('description') or job_item.get('details') or f'Official vacancy announced by {src["board"].upper()}.'
+                                    if title and suite._is_valid_job(title):
+                                        raw_jobs.append({
+                                            'title': title.strip(),
+                                            'board': src['board'],
+                                            'desc':  desc.strip(),
+                                        })
+                                self.stdout.write(self.style.SUCCESS(f'    [+] API scraped {len(jobs_list)} items successfully.'))
+                        except Exception:
+                            # Fallback to static HTML parsing if endpoint returns HTML instead of JSON
+                            elements = suite.scrape_static(src['url'], src['selector'])
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'  [ERR] API fetch failed: {e}'))
+            elif src['engine'] == 'playwright':
                 elements = suite.scrape_playwright(src['url'], src['selector'])
             else:
                 elements = suite.scrape_static(src['url'], src['selector'])
 
-            if self.debug:
+            if self.debug and elements:
                 self.stdout.write(f'  [DEBUG] {src["board"]} raw: {len(elements)} items')
                 for i, el in enumerate(elements[:4]):
                     self.stdout.write(f'    [{i}] {repr(el[:80])}')
 
             for title in elements:
                 title = title.strip()
-                # ✅ FIX: use the proper filter methods
                 if suite._is_valid_job(title):
                     raw_jobs.append({
                         'title': title,

@@ -1,5 +1,5 @@
 """
-Management command to seed sample data for the Imtihan dashboard.
+Management command to seed sample data for the ImtihanHub dashboard.
 Run: python manage.py seed_data
 """
 from django.core.management.base import BaseCommand
@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
         # Create superuser
         if not User.objects.filter(username='admin').exists():
-            User.objects.create_superuser('admin', 'admin@imtihan.pk', 'admin123')
+            User.objects.create_superuser('admin', 'admin@imtihanhub.com.pk', 'admin123')
             self.stdout.write(self.style.SUCCESS('Superuser created: admin / admin123'))
 
         # Exams

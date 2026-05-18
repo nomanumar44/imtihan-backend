@@ -7,6 +7,7 @@ urlpatterns = [
     path('logout/', dashboard_views.dashboard_logout, name='dashboard_logout'),
     path('mcqs/', dashboard_views.dashboard_mcqs, name='dashboard_mcqs'),
     path('mcqs/create/', dashboard_views.dashboard_mcq_create, name='dashboard_mcq_create'),
+    path('mcqs/<int:pk>/edit/', dashboard_views.dashboard_mcq_edit, name='dashboard_mcq_edit'),
     
     path('past-papers/', dashboard_views.dashboard_past_papers, name='dashboard_past_papers'),
     path('past-papers/upload/', dashboard_views.dashboard_past_paper_create, name='dashboard_past_paper_create'),

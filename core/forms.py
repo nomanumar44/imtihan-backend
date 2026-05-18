@@ -1,5 +1,5 @@
 from django import forms
-from .models import JobListing, Syllabus, PastPaper, Exam, Subject
+from .models import JobListing, Syllabus, PastPaper, Exam, Subject, MCQ
 
 class JobListingForm(forms.ModelForm):
     class Meta:
@@ -48,3 +48,25 @@ class PastPaperForm(forms.ModelForm):
             'pdf_file': forms.FileInput(attrs={'class': 'form-input'}),
             'status': forms.Select(attrs={'class': 'form-input'}),
         }
+
+
+class MCQForm(forms.ModelForm):
+    class Meta:
+        model = MCQ
+        fields = [
+            'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
+            'correct_option', 'explanation', 'exam', 'subject', 'status'
+        ]
+        widgets = {
+            'question_text': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Enter question text...'}),
+            'option_a': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Option A'}),
+            'option_b': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Option B'}),
+            'option_c': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Option C'}),
+            'option_d': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Option D'}),
+            'correct_option': forms.Select(attrs={'class': 'form-input'}),
+            'explanation': forms.Textarea(attrs={'class': 'form-input', 'rows': 2, 'placeholder': 'Explanation...'}),
+            'exam': forms.Select(attrs={'class': 'form-input'}),
+            'subject': forms.Select(attrs={'class': 'form-input'}),
+            'status': forms.Select(attrs={'class': 'form-input'}),
+        }
+

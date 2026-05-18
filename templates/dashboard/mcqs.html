@@ -42,7 +42,7 @@
           {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
         </td>
         <td style="font-size:12px;color:var(--color-text-tertiary)">{{ mcq.created_at|date:"d M Y" }}</td>
-        <td><button class="action-btn">Edit</button><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
+        <td><a href="{% url 'dashboard_mcq_edit' mcq.id %}" class="action-btn">Edit</a><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
       </tr>
       {% empty %}
       <tr><td colspan="7" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>

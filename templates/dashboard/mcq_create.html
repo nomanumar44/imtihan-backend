@@ -123,16 +123,17 @@
       <div class="form-row">
         <label class="form-label">Exam Board</label>
         <select class="form-input" id="manBoard">
-          <option value="ppsc">PPSC</option>
-          <option value="fpsc">FPSC</option>
-          <option value="nts">NTS</option>
+          {% for exam in exams %}
+            <option value="{{ exam.slug }}">{{ exam.name }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="form-row">
         <label class="form-label">Subject</label>
         <select class="form-input" id="manSubject">
-          <option value="Pakistan Studies">Pakistan Studies</option>
-          <option value="English">English</option>
+          {% for subject in subjects %}
+            <option value="{{ subject.name }}">{{ subject.name }}</option>
+          {% endfor %}
         </select>
       </div>
     </div>

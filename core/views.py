@@ -232,6 +232,7 @@ def frontend_home(request):
     jobs_data = []
     for j in jobs:
         jobs_data.append({
+            'id': j.id,
             'title': j.title,
             'org': j.exam.name if j.exam else j.department,
             'location': j.location if j.location else ('Federal' if j.exam and 'FPSC' in j.exam.name else 'Provincial'),
@@ -240,16 +241,30 @@ def frontend_home(request):
             'bps': j.bps_grade if j.bps_grade else 'BPS-14'
         })
 
-    # 3. Stats (total MCQs, Past Papers, Syllabi)
+    # 3. Stats (total MCQs, Past Papers, Syllabi, Students)
     stats = {
         'total_mcqs': MCQ.objects.filter(status='published').count(),
         'total_papers': PastPaper.objects.filter(status='published').count(),
-        'total_syllabi': Syllabus.objects.count()
+        'total_syllabi': Syllabus.objects.count(),
+        'total_students': Student.objects.count()
     }
     
-    # 4. Exams/Boards (top 4 by MCQ count)
-    exams = Exam.objects.annotate(mcq_count=Count('mcqs')).order_by('-mcq_count')[:4]
-    exams_data = [{'name': e.name, 'slug': e.slug, 'count': e.mcq_count} for e in exams]
+    # 4. Exams/Boards (top 4 by MCQ count, annotated with papers and syllabi counts)
+    exams = Exam.objects.annotate(
+        mcq_count=Count('mcqs', distinct=True),
+        paper_count=Count('past_papers', distinct=True),
+        syllabus_count=Count('syllabi', distinct=True)
+    ).order_by('-mcq_count')[:4]
+    
+    exams_data = []
+    for e in exams:
+        exams_data.append({
+            'name': e.name,
+            'slug': e.slug,
+            'count': e.mcq_count,
+            'paper_count': e.paper_count,
+            'syllabus_count': e.syllabus_count
+        })
     
     return Response({
         'subjects': subjects_data,

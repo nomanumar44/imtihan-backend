@@ -9,7 +9,7 @@ from .models import (
 class ExamSerializer(serializers.ModelSerializer):
     mcq_count = serializers.IntegerField(source='mcqs_count', read_only=True)
     papers_count = serializers.IntegerField(source='past_papers_count', read_only=True)
-    syllabi_count = serializers.IntegerField(source='syllabi_count', read_only=True)
+    syllabi_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Exam

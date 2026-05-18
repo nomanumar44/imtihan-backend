@@ -53,7 +53,7 @@
           {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
           {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
         </td>
-        <td><button class="action-btn">Edit</button><button class="action-btn danger">Delete</button></td>
+        <td><a href="{% url 'dashboard_mcq_edit' mcq.id %}" class="action-btn">Edit</a><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
       </tr>
       {% empty %}
       <tr><td colspan="5" class="empty-state"><i class="ti ti-database-off"></i>No MCQs added yet</td></tr>
