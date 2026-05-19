@@ -21,21 +21,53 @@ class SubjectAdmin(admin.ModelAdmin):
 
 @admin.register(MCQ)
 class MCQAdmin(admin.ModelAdmin):
-    list_display = ['short_question', 'exam', 'subject', 'status', 'created_at']
-    list_filter = ['status', 'exam', 'subject']
-    search_fields = ['question_text']
+    list_display = ['short_question', 'exam', 'subject', 'past_paper_link',
+                    'status', 'created_at']
+    list_filter  = ['status', 'exam', 'subject']
+    search_fields = ['question_text', 'source_url']
     list_editable = ['status']
+    readonly_fields = ['source_url', 'past_paper']
+    raw_id_fields   = ['past_paper']
 
     def short_question(self, obj):
         return obj.question_text[:80]
     short_question.short_description = 'Question'
 
+    def past_paper_link(self, obj):
+        from django.utils.html import format_html
+        if obj.past_paper:
+            return format_html(
+                '<a href="/admin/core/pastpaper/{}/change/" target="_blank">{}</a>',
+                obj.past_paper.pk,
+                obj.past_paper.title[:40],
+            )
+        return '—'
+    past_paper_link.short_description = 'Past Paper'
+
 
 @admin.register(PastPaper)
 class PastPaperAdmin(admin.ModelAdmin):
-    list_display = ['title', 'exam', 'year', 'status', 'created_at']
-    list_filter = ['status', 'exam', 'year']
-    search_fields = ['title']
+    list_display  = ['title', 'exam', 'subject', 'year', 'mcq_count',
+                     'status', 'has_pdf', 'created_at']
+    list_filter   = ['status', 'exam', 'year']
+    search_fields = ['title', 'source_url']
+    readonly_fields = ['slug', 'source_url', 'mcq_count_display']
+    prepopulated_fields = {}
+
+    def mcq_count(self, obj):
+        return obj.mcqs.count()
+    mcq_count.short_description = 'MCQs'
+
+    def mcq_count_display(self, obj):
+        return obj.mcqs.count()
+    mcq_count_display.short_description = 'Linked MCQs'
+
+    def has_pdf(self, obj):
+        from django.utils.html import format_html
+        if obj.pdf_file:
+            return format_html('<span style="color:green">&#10003;</span>')
+        return format_html('<span style="color:#aaa">&#10007;</span>')
+    has_pdf.short_description = 'PDF'
 
 
 @admin.register(Syllabus)

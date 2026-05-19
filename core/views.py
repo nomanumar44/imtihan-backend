@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog
+    JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 from .serializers import (
     ExamSerializer, SubjectSerializer,
@@ -22,7 +22,7 @@ from .serializers import (
     PastPaperSerializer, SyllabusSerializer,
     JobListingSerializer, StudentSerializer,
     TestResultSerializer, ActivityLogSerializer,
-    DashboardStatsSerializer,
+    DashboardStatsSerializer, ContactMessageSerializer,
 )
 
 
@@ -619,6 +619,131 @@ def frontend_current_affairs_category_detail(request, slug):
         'questions': questions_list
     })
 
+# ─── Past Papers Frontend APIs ──────────────────────────────────────────────
+
+@api_view(['GET'])
+def frontend_past_papers_menu(request):
+    """
+    Returns all exams with their past-paper categories (subjects) for the
+    mega-menu hover dropdown.  Shape:
+      [ { exam_name, exam_slug, badge_color, subjects: [{name, slug, count}] } ]
+    """
+    exams = Exam.objects.annotate(
+        paper_count=Count('past_papers', distinct=True)
+    ).filter(paper_count__gt=0).order_by('-paper_count')
+
+    result = []
+    for exam in exams:
+        subjects = (
+            Subject.objects
+            .filter(past_papers__exam=exam)
+            .annotate(count=Count('past_papers'))
+            .order_by('-count')
+        )
+        result.append({
+            'exam_name':   exam.name,
+            'exam_slug':   exam.slug,
+            'badge_color': exam.badge_color,
+            'subjects': [
+                {'name': s.name, 'slug': s.slug, 'count': s.count}
+                for s in subjects
+            ],
+        })
+    return Response(result)
+
+
+@api_view(['GET'])
+def frontend_past_papers_list(request):
+    """
+    Returns a numbered list of past papers.
+    Query params: exam=<slug>  subject=<slug>  page=<n>
+    """
+    exam_slug    = request.query_params.get('exam', '')
+    subject_slug = request.query_params.get('subject', '')
+    page_num     = int(request.query_params.get('page', 1))
+    page_size    = 20
+
+    qs = PastPaper.objects.select_related('exam', 'subject').filter(
+        status=PastPaper.Status.PUBLISHED
+    )
+    if exam_slug:
+        qs = qs.filter(exam__slug=exam_slug)
+    if subject_slug:
+        qs = qs.filter(subject__slug=subject_slug)
+    qs = qs.order_by('-year', '-created_at')
+
+    from django.core.paginator import Paginator
+    paginator  = Paginator(qs, page_size)
+    page_obj   = paginator.get_page(page_num)
+
+    papers = []
+    for idx, p in enumerate(page_obj.object_list, start=(page_num - 1) * page_size + 1):
+        papers.append({
+            'number':      idx,
+            'id':          p.id,
+            'title':       p.title,
+            'slug':        p.slug,
+            'year':        p.year,
+            'exam_name':   p.exam.name,
+            'exam_slug':   p.exam.slug,
+            'subject_name': p.subject.name if p.subject else '',
+            'subject_slug': p.subject.slug if p.subject else '',
+            'mcq_count':   p.mcqs.count(),
+            'source_url':  p.source_url,
+            'has_pdf':     bool(p.pdf_file),
+        })
+
+    return Response({
+        'count':      paginator.count,
+        'num_pages':  paginator.num_pages,
+        'page':       page_num,
+        'papers':     papers,
+    })
+
+
+@api_view(['GET'])
+def frontend_past_paper_detail(request, slug):
+    """
+    Returns a single past paper's info + all linked MCQs.
+    URL: /api/frontend/past-papers/<slug>/
+    """
+    from django.shortcuts import get_object_or_404
+    paper = get_object_or_404(
+        PastPaper.objects.select_related('exam', 'subject'),
+        slug=slug, status=PastPaper.Status.PUBLISHED
+    )
+
+    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    mcqs = paper.mcqs.order_by('id')
+    questions = []
+    for i, q in enumerate(mcqs, start=1):
+        questions.append({
+            'number':      i,
+            'id':          q.id,
+            'question':    q.question_text,
+            'options':     [q.option_a, q.option_b, q.option_c,
+                            q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
+            'correct':     opt_map.get(q.correct_option, 0),
+            'explanation': q.explanation,
+        })
+
+    return Response({
+        'id':           paper.id,
+        'title':        paper.title,
+        'slug':         paper.slug,
+        'year':         paper.year,
+        'exam_name':    paper.exam.name,
+        'exam_slug':    paper.exam.slug,
+        'subject_name': paper.subject.name if paper.subject else '',
+        'subject_slug': paper.subject.slug if paper.subject else '',
+        'source_url':   paper.source_url,
+        'has_pdf':      bool(paper.pdf_file),
+        'pdf_url':      paper.pdf_file.url if paper.pdf_file else None,
+        'mcq_count':    len(questions),
+        'questions':    questions,
+    })
+
+
 @api_view(['GET'])
 def frontend_current_affairs_topics(request):
     """Return all categories for Current Affairs with dynamic counts."""
@@ -664,3 +789,59 @@ def frontend_current_affairs_topics(request):
         'pakistan': pakistan_categories,
         'world': world_categories
     })
+
+
+# ─── Syllabus Frontend APIs ──────────────────────────────────────────────────
+
+@api_view(['GET'])
+def frontend_syllabus_list(request):
+    """
+    Returns a list of all syllabus entries grouped by exam.
+    Query param: exam=<slug>
+    """
+    exam_slug = request.query_params.get('exam', '')
+    qs = Syllabus.objects.select_related('exam').order_by('exam__name', 'title')
+    if exam_slug:
+        qs = qs.filter(exam__slug=exam_slug)
+
+    from django.db.models import F
+    data = []
+    for s in qs:
+        data.append({
+            'id':         s.id,
+            'title':      s.title,
+            'post_name':  s.post_name,
+            'exam_name':  s.exam.name,
+            'exam_slug':  s.exam.slug,
+            'has_pdf':    bool(s.pdf_file),
+            'created_at': s.created_at.isoformat(),
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+def frontend_syllabus_detail(request, pk):
+    """Returns one syllabus record including full content and PDF url."""
+    from django.shortcuts import get_object_or_404
+    s = get_object_or_404(Syllabus.objects.select_related('exam'), pk=pk)
+    return Response({
+        'id':         s.id,
+        'title':      s.title,
+        'post_name':  s.post_name,
+        'exam_name':  s.exam.name,
+        'exam_slug':  s.exam.slug,
+        'content':    s.content,
+        'has_pdf':    bool(s.pdf_file),
+        'pdf_url':    s.pdf_file.url if s.pdf_file else None,
+        'created_at': s.created_at.isoformat(),
+    })
+
+
+@api_view(['POST'])
+def frontend_contact(request):
+    """Accept a contact form submission from the public frontend."""
+    serializer = ContactMessageSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'success': True, 'message': 'Your message has been received. We\'ll get back to you soon.'}, status=status.HTTP_201_CREATED)
+    return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

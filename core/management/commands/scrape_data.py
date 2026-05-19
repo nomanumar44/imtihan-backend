@@ -312,6 +312,7 @@ class Command(BaseCommand):
             ('Everyday Science', 'everyday-science'),
             ('Law',              'law'),
             ('Pedagogy',         'pedagogy'),
+            ('Geography',        'geography'),
         ]
         for name, slug in subjects:
             obj, created = Subject.objects.get_or_create(

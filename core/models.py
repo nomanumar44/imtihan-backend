@@ -46,7 +46,7 @@ class MCQ(models.Model):
     option_a = models.CharField(max_length=500)
     option_b = models.CharField(max_length=500)
     option_c = models.CharField(max_length=500)
-    option_d = models.CharField(max_length=500)
+    option_d = models.CharField(max_length=500, blank=True, default='')
     correct_option = models.CharField(
         max_length=1,
         choices=[('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')]
@@ -54,6 +54,11 @@ class MCQ(models.Model):
     explanation = models.TextField(blank=True, default='')
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='mcqs')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='mcqs')
+    past_paper = models.ForeignKey(
+        'PastPaper', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='mcqs'
+    )
+    source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.DRAFT
     )
@@ -80,13 +85,15 @@ class PastPaper(models.Model):
         PUBLISHED = 'published', 'Published'
 
     title = models.CharField(max_length=300)
+    slug = models.SlugField(max_length=350, unique=True, blank=True, default='')
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='past_papers')
     subject = models.ForeignKey(
         Subject, on_delete=models.CASCADE, related_name='past_papers',
         null=True, blank=True
     )
-    year = models.PositiveIntegerField()
-    pdf_file = models.FileField(upload_to='past_papers/')
+    year = models.PositiveIntegerField(default=0)
+    pdf_file = models.FileField(upload_to='past_papers/', blank=True, null=True)
+    source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.DRAFT
     )
@@ -219,3 +226,31 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return self.message[:80]
+
+
+class ContactMessage(models.Model):
+    SUBJECT_CHOICES = [
+        ('general',     'General inquiry'),
+        ('bug',         'Report a bug'),
+        ('content',     'Suggest content'),
+        ('partnership', 'Partnership'),
+        ('other',       'Other'),
+    ]
+    STATUS_CHOICES = [
+        ('unread', 'Unread'),
+        ('read',   'Read'),
+        ('replied','Replied'),
+    ]
+
+    name       = models.CharField(max_length=200)
+    email      = models.EmailField()
+    subject    = models.CharField(max_length=50, choices=SUBJECT_CHOICES, default='general')
+    message    = models.TextField()
+    status     = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unread')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} — {self.get_subject_display()} ({self.created_at:%d %b %Y})"

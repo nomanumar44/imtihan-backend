@@ -1,0 +1,74 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Contact Messages{% endblock %}
+{% block content %}
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">Contact Messages</div>
+    <div class="page-subtitle">{{ total_count }} total &nbsp;·&nbsp; <strong style="color:#e57373">{{ unread_count }} unread</strong></div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="filter-bar" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <a href="?status=" class="action-btn {% if not status_filter %}active{% endif %}" style="{% if not status_filter %}background:var(--brand-green);color:#fff;{% endif %}">All</a>
+  <a href="?status=unread"  class="action-btn {% if status_filter == 'unread' %}active{% endif %}"  style="{% if status_filter == 'unread' %}background:#e57373;color:#fff;{% endif %}">Unread</a>
+  <a href="?status=read"    class="action-btn {% if status_filter == 'read' %}active{% endif %}"    style="{% if status_filter == 'read' %}background:#64b5f6;color:#fff;{% endif %}">Read</a>
+  <a href="?status=replied" class="action-btn {% if status_filter == 'replied' %}active{% endif %}" style="{% if status_filter == 'replied' %}background:#81c784;color:#fff;{% endif %}">Replied</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Subject</th>
+        <th>Message</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for msg in msgs %}
+      <tr style="{% if msg.status == 'unread' %}background:#fffbf0;font-weight:500;{% endif %}">
+        <td>{{ msg.name }}</td>
+        <td><a href="mailto:{{ msg.email }}" style="color:var(--brand-green)">{{ msg.email }}</a></td>
+        <td>
+          {% if msg.subject == 'bug' %}<span class="badge badge-red">Bug report</span>
+          {% elif msg.subject == 'content' %}<span class="badge badge-blue">Suggest content</span>
+          {% elif msg.subject == 'partnership' %}<span class="badge badge-amber">Partnership</span>
+          {% elif msg.subject == 'other' %}<span class="badge">Other</span>
+          {% else %}<span class="badge badge-green">General</span>{% endif %}
+        </td>
+        <td style="max-width:320px;white-space:normal;font-size:12px;color:var(--color-text-secondary)">
+          {{ msg.message|truncatechars:120 }}
+        </td>
+        <td>
+          {% if msg.status == 'unread' %}<span class="badge badge-red">Unread</span>
+          {% elif msg.status == 'replied' %}<span class="badge badge-green">Replied</span>
+          {% else %}<span class="badge badge-blue">Read</span>{% endif %}
+        </td>
+        <td style="font-size:12px;white-space:nowrap">{{ msg.created_at|date:"d M Y, H:i" }}</td>
+        <td style="white-space:nowrap">
+          {% if msg.status == 'unread' %}
+          <a href="{% url 'dashboard_contact_mark_read' msg.pk %}" class="action-btn" title="Mark as read">✓ Read</a>
+          {% endif %}
+          <a href="mailto:{{ msg.email }}?subject=Re: {{ msg.get_subject_display }}" class="action-btn" title="Reply by email">Reply</a>
+          <a href="{% url 'dashboard_contact_delete' msg.pk %}" class="action-btn danger" onclick="return confirm('Delete this message?')" title="Delete">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="empty-state">
+          <i class="ti ti-mail-off"></i> No contact messages yet
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "dashboard/pagination.html" with page_obj=msgs %}
+{% endblock %}

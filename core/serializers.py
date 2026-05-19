@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog
+    JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 
 
@@ -115,3 +115,10 @@ class DashboardStatsSerializer(serializers.Serializer):
     users_this_week = serializers.IntegerField()
     jobs_today = serializers.IntegerField()
     tests_vs_yesterday = serializers.IntegerField()
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ['id', 'name', 'email', 'subject', 'message', 'created_at']
+        read_only_fields = ['id', 'created_at']

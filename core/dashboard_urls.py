@@ -27,4 +27,7 @@ urlpatterns = [
     path('scrape/', dashboard_views.dashboard_trigger_scrape, name='dashboard_trigger_scrape'),
     path('scraper/', dashboard_views.dashboard_scraper, name='dashboard_scraper'),
     path('scraper/status/', dashboard_views.dashboard_scraper_status, name='dashboard_scraper_status'),
+    path('contact/', dashboard_views.dashboard_contact_messages, name='dashboard_contact_messages'),
+    path('contact/<int:pk>/mark-read/', dashboard_views.dashboard_contact_mark_read, name='dashboard_contact_mark_read'),
+    path('contact/<int:pk>/delete/', dashboard_views.dashboard_contact_delete, name='dashboard_contact_delete'),
 ]

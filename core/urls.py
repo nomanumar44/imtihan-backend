@@ -29,4 +29,10 @@ urlpatterns = [
     path('frontend/mcq-tests/subjects/', views.frontend_mcq_subjects, name='api-frontend-mcq-subjects'),
     path('frontend/mcq-tests/subjects/<str:subject_slug>/', views.frontend_mcq_sets, name='api-frontend-mcq-sets'),
     path('frontend/mcq-tests/subjects/<str:subject_slug>/sets/<str:set_id>/', views.frontend_mcq_set_detail, name='api-frontend-mcq-set-detail'),
+    path('frontend/past-papers/menu/', views.frontend_past_papers_menu, name='api-past-papers-menu'),
+    path('frontend/past-papers/', views.frontend_past_papers_list, name='api-past-papers-list'),
+    path('frontend/past-papers/<slug:slug>/', views.frontend_past_paper_detail, name='api-past-paper-detail'),
+    path('frontend/syllabus/', views.frontend_syllabus_list, name='api-frontend-syllabus-list'),
+    path('frontend/syllabus/<int:pk>/', views.frontend_syllabus_detail, name='api-frontend-syllabus-detail'),
+    path('frontend/contact/', views.frontend_contact, name='api-frontend-contact'),
 ]

@@ -10,7 +10,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog
+    JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
 
@@ -428,54 +428,80 @@ class ScraperLogStream:
 
 @login_required(login_url='/dashboard/login/')
 def dashboard_scraper(request):
-    """Scraper control panel — choose type & max pages, then launch."""
+    """Scraper control panel — supports scrape_data, scrape_testpoint, scrape_pastpapers."""
     from django.core.management import call_command
     import threading
 
     if request.method == 'POST':
-        scrape_type  = request.POST.get('scrape_type', 'all')
-        start_page   = int(request.POST.get('start_page', 1))
-        max_pages    = int(request.POST.get('max_pages', 0))
-        valid_types  = ['all', 'mcqs', 'current-affairs', 'jobs']
-        if scrape_type not in valid_types:
-            scrape_type = 'all'
+        scraper_cmd = request.POST.get('scraper_cmd', 'scrape_data')
 
         if not SCRAPER_STATE['running']:
             SCRAPER_STATE['running'] = True
-            SCRAPER_STATE['logs'] = []
-            
+            SCRAPER_STATE['logs']    = []
+
+            # Capture ALL POST values before the thread starts — the request
+            # object is not safe to read from inside a background thread after
+            # the HTTP response has been sent.
+            _cmd        = scraper_cmd
+            _sd_type    = request.POST.get('scrape_type', 'all')
+            _sd_start   = int(request.POST.get('start_page', 1))
+            _sd_max     = int(request.POST.get('max_pages', 0))
+            _tp_exam    = request.POST.get('tp_exam', 'all')
+            _tp_engine  = request.POST.get('tp_engine', 'curl')
+            _tp_max     = int(request.POST.get('tp_max_papers', 0))
+            _tp_subj    = request.POST.get('tp_subject', '')
+            _tp_debug   = request.POST.get('tp_debug') == '1'
+            _pp_exam    = request.POST.get('pp_exam', 'all')
+            _pp_engine  = request.POST.get('pp_engine', 'curl')
+            _pp_max     = int(request.POST.get('pp_max_posts', 0))
+            _pp_subj    = request.POST.get('pp_subject', '')
+            _pp_debug   = request.POST.get('pp_debug') == '1'
+
             def run_scrape():
                 stream = ScraperLogStream()
                 try:
-                    kwargs = {'type': scrape_type, 'start_page': start_page}
-                    if max_pages > 0:
-                        kwargs['max_pages'] = max_pages
-                    # Pass stream to stdout so call_command writes directly to our global logs
-                    call_command('scrape_data', stdout=stream, stderr=stream, **kwargs)
+                    if _cmd == 'scrape_data':
+                        kwargs = {'type': _sd_type, 'start_page': _sd_start}
+                        if _sd_max > 0:
+                            kwargs['max_pages'] = _sd_max
+                        call_command('scrape_data', stdout=stream, stderr=stream, **kwargs)
+
+                    elif _cmd == 'scrape_testpoint':
+                        call_command(
+                            'scrape_testpoint', stdout=stream, stderr=stream,
+                            exam=_tp_exam, engine=_tp_engine,
+                            max_papers=_tp_max, subject=_tp_subj, debug=_tp_debug,
+                        )
+
+                    elif _cmd == 'scrape_pastpapers':
+                        call_command(
+                            'scrape_pastpapers', stdout=stream, stderr=stream,
+                            exam=_pp_exam, engine=_pp_engine,
+                            max_posts=_pp_max, subject=_pp_subj, debug=_pp_debug,
+                        )
+
                 except Exception as exc:
+                    import traceback
                     stream.write(f'[ERROR] {exc}')
+                    stream.write(traceback.format_exc())
                 finally:
                     SCRAPER_STATE['running'] = False
 
             thread = threading.Thread(target=run_scrape, daemon=True)
             thread.start()
-
-            messages.success(request,
-                f'Scraper started in background — Type: {scrape_type.upper()}'
-                + f', Start page: {start_page}'
-                + (f', Limit: {max_pages} pages' if max_pages else ', All remaining pages')
-            )
+            messages.success(request, f'Scraper "{_cmd}" started in background.')
         else:
-            messages.warning(request, 'Scraper is already running!')
-            
+            messages.warning(request, 'A scraper is already running!')
+
         return redirect('dashboard_scraper')
 
     context = {
-        'active_page':      'scraper',
-        'scraper_running':  SCRAPER_STATE['running'],
-        'scraper_log':      SCRAPER_STATE['logs'],
-        'mcq_count':        MCQ.objects.count(),
-        'job_count':        JobListing.objects.count(),
+        'active_page':     'scraper',
+        'scraper_running': SCRAPER_STATE['running'],
+        'scraper_log':     SCRAPER_STATE['logs'],
+        'mcq_count':       MCQ.objects.count(),
+        'paper_count':     PastPaper.objects.count(),
+        'job_count':       JobListing.objects.count(),
     }
     return render(request, 'dashboard/scraper.html', context)
 
@@ -492,3 +518,44 @@ def dashboard_scraper_status(request):
 def dashboard_trigger_scrape(request):
     """Legacy quick-run — kept for backward compat; redirects to scraper panel."""
     return redirect('dashboard_scraper')
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_contact_messages(request):
+    """List all contact form submissions."""
+    status_filter = request.GET.get('status', '')
+    qs = ContactMessage.objects.all()
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    paginator = Paginator(qs, 20)
+    page = request.GET.get('page')
+    try:
+        msgs = paginator.page(page)
+    except (PageNotAnInteger, EmptyPage):
+        msgs = paginator.page(1)
+
+    return render(request, 'dashboard/contact_messages.html', {
+        'active_page':    'contact',
+        'msgs':           msgs,
+        'total_count':    qs.count(),
+        'unread_count':   ContactMessage.objects.filter(status='unread').count(),
+        'status_filter':  status_filter,
+    })
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_contact_mark_read(request, pk):
+    """Mark a contact message as read."""
+    msg = get_object_or_404(ContactMessage, pk=pk)
+    msg.status = 'read'
+    msg.save()
+    return redirect('dashboard_contact_messages')
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_contact_delete(request, pk):
+    """Delete a contact message."""
+    msg = get_object_or_404(ContactMessage, pk=pk)
+    msg.delete()
+    return redirect('dashboard_contact_messages')
