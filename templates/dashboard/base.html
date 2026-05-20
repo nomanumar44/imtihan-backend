@@ -493,32 +493,98 @@
       {% block content %}{% endblock %}
     </div>
   </div>
+
+  <!-- ── Custom Confirm Modal ── -->
+  <div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center">
+    <!-- Backdrop -->
+    <div id="confirmBackdrop" style="position:absolute;inset:0;background:rgba(11,42,60,.55);backdrop-filter:blur(3px)" onclick="closeConfirmModal()"></div>
+    <!-- Card -->
+    <div style="position:relative;background:#fff;border-radius:14px;padding:28px 28px 22px;width:100%;max-width:380px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:modalIn .18s ease">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="width:38px;height:38px;border-radius:10px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="ti ti-trash" style="font-size:18px;color:#ef4444"></i>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:600;color:#1a1a2e" id="confirmTitle">Delete item</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:1px" id="confirmSubtitle">This action cannot be undone.</div>
+        </div>
+      </div>
+      <p style="font-size:13px;color:#374151;line-height:1.55;margin-bottom:20px" id="confirmMessage">Are you sure you want to delete this item?</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeConfirmModal()" style="padding:8px 18px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:500;color:#374151;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+          Cancel
+        </button>
+        <button id="confirmOkBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes modalIn {
+      from { opacity:0; transform:scale(.94) translateY(6px); }
+      to   { opacity:1; transform:scale(1)  translateY(0);    }
+    }
+  </style>
+
   <script>
     window.CSRF_TOKEN = '{{ csrf_token }}';
 
+    let _confirmCallback = null;
+
+    function showConfirmModal(message, callback, title, subtitle) {
+      document.getElementById('confirmMessage').textContent  = message  || 'Are you sure you want to delete this item?';
+      document.getElementById('confirmTitle').textContent    = title    || 'Delete item';
+      document.getElementById('confirmSubtitle').textContent = subtitle || 'This action cannot be undone.';
+      document.getElementById('confirmOkBtn').onclick = function() {
+        closeConfirmModal();
+        if (callback) callback();
+      };
+      const modal = document.getElementById('confirmModal');
+      modal.style.display = 'flex';
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').style.display = 'none';
+      _confirmCallback = null;
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirmModal(); });
+
     async function apiDelete(endpoint, redirectUrl = null) {
-      if (!confirm('Are you sure you want to delete this item?')) return;
-      
-      try {
-        const response = await fetch(endpoint, {
-          method: 'DELETE',
-          headers: {
-            'X-CSRFToken': window.CSRF_TOKEN,
+      showConfirmModal(
+        'Are you sure you want to delete this item? This cannot be undone.',
+        async function() {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'DELETE',
+              headers: { 'X-CSRFToken': window.CSRF_TOKEN }
+            });
+            if (response.ok) {
+              if (redirectUrl) window.location.href = redirectUrl;
+              else window.location.reload();
+            } else {
+              showAlertModal('Failed to delete the item. Please try again.');
+            }
+          } catch (error) {
+            showAlertModal('A network error occurred. Please try again.');
           }
-        });
-        
-        if (response.ok) {
-          if (redirectUrl) {
-            window.location.href = redirectUrl;
-          } else {
-            window.location.reload();
-          }
-        } else {
-          alert('Failed to delete the item.');
         }
-      } catch (error) {
-        alert('An error occurred.');
-      }
+      );
+    }
+
+    function showAlertModal(message) {
+      document.getElementById('confirmTitle').textContent    = 'Error';
+      document.getElementById('confirmSubtitle').textContent = '';
+      document.getElementById('confirmMessage').textContent  = message;
+      document.getElementById('confirmOkBtn').textContent    = 'OK';
+      document.getElementById('confirmOkBtn').style.background = '#0C3638';
+      document.getElementById('confirmOkBtn').onmouseover = function(){ this.style.background='#0a2e2f'; };
+      document.getElementById('confirmOkBtn').onmouseout  = function(){ this.style.background='#0C3638'; };
+      document.getElementById('confirmOkBtn').onclick = closeConfirmModal;
+      document.getElementById('confirmModal').style.display = 'flex';
     }
   </script>
 </body>

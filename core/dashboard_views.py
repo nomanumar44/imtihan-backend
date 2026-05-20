@@ -1,3 +1,4 @@
+import io
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
@@ -7,6 +8,10 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db.models import Count, Avg
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.http import HttpResponse
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
@@ -86,7 +91,7 @@ def dashboard_mcqs(request):
     """MCQ bank listing page."""
     mcqs = MCQ.objects.select_related('exam', 'subject').all()
     exams = Exam.objects.all()
-    subjects = Subject.objects.all()
+    subjects = Subject.objects.annotate(mcq_count=Count('mcqs')).order_by('name')
 
     # Filters
     exam_filter = request.GET.get('exam')
@@ -559,3 +564,219 @@ def dashboard_contact_delete(request, pk):
     msg = get_object_or_404(ContactMessage, pk=pk)
     msg.delete()
     return redirect('dashboard_contact_messages')
+
+
+# ─── MCQ Excel Export / Import ───────────────────────────────────────────────
+
+HEADER = [
+    'id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
+    'correct_option', 'explanation', 'exam_slug', 'subject_slug', 'status',
+]
+
+HEADER_NOTES = [
+    'DO NOT EDIT',
+    'The full question text',
+    'Option A text',
+    'Option B text',
+    'Option C text',
+    'Option D text (optional)',
+    'A / B / C / D',
+    'Optional explanation',
+    'Exam slug (e.g. ppsc) — DO NOT CHANGE',
+    'Subject slug — DO NOT CHANGE',
+    'draft / published / flagged',
+]
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_mcq_export(request):
+    """Download MCQs as an Excel file. Filters: subject, exam, from_row, to_row."""
+    exam_slug    = request.GET.get('exam', '')
+    subject_slug = request.GET.get('subject', '')
+    from_row     = request.GET.get('from_row', '')
+    to_row       = request.GET.get('to_row', '')
+
+    qs = MCQ.objects.select_related('exam', 'subject').order_by('id')
+    if exam_slug:
+        qs = qs.filter(exam__slug=exam_slug)
+    if subject_slug:
+        qs = qs.filter(subject__slug=subject_slug)
+
+    # Convert to list for slicing by row number
+    mcq_list = list(qs)
+    total = len(mcq_list)
+
+    try:
+        fr = max(1, int(from_row)) - 1 if from_row else 0
+        tr = int(to_row) if to_row else total
+        tr = min(tr, total)
+        mcq_list = mcq_list[fr:tr]
+    except (ValueError, TypeError):
+        pass
+
+    # Build workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'MCQs'
+
+    # Styles
+    hdr_fill = PatternFill('solid', fgColor='0C3638')
+    hdr_font = Font(bold=True, color='FFFFFF', size=11)
+    note_fill = PatternFill('solid', fgColor='E8F5E9')
+    note_font = Font(italic=True, color='444444', size=9)
+    thin = Side(style='thin', color='CCCCCC')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    wrap   = Alignment(vertical='top', wrap_text=True)
+
+    # Row 1 — headers
+    for col_idx, h in enumerate(HEADER, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h.upper())
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = center
+        cell.border = border
+
+    # Row 2 — notes
+    for col_idx, note in enumerate(HEADER_NOTES, 1):
+        cell = ws.cell(row=2, column=col_idx, value=note)
+        cell.font = note_font
+        cell.fill = note_fill
+        cell.alignment = center
+        cell.border = border
+
+    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[2].height = 30
+
+    # Data rows
+    for row_idx, mcq in enumerate(mcq_list, 3):
+        row = [
+            mcq.id,
+            mcq.question_text,
+            mcq.option_a,
+            mcq.option_b,
+            mcq.option_c,
+            mcq.option_d,
+            mcq.correct_option,
+            mcq.explanation,
+            mcq.exam.slug,
+            mcq.subject.slug,
+            mcq.status,
+        ]
+        for col_idx, val in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.alignment = wrap
+            cell.border = border
+
+    # Column widths
+    widths = [8, 60, 35, 35, 35, 35, 10, 45, 14, 20, 12]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    # Freeze top 2 rows
+    ws.freeze_panes = 'A3'
+
+    # Protect id / exam_slug / subject_slug columns with a note (col A, I, J)
+    ws.protection.sheet = False  # sheet itself not locked; just visual cue via fill
+
+    filename = f"mcqs_export_{subject_slug or exam_slug or 'all'}_{fr+1}_to_{fr+len(mcq_list)}.xlsx"
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_mcq_import(request):
+    """Upload an edited Excel file and bulk-update MCQs by ID."""
+    if request.method != 'POST':
+        return redirect('dashboard_mcqs')
+
+    excel_file = request.FILES.get('excel_file')
+    if not excel_file:
+        messages.error(request, 'No file uploaded.')
+        return redirect('dashboard_mcqs')
+
+    if not excel_file.name.endswith(('.xlsx', '.xls')):
+        messages.error(request, 'Please upload a valid .xlsx file.')
+        return redirect('dashboard_mcqs')
+
+    try:
+        wb = openpyxl.load_workbook(excel_file, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        messages.error(request, f'Could not read Excel file: {e}')
+        return redirect('dashboard_mcqs')
+
+    # Validate header row
+    headers = [str(ws.cell(1, c).value or '').lower().strip() for c in range(1, len(HEADER) + 1)]
+    if headers != HEADER:
+        messages.error(request, f'Invalid column headers. Expected: {", ".join(HEADER)}')
+        return redirect('dashboard_mcqs')
+
+    updated = 0
+    skipped = 0
+    errors  = []
+
+    # Rows start at 3 (row 1 = headers, row 2 = notes)
+    for row_num in range(3, ws.max_row + 1):
+        row_vals = [ws.cell(row_num, c).value for c in range(1, len(HEADER) + 1)]
+        if all(v is None for v in row_vals):
+            continue  # skip fully empty rows
+
+        try:
+            mcq_id       = int(row_vals[0])
+            question     = str(row_vals[1] or '').strip()
+            opt_a        = str(row_vals[2] or '').strip()
+            opt_b        = str(row_vals[3] or '').strip()
+            opt_c        = str(row_vals[4] or '').strip()
+            opt_d        = str(row_vals[5] or '').strip()
+            correct      = str(row_vals[6] or '').strip().upper()
+            explanation  = str(row_vals[7] or '').strip()
+            status       = str(row_vals[10] or 'draft').strip().lower()
+        except (ValueError, TypeError) as e:
+            errors.append(f'Row {row_num}: bad data — {e}')
+            skipped += 1
+            continue
+
+        if not question or correct not in ('A', 'B', 'C', 'D'):
+            errors.append(f'Row {row_num}: missing question or invalid correct_option "{correct}"')
+            skipped += 1
+            continue
+
+        if status not in ('draft', 'published', 'flagged'):
+            status = 'draft'
+
+        try:
+            mcq = MCQ.objects.get(pk=mcq_id)
+            mcq.question_text  = question
+            mcq.option_a       = opt_a
+            mcq.option_b       = opt_b
+            mcq.option_c       = opt_c
+            mcq.option_d       = opt_d
+            mcq.correct_option = correct
+            mcq.explanation    = explanation
+            mcq.status         = status
+            mcq.save()
+            updated += 1
+        except MCQ.DoesNotExist:
+            errors.append(f'Row {row_num}: MCQ id={mcq_id} not found — skipped')
+            skipped += 1
+
+    summary = f'Import complete — {updated} updated, {skipped} skipped.'
+    if errors:
+        summary += f' Issues: ' + ' | '.join(errors[:5])
+        if len(errors) > 5:
+            summary += f' … and {len(errors)-5} more.'
+        messages.warning(request, summary)
+    else:
+        messages.success(request, summary)
+
+    return redirect('dashboard_mcqs')

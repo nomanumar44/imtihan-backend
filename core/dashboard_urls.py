@@ -8,6 +8,8 @@ urlpatterns = [
     path('mcqs/', dashboard_views.dashboard_mcqs, name='dashboard_mcqs'),
     path('mcqs/create/', dashboard_views.dashboard_mcq_create, name='dashboard_mcq_create'),
     path('mcqs/<int:pk>/edit/', dashboard_views.dashboard_mcq_edit, name='dashboard_mcq_edit'),
+    path('mcqs/export/', dashboard_views.dashboard_mcq_export, name='dashboard_mcq_export'),
+    path('mcqs/import/', dashboard_views.dashboard_mcq_import, name='dashboard_mcq_import'),
     
     path('past-papers/', dashboard_views.dashboard_past_papers, name='dashboard_past_papers'),
     path('past-papers/upload/', dashboard_views.dashboard_past_paper_create, name='dashboard_past_paper_create'),

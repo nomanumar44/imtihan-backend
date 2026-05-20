@@ -56,7 +56,7 @@
           <a href="{% url 'dashboard_contact_mark_read' msg.pk %}" class="action-btn" title="Mark as read">✓ Read</a>
           {% endif %}
           <a href="mailto:{{ msg.email }}?subject=Re: {{ msg.get_subject_display }}" class="action-btn" title="Reply by email">Reply</a>
-          <a href="{% url 'dashboard_contact_delete' msg.pk %}" class="action-btn danger" onclick="return confirm('Delete this message?')" title="Delete">Delete</a>
+          <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete this message from {{ msg.name }}? This cannot be undone.',function(){ window.location='{% url 'dashboard_contact_delete' msg.pk %}'; },'Delete message','This action cannot be undone.');return false;" title="Delete">Delete</a>
         </td>
       </tr>
       {% empty %}

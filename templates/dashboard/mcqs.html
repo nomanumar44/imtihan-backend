@@ -1,6 +1,32 @@
 {% extends "dashboard/base.html" %}
 {% block title %}MCQ Bank{% endblock %}
 {% block content %}
+
+<style>
+  .excel-panel{background:#f8fffe;border:1.5px solid #b2dfdb;border-radius:10px;padding:18px 22px;margin-bottom:20px}
+  .excel-panel h3{font-size:14px;font-weight:600;color:#0C3638;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  .excel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .excel-box{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px}
+  .excel-box label{display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+  .excel-box select,.excel-box input[type=number]{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;background:#fafafa;margin-bottom:8px}
+  .excel-box select:focus,.excel-box input[type=number]:focus{outline:none;border-color:var(--brand-green)}
+  .excel-row{display:flex;gap:8px}
+  .excel-row input{flex:1}
+  .btn-excel{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:background .15s}
+  .btn-download{background:#0C3638;color:#fff}
+  .btn-download:hover{background:#0a2e2f}
+  .btn-upload{background:var(--brand-green);color:#fff}
+  .btn-upload:hover{background:var(--brand-green-dark)}
+  .upload-area{border:2px dashed #b2dfdb;border-radius:6px;padding:12px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:8px}
+  .upload-area:hover,.upload-area.drag-over{border-color:var(--brand-green);background:#f0fdf9}
+  .upload-area input{display:none}
+  .upload-area p{font-size:12px;color:#6b7280;margin:4px 0 0}
+  .upload-area span{font-size:13px;font-weight:500;color:#0C3638}
+  .file-chosen{font-size:12px;color:var(--brand-green);margin-top:4px;display:none}
+  .subject-count{font-size:11px;color:#9ca3af;margin-left:4px}
+  @media(max-width:700px){.excel-grid{grid-template-columns:1fr}}
+</style>
+
 <div class="top-bar">
   <div>
     <div class="page-title">MCQ Bank</div>
@@ -9,20 +35,84 @@
   <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
 </div>
 
+<!-- ── Excel Export / Import Panel ── -->
+<div class="excel-panel">
+  <h3><i class="ti ti-table-export" style="color:var(--brand-green)"></i> Excel Export &amp; Import</h3>
+  <div class="excel-grid">
+
+    <!-- Download -->
+    <div class="excel-box">
+      <div style="font-size:12px;font-weight:600;color:#0C3638;margin-bottom:10px;display:flex;align-items:center;gap:5px">
+        <i class="ti ti-download"></i> Download MCQs to Excel
+      </div>
+      <form method="GET" action="{% url 'dashboard_mcq_export' %}" id="exportForm">
+        <label>Filter by Subject</label>
+        <select name="subject" id="exp_subject" onchange="updateSubjectCount()">
+          <option value="">All Subjects</option>
+          {% for s in subjects %}<option value="{{ s.slug }}" data-count="{{ s.mcq_count }}">{{ s.name }} <span class="subject-count">({{ s.mcq_count }})</span></option>{% endfor %}
+        </select>
+
+        <label>Filter by Exam</label>
+        <select name="exam">
+          <option value="">All Exams</option>
+          {% for e in exams %}<option value="{{ e.slug }}">{{ e.name }}</option>{% endfor %}
+        </select>
+
+        <label>Row Range <span style="font-weight:400;color:#9ca3af">(leave blank for all)</span></label>
+        <div class="excel-row">
+          <input type="number" name="from_row" placeholder="From (e.g. 1)" min="1" id="from_row">
+          <input type="number" name="to_row"   placeholder="To (e.g. 500)"  min="1" id="to_row">
+        </div>
+
+        <button type="submit" class="btn-excel btn-download" style="width:100%;justify-content:center;margin-top:4px">
+          <i class="ti ti-file-spreadsheet"></i> Download Excel
+        </button>
+      </form>
+    </div>
+
+    <!-- Upload -->
+    <div class="excel-box">
+      <div style="font-size:12px;font-weight:600;color:#0C3638;margin-bottom:10px;display:flex;align-items:center;gap:5px">
+        <i class="ti ti-upload"></i> Upload &amp; Bulk Update MCQs
+      </div>
+      <form method="POST" action="{% url 'dashboard_mcq_import' %}" enctype="multipart/form-data" id="importForm">
+        {% csrf_token %}
+        <div class="upload-area" onclick="document.getElementById('excel_file').click()" id="dropZone">
+          <i class="ti ti-file-upload" style="font-size:24px;color:#b2dfdb"></i>
+          <br><span>Click to browse or drag &amp; drop</span>
+          <p>Accepts .xlsx files exported from this page only</p>
+          <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" onchange="fileChosen(this)">
+        </div>
+        <div class="file-chosen" id="fileChosen"><i class="ti ti-check"></i> <span id="fileName"></span></div>
+
+        <div style="background:#fffbf0;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:11px;color:#92400e;margin:8px 0;line-height:1.5">
+          <strong>Important:</strong> Only edit columns B–H and K (question, options, correct answer, explanation, status). Do not change ID, exam slug, or subject slug columns.
+        </div>
+
+        <button type="submit" class="btn-excel btn-upload" style="width:100%;justify-content:center" id="uploadBtn">
+          <i class="ti ti-database-import"></i> Upload &amp; Update MCQs
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Filter Bar ── -->
 <div class="filter-bar">
   <select onchange="location.href='?exam='+this.value">
     <option value="">All Exams</option>
-    {% for exam in exams %}<option value="{{ exam.slug }}">{{ exam.name }}</option>{% endfor %}
+    {% for exam in exams %}<option value="{{ exam.slug }}" {% if request.GET.exam == exam.slug %}selected{% endif %}>{{ exam.name }}</option>{% endfor %}
   </select>
   <select onchange="location.href='?subject='+this.value">
     <option value="">All Subjects</option>
-    {% for s in subjects %}<option value="{{ s.slug }}">{{ s.name }}</option>{% endfor %}
+    {% for s in subjects %}<option value="{{ s.slug }}" {% if request.GET.subject == s.slug %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
   </select>
   <select onchange="location.href='?status='+this.value">
     <option value="">All Status</option>
-    <option value="published">Published</option>
-    <option value="draft">Draft</option>
-    <option value="flagged">Flagged</option>
+    <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Published</option>
+    <option value="draft"     {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+    <option value="flagged"   {% if request.GET.status == 'flagged' %}selected{% endif %}>Flagged</option>
   </select>
 </div>
 
@@ -51,4 +141,42 @@
   </table>
 </div>
 {% include "dashboard/pagination.html" with page_obj=mcqs %}
+
+<script>
+function fileChosen(input) {
+  const el = document.getElementById('fileChosen');
+  const fn = document.getElementById('fileName');
+  if (input.files.length) {
+    fn.textContent = input.files[0].name;
+    el.style.display = 'block';
+    document.getElementById('dropZone').style.borderColor = 'var(--brand-green)';
+  }
+}
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const input = document.getElementById('excel_file');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    fileChosen(input);
+  }
+});
+
+// Prevent double-submit on upload
+document.getElementById('importForm').addEventListener('submit', function() {
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Uploading…';
+});
+</script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
 {% endblock %}
