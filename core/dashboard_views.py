@@ -456,6 +456,10 @@ def dashboard_scraper(request):
             _tp_max     = int(request.POST.get('tp_max_papers', 0))
             _tp_subj    = request.POST.get('tp_subject', '')
             _tp_debug   = request.POST.get('tp_debug') == '1'
+            _gt_subject = request.POST.get('gt_subject', '')
+            _gt_max     = int(request.POST.get('gt_max_tests', 0))
+            _gt_debug   = request.POST.get('gt_debug') == '1'
+            _gt_dry_run = request.POST.get('gt_dry_run') == '1'
             _pp_exam    = request.POST.get('pp_exam', 'all')
             _pp_engine  = request.POST.get('pp_engine', 'curl')
             _pp_max     = int(request.POST.get('pp_max_posts', 0))
@@ -476,6 +480,13 @@ def dashboard_scraper(request):
                             'scrape_testpoint', stdout=stream, stderr=stream,
                             exam=_tp_exam, engine=_tp_engine,
                             max_papers=_tp_max, subject=_tp_subj, debug=_tp_debug,
+                        )
+
+                    elif _cmd == 'scrape_gotest':
+                        call_command(
+                            'scrape_gotest', stdout=stream, stderr=stream,
+                            subject=_gt_subject, max_tests=_gt_max,
+                            debug=_gt_debug, dry_run=_gt_dry_run,
                         )
 
                     elif _cmd == 'scrape_pastpapers':

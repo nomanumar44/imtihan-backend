@@ -41,8 +41,9 @@
 <div style="margin-top:24px; display:flex; gap:4px; border-bottom:2px solid #E5E7EB;">
   <button class="sc-tab active" onclick="switchTab(this,'t1')">PakMCQs Suite</button>
   <button class="sc-tab"        onclick="switchTab(this,'t2')">TestPointPK</button>
-  <button class="sc-tab"        onclick="switchTab(this,'t3')">PastPapersPDF</button>
-  <button class="sc-tab"        onclick="switchTab(this,'t4')">Scrapy CLI</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t3')">GoTest.pk</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t4')">PastPapersPDF</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t5')">Scrapy CLI</button>
 </div>
 
 <!-- ── Tab 1: scrape_data ─────────────────────────────────────────────────── -->
@@ -117,8 +118,49 @@
   </form>
 </div>
 
-<!-- ── Tab 3: scrape_pastpapers ──────────────────────────────────────────── -->
+<!-- ── Tab 3: scrape_gotest ───────────────────────────────────────────── -->
 <div id="t3" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+  <p class="sc-desc">
+    Subject-wise online tests from <strong>gotest.com.pk</strong> (10 subjects configured).
+    Extracts WatuPro quiz MCQs with 4 options. Uses <strong>requests + curl</strong> fallback with optional <strong>Playwright</strong> for JS-rendered quizzes.
+  </p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="scraper_cmd" value="scrape_gotest">
+    <div class="sc-row">
+      <div class="sc-field" style="flex:2;">
+        <label class="sc-label">Subject <em>(optional)</em></label>
+        <select name="gt_subject" class="sc-input">
+          <option value="">All Subjects (10)</option>
+          <option value="english">English Quiz</option>
+          <option value="urdu">Urdu Quiz</option>
+          <option value="mathematics">Math Quiz</option>
+          <option value="islamiat">Islamic Studies</option>
+          <option value="biology">Biology Quiz</option>
+          <option value="chemistry">Chemistry Quiz</option>
+          <option value="physics">Physics Quiz</option>
+          <option value="computer-science">Computer Quiz</option>
+          <option value="everyday-science">Everyday Science</option>
+          <option value="pakistan-studies">Pak Studies</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Max Tests/Subj <em>(0=all)</em></label>
+        <input type="number" name="gt_max_tests" value="0" min="0" class="sc-input">
+      </div>
+    </div>
+    <div style="display:flex; gap:20px; margin-bottom:16px;">
+      <label class="sc-check" style="margin:0;"><input type="checkbox" name="gt_debug" value="1"> Debug output</label>
+      <label class="sc-check" style="margin:0;"><input type="checkbox" name="gt_dry_run" value="1"> Dry run (extract only, don't save)</label>
+    </div>
+    <button type="submit" class="sc-btn" {% if scraper_running %}disabled{% endif %}>
+      <i class="ti ti-player-play-filled"></i>
+      {% if scraper_running %}Running…{% else %}Start GoTest Scraper{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- ── Tab 4: scrape_pastpapers ──────────────────────────────────────────── -->
+<div id="t4" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
   <p class="sc-desc">
     Discovers posts via <strong>WordPress REST API</strong> on <strong>pastpaperspdf.com</strong> (PPSC / FPSC / PMS / Motorway Police).
     Parses Q./Answer: one-liner MCQs. <strong>Playwright</strong> bypasses Cloudflare. Auto-creates <strong>PastPaper</strong> records.
@@ -160,8 +202,8 @@
   </form>
 </div>
 
-<!-- ── Tab 4: Scrapy CLI ──────────────────────────────────────────────────── -->
-<div id="t4" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+<!-- ── Tab 5: Scrapy CLI ──────────────────────────────────────────────────── -->
+<div id="t5" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
   <p class="sc-desc">
     Run <strong>Scrapy</strong> spiders from a terminal. The <code>DjangoPipeline</code> saves items directly into Django models
     (MCQ + PastPaper). No browser required — Scrapy handles concurrency and retries.
@@ -174,6 +216,12 @@
 
     <div style="color:#93C5FD; margin-top:12px;"># TestPointPK — FPSC English only</div>
     <div>scrapy crawl testpoint -s EXAM=fpsc -s SUBJECT_KW=english --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — All subjects</div>
+    <div>scrapy crawl gotest --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — English only, max 10 tests</div>
+    <div>scrapy crawl gotest -s SUBJECT_KW=english -s MAX_TESTS=10 --project scraper</div>
 
     <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — PMS, max 20 posts</div>
     <div>scrapy crawl pastpapers -s EXAM=pms -s MAX_POSTS=20 --project scraper</div>
@@ -242,12 +290,40 @@ function switchTab(btn, id) {
   document.querySelectorAll('.sc-panel').forEach(p => p.style.display = 'none');
   btn.classList.add('active');
   document.getElementById(id).style.display = 'block';
+  // Persist active tab in URL hash
+  window.location.hash = id;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
   const log   = document.getElementById('logContainer');
   const badge = document.getElementById('logStatusBadge');
   const ind   = document.getElementById('runningIndicator');
+  const btns  = document.querySelectorAll('.sc-btn[type="submit"]');
+
+  // Restore active tab from URL hash
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    document.querySelectorAll('.sc-tab').forEach((t, i) => {
+      t.classList.remove('active');
+      const panelId = 't' + (i + 1);
+      document.getElementById(panelId).style.display = 'none';
+      if (panelId === hash) {
+        t.classList.add('active');
+        document.getElementById(panelId).style.display = 'block';
+      }
+    });
+  }
+
+  // Set tab hash on form submit so redirect preserves it
+  document.querySelectorAll('.sc-panel form').forEach(form => {
+    form.addEventListener('submit', function () {
+      const panel = form.closest('.sc-panel');
+      if (panel && panel.id) {
+        const action = form.getAttribute('action') || '';
+        form.setAttribute('action', action.split('#')[0] + '#' + panel.id);
+      }
+    });
+  });
 
   log.scrollTop = log.scrollHeight;
 
@@ -267,11 +343,18 @@ document.addEventListener('DOMContentLoaded', function () {
           badge.textContent   = '● Running';
           badge.style.background = '#FEF3C7';
           badge.style.color      = '#92400E';
+          btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="ti ti-loader"></i> Running\u2026'; });
         } else {
           ind.style.display   = 'none';
           badge.textContent   = '● Idle';
           badge.style.background = '#E5E7EB';
           badge.style.color      = '#4B5563';
+          btns.forEach(b => {
+            if (b.disabled) {
+              b.disabled = false;
+              b.innerHTML = '<i class="ti ti-player-play-filled"></i> Start';
+            }
+          });
         }
       })
       .catch(() => {});

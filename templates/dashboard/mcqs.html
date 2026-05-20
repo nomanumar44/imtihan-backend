@@ -132,7 +132,7 @@
           {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
         </td>
         <td style="font-size:12px;color:var(--color-text-tertiary)">{{ mcq.created_at|date:"d M Y" }}</td>
-        <td><a href="{% url 'dashboard_mcq_edit' mcq.id %}" class="action-btn">Edit</a><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
+        <td><button class="action-btn" onclick="openMCQEditModal({{ mcq.id }})">Edit</button><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
       </tr>
       {% empty %}
       <tr><td colspan="7" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>
@@ -141,6 +141,91 @@
   </table>
 </div>
 {% include "dashboard/pagination.html" with page_obj=mcqs %}
+
+<!-- MCQ Edit Modal -->
+<div id="mcqEditModal" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(11,42,60,.55)">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:0;width:100%;max-width:600px;margin:16px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:modalIn .18s ease">
+    <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;z-index:1">
+      <h2 style="margin:0;font-size:16px;font-weight:600;color:#1a1a2e">Edit MCQ</h2>
+      <button onclick="closeMCQEditModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:24px">
+      <form id="mcqEditForm">
+        {% csrf_token %}
+        
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Question Text</label>
+          <textarea id="question_text" name="question_text" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa;resize:vertical;min-height:80px" required></textarea>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option A</label>
+          <input type="text" id="option_a" name="option_a" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option B</label>
+          <input type="text" id="option_b" name="option_b" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option C</label>
+          <input type="text" id="option_c" name="option_c" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option D</label>
+          <input type="text" id="option_d" name="option_d" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Correct Option</label>
+            <select id="correct_option" name="correct_option" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Status</label>
+            <select id="status" name="status" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="flagged">Flagged</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Explanation</label>
+          <textarea id="explanation" name="explanation" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa;resize:vertical;min-height:60px"></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Exam</label>
+            <select id="exam" name="exam" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required></select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Subject</label>
+            <select id="subject" name="subject" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required></select>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:18px;margin-top:18px">
+          <button type="button" onclick="closeMCQEditModal()" style="padding:8px 18px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:500;color:#374151;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+            Cancel
+          </button>
+          <button type="submit" style="padding:8px 20px;border-radius:8px;border:none;background:var(--brand-green);font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='var(--brand-green-dark)'" onmouseout="this.style.background='var(--brand-green)'">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <script>
 function fileChosen(input) {
@@ -175,6 +260,112 @@ document.getElementById('importForm').addEventListener('submit', function() {
   const btn = document.getElementById('uploadBtn');
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Uploading…';
+});
+
+// MCQ Edit Modal Functions
+let currentMCQId = null;
+
+async function openMCQEditModal(mcqId) {
+  currentMCQId = mcqId;
+  const modal = document.getElementById('mcqEditModal');
+  
+  try {
+    // Fetch MCQ data and form options
+    const response = await fetch(`/api/mcqs/${mcqId}/`);
+    if (!response.ok) throw new Error('Failed to fetch MCQ');
+    
+    const mcq = await response.json();
+    
+    // Populate form fields
+    document.getElementById('question_text').value = mcq.question_text;
+    document.getElementById('option_a').value = mcq.option_a;
+    document.getElementById('option_b').value = mcq.option_b;
+    document.getElementById('option_c').value = mcq.option_c;
+    document.getElementById('option_d').value = mcq.option_d;
+    document.getElementById('correct_option').value = mcq.correct_option;
+    document.getElementById('status').value = mcq.status;
+    document.getElementById('explanation').value = mcq.explanation || '';
+    document.getElementById('exam').value = mcq.exam;
+    document.getElementById('subject').value = mcq.subject;
+    
+    modal.style.display = 'flex';
+  } catch (error) {
+    showAlertModal('Failed to load MCQ data. Please try again.');
+  }
+}
+
+function closeMCQEditModal() {
+  document.getElementById('mcqEditModal').style.display = 'none';
+  currentMCQId = null;
+}
+
+document.getElementById('mcqEditForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  if (!currentMCQId) return;
+  
+  const formData = new FormData(document.getElementById('mcqEditForm'));
+  const data = {
+    question_text: formData.get('question_text'),
+    option_a: formData.get('option_a'),
+    option_b: formData.get('option_b'),
+    option_c: formData.get('option_c'),
+    option_d: formData.get('option_d'),
+    correct_option: formData.get('correct_option'),
+    status: formData.get('status'),
+    explanation: formData.get('explanation'),
+    exam: formData.get('exam'),
+    subject: formData.get('subject'),
+  };
+  
+  try {
+    const response = await fetch(`/api/mcqs/${currentMCQId}/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': window.CSRF_TOKEN
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      closeMCQEditModal();
+      window.location.reload();
+    } else {
+      const error = await response.json();
+      showAlertModal('Failed to update MCQ: ' + JSON.stringify(error));
+    }
+  } catch (error) {
+    showAlertModal('A network error occurred. Please try again.');
+  }
+});
+
+// Close modal on escape or backdrop click
+document.getElementById('mcqEditModal').addEventListener('click', (e) => {
+  if (e.target.id === 'mcqEditModal') closeMCQEditModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('mcqEditModal').style.display !== 'none') {
+    closeMCQEditModal();
+  }
+});
+
+// Populate exam and subject dropdowns on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const examsResponse = await fetch('/api/exams/');
+    const exams = await examsResponse.json();
+    const examSelect = document.getElementById('exam');
+    examSelect.innerHTML = exams.results.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    
+    const subjectsResponse = await fetch('/api/subjects/');
+    const subjects = await subjectsResponse.json();
+    const subjectSelect = document.getElementById('subject');
+    subjectSelect.innerHTML = subjects.results.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  } catch (error) {
+    console.error('Failed to load exams/subjects:', error);
+  }
 });
 </script>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
