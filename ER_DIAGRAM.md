@@ -72,6 +72,7 @@
        │                           │  id            PK  INT                   │
        │                           │  title             VARCHAR(300)          │
        │                           │  exam_id       FK  → core_exam.id        │
+       │                           │  syllabus_id   FK  → core_syllabus.id    │
        │                           │  department        VARCHAR(200)          │
        │                           │  location          VARCHAR(200)          │
        │                           │  bps_grade         VARCHAR(50)           │
@@ -140,6 +141,7 @@
 | `PastPaper` | M ──── 1 | `auth_user` | `created_by` FK (nullable) |
 | `Syllabus` | M ──── 1 | `Exam` | `exam_id` FK |
 | `JobListing` | M ──── 1 | `Exam` | `exam_id` FK (nullable) |
+| `JobListing` | M ──── 1 | `Syllabus` | `syllabus_id` FK (each job has a syllabus) |
 | `TestResult` | M ──── 1 | `auth_user` | `student_id` FK |
 | `TestResult` | M ──── 1 | `Exam` | `exam_id` FK (nullable) |
 | `TestResult` | M ──── 1 | `Subject` | `subject_id` FK (nullable) |
@@ -167,7 +169,7 @@
 - MCQs belong to an exam board
 - Past papers belong to an exam board
 - Syllabi belong to an exam board
-- Jobs are posted by exam boards
+- Jobs are posted by exam boards and each job links to a syllabus
 - Test results are tagged to an exam board
 
 `auth_user` (Django built-in) is the **identity hub** — students, test results, activity logs, MCQ authorship, and paper uploads all trace back to it.

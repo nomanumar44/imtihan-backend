@@ -6,7 +6,12 @@
     <div class="page-title">Dashboard</div>
     <div class="page-subtitle">Welcome back, {{ request.user.get_full_name|default:request.user.username }}</div>
   </div>
-  <a href="{% url 'dashboard_mcqs' %}" class="btn-add"><i class="ti ti-plus"></i> Add content</a>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+    <a href="{% url 'dashboard_scraper' %}#t3" class="btn-add" style="background:#0EA5E9;">
+      <i class="ti ti-world-search"></i> GoTest Scraper
+    </a>
+    <a href="{% url 'dashboard_mcqs' %}" class="btn-add"><i class="ti ti-plus"></i> Add content</a>
+  </div>
 </div>
 
 <!-- Stats -->
@@ -70,6 +75,10 @@
       <div class="qa-icon" style="background:#E1F5EE"><i class="ti ti-plus" style="color:#0F6E56;font-size:16px"></i></div>
       <span class="qa-label">Add new MCQ question</span>
     </a>
+    <a href="{% url 'dashboard_mcq_bulk_upload' %}" class="quick-action" style="border:1px dashed #0EA5E9;background:#EFF6FF">
+      <div class="qa-icon" style="background:#DBEAFE"><i class="ti ti-file-text" style="color:#0369A1;font-size:16px"></i></div>
+      <span class="qa-label" style="color:#075985;font-weight:600">Import MCQs from text</span>
+    </a>
     <a href="{% url 'dashboard_past_papers' %}" class="quick-action">
       <div class="qa-icon" style="background:#E6F1FB"><i class="ti ti-upload" style="color:#185FA5;font-size:16px"></i></div>
       <span class="qa-label">Upload past paper PDF</span>
@@ -82,9 +91,13 @@
       <div class="qa-icon" style="background:#EEEDFE"><i class="ti ti-book" style="color:#534AB7;font-size:16px"></i></div>
       <span class="qa-label">Update syllabus</span>
     </a>
+    <a href="{% url 'dashboard_scraper' %}#t3" class="quick-action" style="border: 1px dashed #0EA5E9; background: #EFF6FF;">
+      <div class="qa-icon" style="background:#DBEAFE"><i class="ti ti-world-search" style="color:#0369A1;font-size:16px"></i></div>
+      <span class="qa-label" style="color: #075985; font-weight: 600;">Run GoTest scraper</span>
+    </a>
     <a href="{% url 'dashboard_scraper' %}" class="quick-action" style="border: 1px dashed #10B981; background: #ECFDF5;">
       <div class="qa-icon" style="background:#D1FAE5"><i class="ti ti-refresh" style="color:#059669;font-size:16px"></i></div>
-      <span class="qa-label" style="color: #065F46; font-weight: 600;">Run Portal Scrapers</span>
+      <span class="qa-label" style="color: #065F46; font-weight: 600;">Run all portal scrapers</span>
     </a>
   </div>
   <div>

@@ -32,7 +32,10 @@
     <div class="page-title">MCQ Bank</div>
     <div class="page-subtitle">{{ total_count }} questions in the database</div>
   </div>
-  <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+    <a href="{% url 'dashboard_mcq_bulk_upload' %}" class="btn-add" style="background:#0EA5E9"><i class="ti ti-file-text"></i> Text Import</a>
+    <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
+  </div>
 </div>
 
 <!-- ── Excel Export / Import Panel ── -->

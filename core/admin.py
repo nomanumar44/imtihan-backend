@@ -1,8 +1,12 @@
 from django.contrib import admin
+from django.urls import path
+from django.utils.html import format_html
+from django.urls import reverse
 from .models import (
     Exam, Subject, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog
 )
+from . import admin_views
 
 
 @admin.register(Exam)
@@ -28,13 +32,20 @@ class MCQAdmin(admin.ModelAdmin):
     list_editable = ['status']
     readonly_fields = ['source_url', 'past_paper']
     raw_id_fields   = ['past_paper']
+    change_list_template = 'admin/mcq_change_list.html'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path('bulk-upload/', admin_views.bulk_upload_mcq, name='core_mcq_bulk_upload'),
+        ]
+        return custom + urls
 
     def short_question(self, obj):
         return obj.question_text[:80]
     short_question.short_description = 'Question'
 
     def past_paper_link(self, obj):
-        from django.utils.html import format_html
         if obj.past_paper:
             return format_html(
                 '<a href="/admin/core/pastpaper/{}/change/" target="_blank">{}</a>',
@@ -79,9 +90,10 @@ class SyllabusAdmin(admin.ModelAdmin):
 
 @admin.register(JobListing)
 class JobListingAdmin(admin.ModelAdmin):
-    list_display = ['title', 'exam', 'department', 'bps_grade', 'location', 'status', 'last_date', 'created_at']
-    list_filter = ['status', 'exam', 'location']
-    search_fields = ['title', 'department', 'location', 'bps_grade']
+    list_display = ['title', 'exam', 'syllabus', 'department', 'bps_grade', 'location', 'status', 'last_date', 'created_at']
+    list_filter = ['status', 'exam', 'syllabus', 'location']
+    search_fields = ['title', 'department', 'location', 'bps_grade', 'syllabus__title']
+    autocomplete_fields = ['syllabus']
 
 
 @admin.register(Student)

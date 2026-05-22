@@ -68,6 +68,7 @@ class SyllabusSerializer(serializers.ModelSerializer):
 
 class JobListingSerializer(serializers.ModelSerializer):
     exam_name = serializers.CharField(source='exam.name', read_only=True)
+    syllabus_title = serializers.CharField(source='syllabus.title', read_only=True)
 
     class Meta:
         model = JobListing

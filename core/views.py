@@ -96,7 +96,7 @@ class SyllabusViewSet(viewsets.ModelViewSet):
 
 
 class JobListingViewSet(viewsets.ModelViewSet):
-    queryset = JobListing.objects.select_related('exam').all()
+    queryset = JobListing.objects.select_related('exam', 'syllabus').all()
     serializer_class = JobListingSerializer
 
     def get_queryset(self):
@@ -228,7 +228,7 @@ def frontend_home(request):
     subjects_data = [{'name': s.name, 'slug': s.slug, 'count': s.mcq_count} for s in subjects]
 
     # 2. Latest Jobs (top 4 active)
-    jobs = JobListing.objects.filter(status=JobListing.Status.ACTIVE).select_related('exam').order_by('-created_at')[:4]
+    jobs = JobListing.objects.filter(status=JobListing.Status.ACTIVE).select_related('exam', 'syllabus').order_by('-created_at')[:4]
     jobs_data = []
     for j in jobs:
         jobs_data.append({
@@ -238,7 +238,9 @@ def frontend_home(request):
             'location': j.location if j.location else ('Federal' if j.exam and 'FPSC' in j.exam.name else 'Provincial'),
             'date': j.last_date.strftime('%d %b') if j.last_date else 'Closing Soon',
             'status': 'New', 
-            'bps': j.bps_grade if j.bps_grade else 'BPS-14'
+            'bps': j.bps_grade if j.bps_grade else 'BPS-14',
+            'syllabus_id': j.syllabus_id,
+            'syllabus_title': j.syllabus.title if j.syllabus else '',
         })
 
     # 3. Stats (total MCQs, Past Papers, Syllabi, Students)

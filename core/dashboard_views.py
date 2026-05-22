@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db.models import Count, Avg
+from django.db import transaction
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpResponse
 import openpyxl
@@ -18,6 +19,7 @@ from .models import (
     JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
+from .mcq_parser import parse_mcq_text
 
 
 def dashboard_login(request):
@@ -141,6 +143,88 @@ def dashboard_mcq_create(request):
 
 
 @login_required(login_url='/dashboard/login/')
+def dashboard_mcq_bulk_upload(request):
+    """Import MCQs into the dashboard from pasted text."""
+    exams = Exam.objects.all()
+    subjects = Subject.objects.all()
+
+    context = {
+        'active_page': 'mcqs',
+        'exams': exams,
+        'subjects': subjects,
+        'status': 'draft',
+    }
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'preview')
+        exam_id = request.POST.get('exam')
+        subject_id = request.POST.get('subject')
+        raw_text = request.POST.get('raw_text', '').strip()
+        status = request.POST.get('status', 'draft')
+        source_url = request.POST.get('source_url', '').strip()
+
+        context.update({
+            'raw_text': raw_text,
+            'source_url': source_url,
+            'status': status,
+            'selected_exam': exam_id,
+            'selected_subject': subject_id,
+        })
+
+        if status not in ('draft', 'published', 'flagged'):
+            status = 'draft'
+
+        exam = Exam.objects.filter(pk=exam_id).first()
+        subject = Subject.objects.filter(pk=subject_id).first()
+        if not exam or not subject:
+            messages.error(request, 'Please select a valid exam and subject.')
+            return render(request, 'dashboard/mcq_bulk_upload.html', context)
+
+        text = raw_text
+
+        if not text:
+            messages.error(request, 'Please paste MCQ text.')
+            return render(request, 'dashboard/mcq_bulk_upload.html', context)
+
+        parsed = parse_mcq_text(text)
+        context['raw_text'] = text
+        context['parsed_mcqs'] = parsed
+        context['parsed_count'] = len(parsed)
+
+        if not parsed:
+            messages.warning(request, 'No MCQs could be parsed. Please check the format and try again.')
+            return render(request, 'dashboard/mcq_bulk_upload.html', context)
+
+        if action != 'save':
+            messages.info(request, f'Extracted text and parsed {len(parsed)} MCQs. Review or edit before saving.')
+            return render(request, 'dashboard/mcq_bulk_upload.html', context)
+
+        created_count = 0
+        with transaction.atomic():
+            for item in parsed:
+                MCQ.objects.create(
+                    question_text=item['question_text'],
+                    option_a=item['option_a'],
+                    option_b=item['option_b'],
+                    option_c=item['option_c'],
+                    option_d=item['option_d'],
+                    correct_option=item['correct_option'] or 'A',
+                    explanation=item['explanation'],
+                    exam=exam,
+                    subject=subject,
+                    status=status,
+                    source_url=source_url,
+                    created_by=request.user,
+                )
+                created_count += 1
+
+        messages.success(request, f'Successfully imported {created_count} MCQs.')
+        return redirect('dashboard_mcqs')
+
+    return render(request, 'dashboard/mcq_bulk_upload.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
 def dashboard_mcq_edit(request, pk):
     mcq = get_object_or_404(MCQ, pk=pk)
     if request.method == 'POST':
@@ -211,7 +295,7 @@ def dashboard_syllabus(request):
 @login_required(login_url='/dashboard/login/')
 def dashboard_jobs(request):
     """Job listings page."""
-    jobs = JobListing.objects.select_related('exam').all()
+    jobs = JobListing.objects.select_related('exam', 'syllabus').all()
     total_count = jobs.count()
 
     # Pagination

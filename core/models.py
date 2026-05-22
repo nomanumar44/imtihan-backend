@@ -141,6 +141,10 @@ class JobListing(models.Model):
         Exam, on_delete=models.CASCADE, related_name='jobs',
         null=True, blank=True
     )
+    syllabus = models.ForeignKey(
+        Syllabus, on_delete=models.PROTECT, related_name='jobs',
+        null=True
+    )
     department = models.CharField(max_length=200, blank=True, default='')
     location = models.CharField(max_length=200, blank=True, default='', help_text="e.g., Punjab, Federal, Sindh")
     bps_grade = models.CharField(max_length=50, blank=True, default='', help_text="e.g., BPS-14, BPS-16")

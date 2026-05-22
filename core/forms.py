@@ -5,13 +5,14 @@ class JobListingForm(forms.ModelForm):
     class Meta:
         model = JobListing
         fields = [
-            'title', 'exam', 'department', 'location', 
+            'title', 'exam', 'syllabus', 'department', 'location', 
             'bps_grade', 'description', 'qualifications', 
             'last_date', 'apply_link', 'status'
         ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Sub Inspector'}),
             'exam': forms.Select(attrs={'class': 'form-input'}),
+            'syllabus': forms.Select(attrs={'class': 'form-input'}),
             'department': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Punjab Police'}),
             'location': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Punjab'}),
             'bps_grade': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., BPS-14'}),
@@ -69,4 +70,3 @@ class MCQForm(forms.ModelForm):
             'subject': forms.Select(attrs={'class': 'form-input'}),
             'status': forms.Select(attrs={'class': 'form-input'}),
         }
-
