@@ -111,6 +111,14 @@
     <option value="">All Subjects</option>
     {% for s in subjects %}<option value="{{ s.slug }}" {% if request.GET.subject == s.slug %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
   </select>
+  <select onchange="location.href='?subject=current-affairs&current_affairs_category='+this.value">
+    <option value="">All Current Affairs Categories</option>
+    {% for cat in current_affairs_categories %}
+      <option value="{{ cat.slug }}" {% if request.GET.current_affairs_category == cat.slug %}selected{% endif %}>
+        {{ cat.get_region_display }} - {{ cat.name }} ({{ cat.mcq_count }})
+      </option>
+    {% endfor %}
+  </select>
   <select onchange="location.href='?status='+this.value">
     <option value="">All Status</option>
     <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Published</option>
@@ -121,13 +129,20 @@
 
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Question</th><th>Exam</th><th>Subject</th><th>Correct</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Question</th><th>Exam</th><th>Subject</th><th>Category</th><th>Correct</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
     <tbody>
       {% for mcq in mcqs %}
       <tr>
         <td class="truncate">{{ mcq.question_text|truncatechars:55 }}</td>
         <td><span class="badge badge-{{ mcq.exam.badge_color }}">{{ mcq.exam.name }}</span></td>
         <td>{{ mcq.subject.name }}</td>
+        <td>
+          {% if mcq.current_affairs_category %}
+            <a href="?subject=current-affairs&current_affairs_category={{ mcq.current_affairs_category.slug }}" class="badge badge-amber" style="text-decoration:none">
+              {{ mcq.current_affairs_category.name }}
+            </a>
+          {% else %}—{% endif %}
+        </td>
         <td><span class="badge badge-green">{{ mcq.correct_option }}</span></td>
         <td>
           {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
@@ -138,7 +153,7 @@
         <td><button class="action-btn" onclick="openMCQEditModal({{ mcq.id }})">Edit</button><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
       </tr>
       {% empty %}
-      <tr><td colspan="7" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>
+      <tr><td colspan="8" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>
       {% endfor %}
     </tbody>
   </table>

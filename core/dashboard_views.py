@@ -15,7 +15,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 from .models import (
-    Exam, Subject, MCQ, PastPaper, Syllabus,
+    Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
@@ -92,19 +92,28 @@ def dashboard_home(request):
 @login_required(login_url='/dashboard/login/')
 def dashboard_mcqs(request):
     """MCQ bank listing page."""
-    mcqs = MCQ.objects.select_related('exam', 'subject').all()
+    mcqs = MCQ.objects.select_related('exam', 'subject', 'current_affairs_category').all()
     exams = Exam.objects.all()
     subjects = Subject.objects.annotate(mcq_count=Count('mcqs')).order_by('name')
+    current_affairs_categories = (
+        CurrentAffairsCategory.objects
+        .filter(is_active=True)
+        .annotate(mcq_count=Count('mcqs'))
+        .order_by('region', 'sort_order', 'name')
+    )
 
     # Filters
     exam_filter = request.GET.get('exam')
     subject_filter = request.GET.get('subject')
+    ca_category_filter = request.GET.get('current_affairs_category')
     status_filter = request.GET.get('status')
 
     if exam_filter:
         mcqs = mcqs.filter(exam__slug=exam_filter)
     if subject_filter:
         mcqs = mcqs.filter(subject__slug=subject_filter)
+    if ca_category_filter:
+        mcqs = mcqs.filter(current_affairs_category__slug=ca_category_filter)
     if status_filter:
         mcqs = mcqs.filter(status=status_filter)
 
@@ -124,6 +133,7 @@ def dashboard_mcqs(request):
         'mcqs': mcqs_page,
         'exams': exams,
         'subjects': subjects,
+        'current_affairs_categories': current_affairs_categories,
         'active_page': 'mcqs',
         'total_count': total_count,
     }
@@ -135,10 +145,17 @@ def dashboard_mcq_create(request):
     """MCQ creation and Excel upload page."""
     exams = Exam.objects.all()
     subjects = Subject.objects.all()
+    current_affairs_categories = list(
+        CurrentAffairsCategory.objects
+        .filter(is_active=True)
+        .order_by('region', 'sort_order', 'name')
+        .values('name', 'slug', 'region')
+    )
     context = {
         'active_page': 'mcqs',
         'exams': exams,
         'subjects': subjects,
+        'current_affairs_categories': current_affairs_categories,
     }
     return render(request, 'dashboard/mcq_create.html', context)
 
@@ -148,11 +165,18 @@ def dashboard_mcq_bulk_upload(request):
     """Import MCQs into the dashboard from pasted text."""
     exams = Exam.objects.all()
     subjects = Subject.objects.all()
+    current_affairs_categories = list(
+        CurrentAffairsCategory.objects
+        .filter(is_active=True)
+        .order_by('region', 'sort_order', 'name')
+        .values('name', 'slug', 'region')
+    )
 
     context = {
         'active_page': 'mcqs',
         'exams': exams,
         'subjects': subjects,
+        'current_affairs_categories': current_affairs_categories,
         'status': 'draft',
     }
 
@@ -163,6 +187,7 @@ def dashboard_mcq_bulk_upload(request):
         raw_text = request.POST.get('raw_text', '').strip()
         status = request.POST.get('status', 'draft')
         source_url = request.POST.get('source_url', '').strip()
+        category_slug = request.POST.get('current_affairs_category', '').strip()
 
         context.update({
             'raw_text': raw_text,
@@ -170,6 +195,7 @@ def dashboard_mcq_bulk_upload(request):
             'status': status,
             'selected_exam': exam_id,
             'selected_subject': subject_id,
+            'selected_current_affairs_category': category_slug,
         })
 
         if status not in ('draft', 'published', 'flagged'):
@@ -180,6 +206,12 @@ def dashboard_mcq_bulk_upload(request):
         if not exam or not subject:
             messages.error(request, 'Please select a valid exam and subject.')
             return render(request, 'dashboard/mcq_bulk_upload.html', context)
+        current_affairs_category = None
+        if subject.slug == 'current-affairs' and category_slug:
+            current_affairs_category = CurrentAffairsCategory.objects.filter(
+                slug=category_slug,
+                is_active=True,
+            ).first()
 
         text = raw_text
 
@@ -213,6 +245,7 @@ def dashboard_mcq_bulk_upload(request):
                     explanation=item['explanation'],
                     exam=exam,
                     subject=subject,
+                    current_affairs_category=current_affairs_category,
                     status=status,
                     source_url=source_url,
                     created_by=request.user,

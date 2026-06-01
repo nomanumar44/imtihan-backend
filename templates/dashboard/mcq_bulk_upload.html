@@ -56,12 +56,26 @@
         </div>
         <div class="bulk-field">
           <label>Subject</label>
-          <select name="subject" required>
+          <select name="subject" id="bulkSubject" required onchange="toggleCurrentAffairsCategory()">
             <option value="">Select subject</option>
             {% for subject in subjects %}
-              <option value="{{ subject.id }}" {% if selected_subject|stringformat:"s" == subject.id|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
+              <option value="{{ subject.id }}" data-slug="{{ subject.slug }}" {% if selected_subject|stringformat:"s" == subject.id|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
             {% endfor %}
           </select>
+        </div>
+      </div>
+
+      <div class="bulk-row" id="currentAffairsCategoryFields" style="display:none;">
+        <div class="bulk-field">
+          <label>Current Affairs Region</label>
+          <select id="currentAffairsRegion" onchange="populateCurrentAffairsCategories()">
+            <option value="pakistan">Pakistan Affairs</option>
+            <option value="world">World Affairs</option>
+          </select>
+        </div>
+        <div class="bulk-field">
+          <label>Current Affairs Category</label>
+          <select name="current_affairs_category" id="currentAffairsCategory"></select>
         </div>
       </div>
 
@@ -141,8 +155,37 @@ Answer: B</pre>
   </div>
 </form>
 
+{{ current_affairs_categories|json_script:"current-affairs-categories-data" }}
 <script>
+const CURRENT_AFFAIRS_CATEGORIES = JSON.parse(document.getElementById('current-affairs-categories-data').textContent || '[]');
+const SELECTED_CURRENT_AFFAIRS_CATEGORY = '{{ selected_current_affairs_category|default:"" }}';
+
+function populateCurrentAffairsCategories(){
+  const region = document.getElementById('currentAffairsRegion').value;
+  const categorySelect = document.getElementById('currentAffairsCategory');
+  const categories = CURRENT_AFFAIRS_CATEGORIES.filter(c => c.region === region);
+  categorySelect.innerHTML = categories.length
+    ? categories.map(c => `<option value="${c.slug}">${c.name}</option>`).join('')
+    : '<option value="">No categories available</option>';
+  if (SELECTED_CURRENT_AFFAIRS_CATEGORY) {
+    categorySelect.value = SELECTED_CURRENT_AFFAIRS_CATEGORY;
+  }
+}
+
+function toggleCurrentAffairsCategory(){
+  const subjectSelect = document.getElementById('bulkSubject');
+  const selected = subjectSelect.options[subjectSelect.selectedIndex];
+  const fields = document.getElementById('currentAffairsCategoryFields');
+  if (selected && selected.dataset.slug === 'current-affairs') {
+    fields.style.display = 'grid';
+    populateCurrentAffairsCategories();
+  } else {
+    fields.style.display = 'none';
+  }
+}
+
 const bulkForm = document.getElementById('bulkMcqForm');
+toggleCurrentAffairsCategory();
 
 bulkForm.addEventListener('submit', function (event) {
   const submitter = event.submitter;

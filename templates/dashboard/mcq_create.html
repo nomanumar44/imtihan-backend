@@ -130,11 +130,25 @@
       </div>
       <div class="form-row">
         <label class="form-label">Subject</label>
-        <select class="form-input" id="manSubject">
+        <select class="form-input" id="manSubject" onchange="updateCurrentAffairsFields('man')">
           {% for subject in subjects %}
-            <option value="{{ subject.name }}">{{ subject.name }}</option>
+            <option value="{{ subject.name }}" data-slug="{{ subject.slug }}">{{ subject.name }}</option>
           {% endfor %}
         </select>
+      </div>
+    </div>
+
+    <div class="meta-grid" id="manCaFields" style="display:none;">
+      <div class="form-row">
+        <label class="form-label">Current Affairs Region</label>
+        <select class="form-input" id="manCaRegion" onchange="populateCurrentAffairsCategories('man')">
+          <option value="pakistan">Pakistan Affairs</option>
+          <option value="world">World Affairs</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Current Affairs Category</label>
+        <select class="form-input" id="manCaCategory"></select>
       </div>
     </div>
     
@@ -280,7 +294,7 @@
         </div>
         <div class="field-group">
           <label class="field-label">Subject</label>
-          <select class="field-select" id="subjectSel">
+          <select class="field-select" id="subjectSel" onchange="updateCurrentAffairsFields('bulk')">
             <option value="">Select board first...</option>
           </select>
         </div>
@@ -306,6 +320,19 @@
         <div class="field-group">
           <label class="field-label">Source / notes</label>
           <input type="text" class="field-input" id="sourceIn" placeholder="e.g. PPSC Patwari 2023 paper">
+        </div>
+      </div>
+      <div class="meta-grid" id="bulkCaFields" style="display:none;">
+        <div class="field-group">
+          <label class="field-label">Current Affairs Region</label>
+          <select class="field-select" id="bulkCaRegion" onchange="populateCurrentAffairsCategories('bulk')">
+            <option value="pakistan">Pakistan Affairs</option>
+            <option value="world">World Affairs</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Current Affairs Category</label>
+          <select class="field-select" id="bulkCaCategory"></select>
         </div>
       </div>
       <div class="action-row">
@@ -345,6 +372,7 @@
   </div>
 </div>
 
+{{ current_affairs_categories|json_script:"ca-categories-data" }}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // Tab Switching
@@ -359,6 +387,7 @@ function switchTab(idx) {
 
 // Uploader logic
 let currentStep=1, parsedRows=[], headers=[], selectedRows=new Set(), mappings={};
+const CURRENT_AFFAIRS_CATEGORIES = JSON.parse(document.getElementById('ca-categories-data').textContent || '[]');
 
 const SUBJECTS={
   ppsc:['Pakistan Studies','English','Urdu','General Knowledge','Islamic Studies','Mathematics','Everyday Science','Current Affairs','Computer Science','Law','Geography','History'],
@@ -486,6 +515,43 @@ function updateSubjects(){
   const board=document.getElementById('boardSel').value;
   const sel=document.getElementById('subjectSel');
   sel.innerHTML=board?SUBJECTS[board].map(s=>`<option value="${s}">${s}</option>`).join(''):'<option>Select board first...</option>';
+  updateCurrentAffairsFields('bulk');
+}
+
+function selectedSubjectSlug(selectEl){
+  const opt = selectEl.options[selectEl.selectedIndex];
+  return (opt && opt.dataset.slug) ? opt.dataset.slug : String(selectEl.value || '').toLowerCase().replace(/\s+/g, '-');
+}
+
+function isCurrentAffairsSubject(selectEl){
+  return selectedSubjectSlug(selectEl) === 'current-affairs';
+}
+
+function populateCurrentAffairsCategories(prefix){
+  const region = document.getElementById(prefix + 'CaRegion').value;
+  const categorySel = document.getElementById(prefix + 'CaCategory');
+  const categories = CURRENT_AFFAIRS_CATEGORIES.filter(c => c.region === region);
+  categorySel.innerHTML = categories.length
+    ? categories.map(c => `<option value="${c.slug}">${c.name}</option>`).join('')
+    : '<option value="">No categories available</option>';
+}
+
+function updateCurrentAffairsFields(prefix){
+  const subjectSelect = document.getElementById(prefix === 'man' ? 'manSubject' : 'subjectSel');
+  const fields = document.getElementById(prefix === 'man' ? 'manCaFields' : 'bulkCaFields');
+  if (!subjectSelect || !fields) return;
+  if (isCurrentAffairsSubject(subjectSelect)) {
+    fields.style.display = 'grid';
+    populateCurrentAffairsCategories(prefix);
+  } else {
+    fields.style.display = 'none';
+  }
+}
+
+function selectedCurrentAffairsCategory(prefix){
+  const subjectSelect = document.getElementById(prefix === 'man' ? 'manSubject' : 'subjectSel');
+  if (!isCurrentAffairsSubject(subjectSelect)) return '';
+  return document.getElementById(prefix + 'CaCategory').value || '';
 }
 
 function buildSummary(){
@@ -495,10 +561,15 @@ function buildSummary(){
   const year=document.getElementById('yearIn').value;
   const status=document.getElementById('statusSel').value;
   const source=document.getElementById('sourceIn').value||'—';
+  const caCategory = selectedCurrentAffairsCategory('bulk');
+  const caCategoryName = caCategory
+    ? (CURRENT_AFFAIRS_CATEGORIES.find(c => c.slug === caCategory)?.name || caCategory)
+    : '';
   document.getElementById('summaryBox').innerHTML=`
     <div class="sum-row"><span class="sum-key">Questions selected</span><span class="sum-val teal">${selectedRows.size}</span></div>
     <div class="sum-row"><span class="sum-key">Exam board</span><span class="sum-val">${board}</span></div>
     <div class="sum-row"><span class="sum-key">Subject</span><span class="sum-val">${subj}</span></div>
+    ${caCategoryName ? `<div class="sum-row"><span class="sum-key">Current affairs category</span><span class="sum-val">${caCategoryName}</span></div>` : ''}
     <div class="sum-row"><span class="sum-key">Default difficulty</span><span class="sum-val">${diff.charAt(0).toUpperCase()+diff.slice(1)}</span></div>
     <div class="sum-row"><span class="sum-key">Year</span><span class="sum-val">${year}</span></div>
     <div class="sum-row"><span class="sum-key">Publish status</span><span class="sum-val">${status==='published'?'Publish immediately':'Save as draft'}</span></div>
@@ -558,6 +629,7 @@ async function publish(){
         year: year,
         status: status,
         source: source,
+        current_affairs_category: selectedCurrentAffairsCategory('bulk'),
         questions: questions
       })
     });
@@ -612,6 +684,7 @@ function reset(){
 }
 
 document.getElementById('dropZone').addEventListener('click',function(e){if(!e.target.closest('.drop-btn'))document.getElementById('fileIn').click();});
+updateCurrentAffairsFields('man');
 
 async function saveManualMcq() {
   const btn = document.getElementById('manSaveBtn');
@@ -625,6 +698,7 @@ async function saveManualMcq() {
     board: document.getElementById('manBoard').value,
     subject: document.getElementById('manSubject').value,
     status: 'published',
+    current_affairs_category: selectedCurrentAffairsCategory('man'),
     questions: [{
       question_text: q,
       option_a: document.getElementById('manA').value,

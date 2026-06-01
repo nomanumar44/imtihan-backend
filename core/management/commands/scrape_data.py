@@ -16,7 +16,7 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
-from core.models import Exam, Subject, MCQ, JobListing, ActivityLog
+from core.models import Exam, Subject, CurrentAffairsCategory, MCQ, JobListing, ActivityLog
 from core.utils.ai_scraper_suite import AIScraperSuite
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -233,6 +233,19 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(
             f'  [STOP] Stop requested. Saving collected {label} before exit...'
         ))
+
+    def infer_current_affairs_category(self, question: str, region: str = ''):
+        """Match a current-affairs MCQ to the configured Pakistan/World category."""
+        qs = CurrentAffairsCategory.objects.filter(is_active=True)
+        if region in ('pakistan', 'world'):
+            qs = qs.filter(region=region)
+
+        question_lower = (question or '').lower()
+        for category in qs.order_by('sort_order', 'name'):
+            keywords = category.keyword_list() or [category.slug.replace('-', ' ')]
+            if any(keyword.lower() in question_lower for keyword in keywords):
+                return category
+        return None
 
     def get_last_page(self, base_url: str, headers: dict) -> int:
         """Auto-detect the total number of pages for a pakmcqs.com category."""
@@ -612,6 +625,7 @@ class Command(BaseCommand):
                             'options': item['options'],
                             'correct': item['correct'],
                             'exam': 'fpsc',
+                            'current_affairs_region': 'pakistan',
                             'target_date': datetime(year, month, 15)
                         })
                     if self.stop_requested():
@@ -666,6 +680,7 @@ class Command(BaseCommand):
                             'options': item['options'],
                             'correct': item['correct'],
                             'exam': 'fpsc',
+                            'current_affairs_region': 'world',
                             'target_date': datetime(year, month, 15)
                         })
                     if self.stop_requested():
@@ -715,6 +730,10 @@ class Command(BaseCommand):
                     ex = Exam.objects.get(slug=item['exam'])
                 except Exam.DoesNotExist:
                     ex = Exam.objects.get(slug='fpsc')
+                current_affairs_category = self.infer_current_affairs_category(
+                    optimized['question'],
+                    item.get('current_affairs_region', ''),
+                )
 
                 # ✅ FIX: update_or_create
                 mcq_obj, created = MCQ.objects.update_or_create(
@@ -727,6 +746,7 @@ class Command(BaseCommand):
                         'correct_option': optimized['correct_option'],
                         'exam':           ex,
                         'subject':        subj,
+                        'current_affairs_category': current_affairs_category,
                         'status':         'published',
                     }
                 )

@@ -545,13 +545,21 @@ def current_affairs_detail(request, year, month):
                 'categories': []
             })
 
-        questions_list = [
-            _serialize_current_affairs_question(q, index)
-            for index, q in enumerate(mcqs, start=1)
-        ]
-            
-        pk_questions = [q for q in questions_list if 'pakistan' in q['question'].lower()]
-        intl_questions = [q for q in questions_list if 'pakistan' not in q['question'].lower()]
+        pk_questions = []
+        intl_questions = []
+        general_questions = []
+
+        for index, q in enumerate(mcqs.select_related('current_affairs_category'), start=1):
+            serialized = _serialize_current_affairs_question(q, index)
+            category = q.current_affairs_category
+            if category and category.region == CurrentAffairsCategory.Region.PAKISTAN:
+                pk_questions.append(serialized)
+            elif category and category.region == CurrentAffairsCategory.Region.WORLD:
+                intl_questions.append(serialized)
+            elif 'pakistan' in q.question_text.lower():
+                pk_questions.append(serialized)
+            else:
+                general_questions.append(serialized)
         
         categories = []
         if intl_questions:
@@ -565,10 +573,10 @@ def current_affairs_detail(request, year, month):
                 'questions': pk_questions
             })
             
-        if not categories:
+        if general_questions:
             categories.append({
                 'name': 'General Current Affairs',
-                'questions': questions_list
+                'questions': general_questions
             })
             
         return Response({
