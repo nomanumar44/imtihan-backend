@@ -2,7 +2,8 @@ from datetime import timedelta
 
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.db.utils import OperationalError, ProgrammingError
 from django.contrib.auth import authenticate
 
 from rest_framework import viewsets, status
@@ -13,7 +14,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .models import (
-    Exam, Subject, MCQ, PastPaper, Syllabus,
+    Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 from .serializers import (
@@ -47,7 +48,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 
 class MCQViewSet(viewsets.ModelViewSet):
-    queryset = MCQ.objects.select_related('exam', 'subject').all()
+    queryset = MCQ.objects.select_related('exam', 'subject', 'current_affairs_category').all()
 
     def get_serializer_class(self):
         if self.action in ['list']:
@@ -58,11 +59,14 @@ class MCQViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         exam = self.request.query_params.get('exam')
         subject = self.request.query_params.get('subject')
+        current_affairs_category = self.request.query_params.get('current_affairs_category')
         q_status = self.request.query_params.get('status')
         if exam:
             qs = qs.filter(exam__slug=exam)
         if subject:
             qs = qs.filter(subject__slug=subject)
+        if current_affairs_category:
+            qs = qs.filter(current_affairs_category__slug=current_affairs_category)
         if q_status:
             qs = qs.filter(status=q_status)
         return qs
@@ -125,8 +129,84 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ActivityLogSerializer
 
 
-# ─── Dashboard Stats ────────────────────────────────────────────────────────
+# ─── Current Affairs Helpers ────────────────────────────────────────────────
 
+DEFAULT_CURRENT_AFFAIRS_CATEGORIES = [
+    {'name': "Current IG's of Police", 'slug': 'current-igs-of-police', 'region': 'pakistan', 'keywords': ['ig']},
+    {'name': 'Current Governors', 'slug': 'current-governors', 'region': 'pakistan', 'keywords': ['governor']},
+    {'name': 'Current Chief Justices', 'slug': 'current-chief-justices', 'region': 'pakistan', 'keywords': ['chief justice']},
+    {'name': 'Current Ambassadors', 'slug': 'current-ambassadors', 'region': 'pakistan', 'keywords': ['ambassador']},
+    {'name': 'Federal Ministers', 'slug': 'current-federal-ministers', 'region': 'pakistan', 'keywords': ['minister']},
+    {'name': 'Chief Ministers', 'slug': 'current-chief-ministers', 'region': 'pakistan', 'keywords': ['chief minister']},
+    {'name': 'KPK Ministers', 'slug': 'current-kpk-ministers', 'region': 'pakistan', 'keywords': ['kpk']},
+    {'name': 'Punjab Ministers', 'slug': 'current-punjab-ministers', 'region': 'pakistan', 'keywords': ['punjab']},
+    {'name': 'Balochistan Ministers', 'slug': 'current-balochistan-ministers', 'region': 'pakistan', 'keywords': ['balochistan']},
+    {'name': 'Sindh Ministers', 'slug': 'current-sindh-ministers', 'region': 'pakistan', 'keywords': ['sindh']},
+    {'name': 'Gilgit Baltistan Ministers', 'slug': 'gilgit-baltistan-ministers', 'region': 'pakistan', 'keywords': ['gilgit']},
+    {'name': 'Presidents & CEOs', 'slug': 'current-presidents-chairmen-ceos', 'region': 'pakistan', 'keywords': ['president']},
+    {'name': 'World Organizations', 'slug': 'world-organizations', 'region': 'world', 'keywords': ['organization']},
+    {'name': 'Capitals & Currencies', 'slug': 'world-capitals-currencies', 'region': 'world', 'keywords': ['capital']},
+    {'name': 'International Days', 'slug': 'international-days', 'region': 'world', 'keywords': ['day']},
+    {'name': 'Nobel Prize Winners', 'slug': 'nobel-prize-winners', 'region': 'world', 'keywords': ['nobel']},
+    {'name': 'Sports Affairs', 'slug': 'sports-current-affairs', 'region': 'world', 'keywords': ['sport']},
+    {'name': 'Technology & Science', 'slug': 'technology-science', 'region': 'world', 'keywords': ['science']},
+    {'name': 'World Politics', 'slug': 'world-politics', 'region': 'world', 'keywords': ['politic']},
+    {'name': 'Global Economy', 'slug': 'global-economy', 'region': 'world', 'keywords': ['economy']},
+    {'name': 'Famous Books & Authors', 'slug': 'famous-books-authors', 'region': 'world', 'keywords': ['author']},
+    {'name': 'International Awards', 'slug': 'international-awards', 'region': 'world', 'keywords': ['award']},
+    {'name': 'World Health', 'slug': 'world-health', 'region': 'world', 'keywords': ['health']},
+    {'name': 'Education & Universities', 'slug': 'education-universities', 'region': 'world', 'keywords': ['education']},
+]
+
+
+def _current_affairs_categories():
+    """Return active category config from DB; fallback only before migrations run."""
+    try:
+        categories = list(
+            CurrentAffairsCategory.objects
+            .filter(is_active=True)
+            .order_by('region', 'sort_order', 'name')
+        )
+    except (OperationalError, ProgrammingError):
+        return DEFAULT_CURRENT_AFFAIRS_CATEGORIES
+
+    return [
+        {
+            'name': category.name,
+            'slug': category.slug,
+            'region': category.region,
+            'keywords': category.keyword_list(),
+        }
+        for category in categories
+    ]
+
+
+def _current_affairs_category_q(category):
+    keywords = category.get('keywords') or [category['slug'].replace('-', ' ')]
+    query = Q()
+    for keyword in keywords:
+        query |= Q(question_text__icontains=keyword)
+    return query
+
+
+def _current_affairs_category_filter(category):
+    return (
+        Q(current_affairs_category__slug=category['slug']) |
+        (Q(current_affairs_category__isnull=True) & _current_affairs_category_q(category))
+    )
+
+
+def _serialize_current_affairs_question(question, index):
+    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    return {
+        'id': index,
+        'question': question.question_text,
+        'options': [question.option_a, question.option_b, question.option_c, question.option_d],
+        'correct': opt_map.get(question.correct_option, 0),
+    }
+
+
+# ─── Dashboard Stats ────────────────────────────────────────────────────────
 
 @api_view(['GET'])
 def dashboard_stats(request):
@@ -190,6 +270,7 @@ def bulk_upload_mcqs(request):
     subject_name = data.get('subject')
     questions = data.get('questions', [])
     status_val = data.get('status', 'draft')
+    category_slug = data.get('current_affairs_category') or data.get('current_affairs_category_slug')
 
     if not board_slug or not subject_name or not questions:
         return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -197,9 +278,23 @@ def bulk_upload_mcqs(request):
     # Get or create Exam and Subject
     exam, _ = Exam.objects.get_or_create(slug=board_slug, defaults={'name': board_slug.upper()})
     subject, _ = Subject.objects.get_or_create(name=subject_name, defaults={'slug': subject_name.lower().replace(' ', '-')})
+    current_affairs_category = None
+    if category_slug:
+        current_affairs_category = CurrentAffairsCategory.objects.filter(
+            slug=category_slug,
+            is_active=True,
+        ).first()
 
     created_count = 0
     for q in questions:
+        item_category = current_affairs_category
+        item_category_slug = q.get('current_affairs_category') or q.get('current_affairs_category_slug')
+        if item_category_slug:
+            item_category = CurrentAffairsCategory.objects.filter(
+                slug=item_category_slug,
+                is_active=True,
+            ).first()
+
         MCQ.objects.create(
             exam=exam,
             subject=subject,
@@ -210,8 +305,8 @@ def bulk_upload_mcqs(request):
             option_d=q.get('option_d', ''),
             correct_option=q.get('correct_answer', 'A')[:1].upper(),
             explanation=q.get('explanation', ''),
-            difficulty=q.get('difficulty', data.get('default_difficulty', 'medium')).lower(),
-            topic=q.get('topic', ''),
+            current_affairs_category=item_category if subject.slug == 'current-affairs' else None,
+            source_url=data.get('source', ''),
             status=status_val
         )
         created_count += 1
@@ -450,15 +545,10 @@ def current_affairs_detail(request, year, month):
                 'categories': []
             })
 
-        opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-        questions_list = []
-        for index, q in enumerate(mcqs, start=1):
-            questions_list.append({
-                'id': index,
-                'question': q.question_text,
-                'options': [q.option_a, q.option_b, q.option_c, q.option_d],
-                'correct': opt_map.get(q.correct_option, 0)
-            })
+        questions_list = [
+            _serialize_current_affairs_question(q, index)
+            for index, q in enumerate(mcqs, start=1)
+        ]
             
         pk_questions = [q for q in questions_list if 'pakistan' in q['question'].lower()]
         intl_questions = [q for q in questions_list if 'pakistan' not in q['question'].lower()]
@@ -569,55 +659,33 @@ def frontend_mcq_set_detail(request, subject_slug, set_id):
 
 @api_view(['GET'])
 def frontend_current_affairs_category_detail(request, slug):
-    """Serve questions dynamically based on category slug keywords."""
-    from django.db.models import Q
-    mcqs = MCQ.objects.filter(subject__slug='current-affairs')
-    
-    # Simple keyword mapping since we lack a true `topic` schema field
-    keywords = {
-        'current-igs-of-police': 'ig',
-        'current-governors': 'governor',
-        'current-chief-justices': 'chief justice',
-        'current-ambassadors': 'ambassador',
-        'current-federal-ministers': 'minister',
-        'current-chief-ministers': 'chief minister',
-        'current-kpk-ministers': 'kpk',
-        'current-punjab-ministers': 'punjab',
-        'current-balochistan-ministers': 'balochistan',
-        'current-sindh-ministers': 'sindh',
-        'gilgit-baltistan-ministers': 'gilgit',
-        'current-presidents-chairmen-ceos': 'president',
-        'world-organizations': 'organization',
-        'world-capitals-currencies': 'capital',
-        'international-days': 'day',
-        'nobel-prize-winners': 'nobel',
-        'sports-current-affairs': 'sport',
-        'technology-science': 'science',
-        'world-politics': 'politic',
-        'global-economy': 'economy',
-        'famous-books-authors': 'author',
-        'international-awards': 'award',
-        'world-health': 'health',
-        'education-universities': 'education',
-    }
-    
-    keyword = keywords.get(slug, slug.replace('-', ' '))
-    mcqs = mcqs.filter(Q(question_text__icontains=keyword))
-    
-    title = slug.replace('-', ' ').title()
-    
-    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-    questions_list = []
-    for index, q in enumerate(mcqs, start=1):
-        questions_list.append({
-            'id': index,
-            'question': q.question_text,
-            'options': [q.option_a, q.option_b, q.option_c, q.option_d],
-            'correct': opt_map.get(q.correct_option, 0)
-        })
-        
+    """Serve questions by DB-configured current-affairs category."""
+    category = next(
+        (item for item in _current_affairs_categories() if item['slug'] == slug),
+        None,
+    )
+    if category is None:
+        return Response(
+            {'error': 'Current affairs category not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    mcqs = (
+        MCQ.objects
+        .filter(subject__slug='current-affairs')
+        .filter(_current_affairs_category_filter(category))
+        .order_by('-created_at')
+    )
+
+    questions_list = [
+        _serialize_current_affairs_question(q, index)
+        for index, q in enumerate(mcqs, start=1)
+    ]
+
     return Response({
-        'title': title,
+        'title': category['name'],
+        'slug': category['slug'],
+        'region': category['region'],
         'questions': questions_list
     })
 
@@ -748,49 +816,19 @@ def frontend_past_paper_detail(request, slug):
 
 @api_view(['GET'])
 def frontend_current_affairs_topics(request):
-    """Return all categories for Current Affairs with dynamic counts."""
-    from django.db.models import Q
+    """Return DB-configured Current Affairs categories with live MCQ counts."""
     mcqs = MCQ.objects.filter(subject__slug='current-affairs')
-    
-    def get_count(keyword):
-        return mcqs.filter(Q(question_text__icontains=keyword)).count()
 
-    pakistan_categories = [
-        { 'name': "Current IG's of Police", 'slug': 'current-igs-of-police', 'count': get_count('ig') },
-        { 'name': 'Current Governors', 'slug': 'current-governors', 'count': get_count('governor') },
-        { 'name': 'Current Chief Justices', 'slug': 'current-chief-justices', 'count': get_count('chief justice') },
-        { 'name': 'Current Ambassadors', 'slug': 'current-ambassadors', 'count': get_count('ambassador') },
-        { 'name': 'Federal Ministers', 'slug': 'current-federal-ministers', 'count': get_count('minister') },
-        { 'name': 'Chief Ministers', 'slug': 'current-chief-ministers', 'count': get_count('chief minister') },
-        { 'name': 'KPK Ministers', 'slug': 'current-kpk-ministers', 'count': get_count('kpk') },
-        { 'name': 'Punjab Ministers', 'slug': 'current-punjab-ministers', 'count': get_count('punjab') },
-        { 'name': 'Balochistan Ministers', 'slug': 'current-balochistan-ministers', 'count': get_count('balochistan') },
-        { 'name': 'Sindh Ministers', 'slug': 'current-sindh-ministers', 'count': get_count('sindh') },
-        { 'name': 'Gilgit Baltistan Ministers', 'slug': 'gilgit-baltistan-ministers', 'count': get_count('gilgit') },
-        { 'name': 'Presidents & CEOs', 'slug': 'current-presidents-chairmen-ceos', 'count': get_count('president') },
-    ]
+    grouped = {'pakistan': [], 'world': []}
+    for category in _current_affairs_categories():
+        region = category.get('region') or 'pakistan'
+        grouped.setdefault(region, []).append({
+            'name': category['name'],
+            'slug': category['slug'],
+            'count': mcqs.filter(_current_affairs_category_filter(category)).count(),
+        })
 
-    world_categories = [
-        { 'name': 'World Organizations', 'slug': 'world-organizations', 'count': get_count('organization') },
-        { 'name': 'Capitals & Currencies', 'slug': 'world-capitals-currencies', 'count': get_count('capital') },
-        { 'name': 'International Days', 'slug': 'international-days', 'count': get_count('day') },
-        { 'name': 'Nobel Prize Winners', 'slug': 'nobel-prize-winners', 'count': get_count('nobel') },
-        { 'name': 'Sports Affairs', 'slug': 'sports-current-affairs', 'count': get_count('sport') },
-        { 'name': 'Technology & Science', 'slug': 'technology-science', 'count': get_count('science') },
-        { 'name': 'World Politics', 'slug': 'world-politics', 'count': get_count('politic') },
-        { 'name': 'Global Economy', 'slug': 'global-economy', 'count': get_count('economy') },
-        { 'name': 'Famous Books & Authors', 'slug': 'famous-books-authors', 'count': get_count('author') },
-        { 'name': 'International Awards', 'slug': 'international-awards', 'count': get_count('award') },
-        { 'name': 'World Health', 'slug': 'world-health', 'count': get_count('health') },
-        { 'name': 'Education & Universities', 'slug': 'education-universities', 'count': get_count('education') },
-    ]
-    
-    # Filter out categories that have 0 questions to keep the UI clean (Optional, but let's keep them with 0 count for now so user sees them slowly populate)
-    
-    return Response({
-        'pakistan': pakistan_categories,
-        'world': world_categories
-    })
+    return Response(grouped)
 
 
 # ─── Syllabus Frontend APIs ──────────────────────────────────────────────────

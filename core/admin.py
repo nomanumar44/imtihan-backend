@@ -3,7 +3,7 @@ from django.urls import path
 from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
-    Exam, Subject, MCQ, PastPaper, Syllabus,
+    Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog
 )
 from . import admin_views
@@ -23,11 +23,20 @@ class SubjectAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
+@admin.register(CurrentAffairsCategory)
+class CurrentAffairsCategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'slug', 'region', 'sort_order', 'is_active', 'updated_at']
+    list_filter = ['region', 'is_active']
+    list_editable = ['sort_order', 'is_active']
+    prepopulated_fields = {'slug': ('name',)}
+    search_fields = ['name', 'slug', 'keywords']
+
+
 @admin.register(MCQ)
 class MCQAdmin(admin.ModelAdmin):
     list_display = ['short_question', 'exam', 'subject', 'past_paper_link',
-                    'status', 'created_at']
-    list_filter  = ['status', 'exam', 'subject']
+                    'current_affairs_category', 'status', 'created_at']
+    list_filter  = ['status', 'exam', 'subject', 'current_affairs_category']
     search_fields = ['question_text', 'source_url']
     list_editable = ['status']
     readonly_fields = ['source_url', 'past_paper']

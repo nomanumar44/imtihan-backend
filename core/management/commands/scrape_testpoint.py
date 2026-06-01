@@ -23,6 +23,7 @@ from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from core.models import Exam, Subject, MCQ, PastPaper, ActivityLog
+from core.utils import scraper_control
 
 # ── Catalogue of index pages, mapped to exam slug ─────────────────────────────
 EXAM_INDEX_PAGES = {
@@ -374,6 +375,10 @@ class Command(BaseCommand):
         total_updated = 0
 
         for exam_slug, index_url in exams_to_run:
+            if scraper_control.should_stop():
+                self._safe('[STOP] Stop requested. Saved TestPointPK data collected so far.', self.style.WARNING)
+                break
+
             self._safe(f'\n[{exam_slug.upper()}] Fetching index: {index_url}', self.style.MIGRATE_HEADING)
 
             index_soup = _get(index_url, engine=self.engine)
@@ -401,6 +406,10 @@ class Command(BaseCommand):
                 continue
 
             for paper in papers:
+                if scraper_control.should_stop():
+                    self._safe('[STOP] Stop requested. Saved TestPointPK data collected so far.', self.style.WARNING)
+                    break
+
                 self._safe(
                     f'  -> [{paper["subject_slug"]}] {paper["title"][:70]}',
                     self.style.MIGRATE_LABEL,

@@ -34,6 +34,40 @@ class Subject(models.Model):
         return self.name
 
 
+class CurrentAffairsCategory(models.Model):
+    """Configurable topic buckets for Current Affairs MCQs."""
+
+    class Region(models.TextChoices):
+        PAKISTAN = 'pakistan', 'Pakistan'
+        WORLD = 'world', 'World'
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True)
+    region = models.CharField(
+        max_length=20, choices=Region.choices, default=Region.PAKISTAN
+    )
+    keywords = models.TextField(
+        blank=True,
+        default='',
+        help_text='Comma-separated words/phrases used to match MCQ question text.'
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['region', 'sort_order', 'name']
+        verbose_name = 'Current Affairs Category'
+        verbose_name_plural = 'Current Affairs Categories'
+
+    def __str__(self):
+        return self.name
+
+    def keyword_list(self):
+        return [item.strip() for item in self.keywords.split(',') if item.strip()]
+
+
 class MCQ(models.Model):
     """Multiple Choice Question"""
 
@@ -57,6 +91,14 @@ class MCQ(models.Model):
     past_paper = models.ForeignKey(
         'PastPaper', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='mcqs'
+    )
+    current_affairs_category = models.ForeignKey(
+        CurrentAffairsCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mcqs',
+        help_text='Only used when subject is Current Affairs.'
     )
     source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(

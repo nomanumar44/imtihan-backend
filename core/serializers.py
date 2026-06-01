@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
-    Exam, Subject, MCQ, PastPaper, Syllabus,
+    Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
 
@@ -24,17 +24,30 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'mcq_count', 'created_at']
 
 
+class CurrentAffairsCategorySerializer(serializers.ModelSerializer):
+    mcq_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = CurrentAffairsCategory
+        fields = ['id', 'name', 'slug', 'region', 'keywords', 'sort_order', 'is_active', 'mcq_count']
+
+
 class MCQListSerializer(serializers.ModelSerializer):
     exam_name = serializers.CharField(source='exam.name', read_only=True)
     exam_badge_color = serializers.CharField(source='exam.badge_color', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
+    current_affairs_category_name = serializers.CharField(source='current_affairs_category.name', read_only=True)
+    current_affairs_category_slug = serializers.CharField(source='current_affairs_category.slug', read_only=True)
+    current_affairs_category_region = serializers.CharField(source='current_affairs_category.region', read_only=True)
 
     class Meta:
         model = MCQ
         fields = [
             'id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
             'correct_option', 'exam', 'exam_name', 'exam_badge_color',
-            'subject', 'subject_name', 'status', 'created_at'
+            'subject', 'subject_name', 'current_affairs_category',
+            'current_affairs_category_name', 'current_affairs_category_slug',
+            'current_affairs_category_region', 'status', 'created_at'
         ]
 
 

@@ -20,6 +20,7 @@ from .models import (
 )
 from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
 from .mcq_parser import parse_mcq_text
+from .utils import scraper_control
 
 
 def dashboard_login(request):
@@ -499,8 +500,15 @@ def dashboard_past_paper_edit(request, pk):
 # Global state for simple log streaming without redis/celery
 SCRAPER_STATE = {
     'running': False,
+    'stop_requested': False,
     'logs': []
 }
+
+def append_scraper_log(line):
+    if str(line).strip():
+        SCRAPER_STATE['logs'].append(str(line).strip())
+    if len(SCRAPER_STATE['logs']) > 1000:
+        SCRAPER_STATE['logs'] = SCRAPER_STATE['logs'][-1000:]
 
 class ScraperLogStream:
     """A stream wrapper to capture call_command output line by line."""
@@ -508,10 +516,7 @@ class ScraperLogStream:
         if s.strip('\r\n'):
             for line in s.strip('\r\n').split('\n'):
                 if line.strip():
-                    SCRAPER_STATE['logs'].append(line.strip())
-            # Keep only the last 1000 lines to avoid memory bloat
-            if len(SCRAPER_STATE['logs']) > 1000:
-                SCRAPER_STATE['logs'] = SCRAPER_STATE['logs'][-1000:]
+                    append_scraper_log(line)
     def flush(self):
         pass
 
@@ -522,11 +527,25 @@ def dashboard_scraper(request):
     import threading
 
     if request.method == 'POST':
+        action = request.POST.get('action', 'start')
+
+        if action == 'stop':
+            if SCRAPER_STATE['running']:
+                scraper_control.request_stop()
+                SCRAPER_STATE['stop_requested'] = True
+                append_scraper_log('[STOP] Stop requested from dashboard. Saving collected data before exit...')
+                messages.warning(request, 'Stop requested. The scraper will save collected data before exiting.')
+            else:
+                messages.info(request, 'No scraper is currently running.')
+            return redirect('dashboard_scraper')
+
         scraper_cmd = request.POST.get('scraper_cmd', 'scrape_data')
 
         if not SCRAPER_STATE['running']:
+            scraper_control.clear_stop()
             SCRAPER_STATE['running'] = True
-            SCRAPER_STATE['logs']    = []
+            SCRAPER_STATE['stop_requested'] = False
+            SCRAPER_STATE['logs'] = []
 
             # Capture ALL POST values before the thread starts — the request
             # object is not safe to read from inside a background thread after
@@ -585,7 +604,11 @@ def dashboard_scraper(request):
                     stream.write(f'[ERROR] {exc}')
                     stream.write(traceback.format_exc())
                 finally:
+                    if SCRAPER_STATE.get('stop_requested'):
+                        stream.write('[STOP] Scraper stopped gracefully after saving collected data.')
                     SCRAPER_STATE['running'] = False
+                    SCRAPER_STATE['stop_requested'] = False
+                    scraper_control.clear_stop()
 
             thread = threading.Thread(target=run_scrape, daemon=True)
             thread.start()
@@ -598,6 +621,7 @@ def dashboard_scraper(request):
     context = {
         'active_page':     'scraper',
         'scraper_running': SCRAPER_STATE['running'],
+        'stop_requested':  SCRAPER_STATE['stop_requested'],
         'scraper_log':     SCRAPER_STATE['logs'],
         'mcq_count':       MCQ.objects.count(),
         'paper_count':     PastPaper.objects.count(),
@@ -611,6 +635,7 @@ def dashboard_scraper_status(request):
     from django.http import JsonResponse
     return JsonResponse({
         'running': SCRAPER_STATE['running'],
+        'stop_requested': SCRAPER_STATE['stop_requested'],
         'logs': SCRAPER_STATE['logs']
     })
 

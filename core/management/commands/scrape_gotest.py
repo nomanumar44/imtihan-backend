@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from core.models import Exam, Subject, MCQ, ActivityLog
+from core.utils import scraper_control
 
 # Module-level error holder for debug output
 _last_error = None
@@ -503,6 +504,10 @@ class Command(BaseCommand):
         total_mcqs  = 0
 
         for subj_info in SUBJECTS:
+            if scraper_control.should_stop():
+                self._safe_write('[STOP] Stop requested. Saved GoTest MCQs collected so far.')
+                break
+
             name = subj_info['name']
             slug = subj_info['slug']
             url  = subj_info['url']
@@ -632,6 +637,10 @@ class Command(BaseCommand):
             subj_mcq_count  = 0
 
             for test_info in test_links:
+                if scraper_control.should_stop():
+                    self._safe_write('[STOP] Stop requested. Saved GoTest MCQs collected so far.')
+                    break
+
                 if max_tests and subj_test_count >= max_tests:
                     break
 

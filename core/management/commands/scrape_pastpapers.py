@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from core.models import Exam, Subject, MCQ, PastPaper, ActivityLog
+from core.utils import scraper_control
 
 CURL_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -455,6 +456,10 @@ class Command(BaseCommand):
         total_updated = 0
 
         for exam_key, exam_info in exams_to_run:
+            if scraper_control.should_stop():
+                self._safe('[STOP] Stop requested. Saved PastPapersPDF data collected so far.', self.style.WARNING)
+                break
+
             self._safe(
                 f'\n[{exam_info["name"]}] Searching WP API for: "{exam_info["search"]}"',
                 self.style.MIGRATE_HEADING,
@@ -480,6 +485,10 @@ class Command(BaseCommand):
                 continue
 
             for post in posts:
+                if scraper_control.should_stop():
+                    self._safe('[STOP] Stop requested. Saved PastPapersPDF data collected so far.', self.style.WARNING)
+                    break
+
                 subject_slug = _infer_subject(post['title'])
                 self._safe(
                     f'  -> [{subject_slug}] {post["title"][:70]}',

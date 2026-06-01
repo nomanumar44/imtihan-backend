@@ -56,7 +56,8 @@ class MCQForm(forms.ModelForm):
         model = MCQ
         fields = [
             'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
-            'correct_option', 'explanation', 'exam', 'subject', 'status'
+            'correct_option', 'explanation', 'exam', 'subject',
+            'current_affairs_category', 'status'
         ]
         widgets = {
             'question_text': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Enter question text...'}),
@@ -68,5 +69,6 @@ class MCQForm(forms.ModelForm):
             'explanation': forms.Textarea(attrs={'class': 'form-input', 'rows': 2, 'placeholder': 'Explanation...'}),
             'exam': forms.Select(attrs={'class': 'form-input'}),
             'subject': forms.Select(attrs={'class': 'form-input'}),
+            'current_affairs_category': forms.Select(attrs={'class': 'form-input'}),
             'status': forms.Select(attrs={'class': 'form-input'}),
         }

@@ -176,7 +176,50 @@ class AIScraperSuite:
         """Be polite — do not hammer servers."""
         time.sleep(seconds)
 
-    def scrape_pakmcqs_category(self, url: str) -> list:
+    def _debug_log(self, message: str):
+        """Print scraper debug logs safely on Windows terminals."""
+        print(str(message).encode('ascii', errors='ignore').decode('ascii'))
+
+    def _normalize_option_text(self, text: str) -> str:
+        """Normalize option text for matching bolded correct answers."""
+        text = re.sub(r'^[A-Da-d][\.\)]\s*', '', str(text or '')).strip()
+        return re.sub(r'\s+', ' ', text).casefold()
+
+    def _extract_correct_from_strong(self, strong_elements: list, option_matches: list) -> str:
+        """
+        PakMCQs marks the correct answer by wrapping that option in <strong>,
+        e.g. <strong>C. 89</strong>, without a "Correct Answer" label.
+        """
+        options_by_text = {
+            self._normalize_option_text(opt_text): opt_letter.upper()
+            for opt_letter, opt_text in option_matches
+            if self._normalize_option_text(opt_text)
+        }
+
+        for strong_text in strong_elements:
+            strong_clean = re.sub(r'\s+', ' ', strong_text or '').strip()
+            strong_upper = strong_clean.upper()
+
+            match_ans = re.search(r'\b(?:ANSWER|CORRECT)\s*(?:IS)?\s*:?\s*([A-D])\b', strong_upper)
+            if match_ans:
+                return match_ans.group(1)
+
+            if strong_upper in ['A', 'B', 'C', 'D', 'A.', 'B.', 'C.', 'D.']:
+                return strong_upper[0]
+
+            match_option = re.match(r'^([A-D])[\.\)]\s*(.+)$', strong_clean, re.IGNORECASE)
+            if match_option:
+                option_text = self._normalize_option_text(match_option.group(2))
+                if not options_by_text or option_text in options_by_text:
+                    return match_option.group(1).upper()
+
+            normalized_strong = self._normalize_option_text(strong_clean)
+            if normalized_strong in options_by_text:
+                return options_by_text[normalized_strong]
+
+        return ''
+
+    def scrape_pakmcqs_category(self, url: str, debug: bool = False) -> list:
         """
         Custom scraping engine designed specifically for pakmcqs.com category pages.
         Extracts raw questions, options, and pre-identifies the correct answer option!
@@ -215,37 +258,9 @@ class AIScraperSuite:
                 
                 options = []
                 correct_opt_letter = 'A'  # fallback
-                found_correct = False
                 
                 if matches:
-                    # Clean correct_text for analysis
-                    for strong_text in strong_elements:
-                        strong_clean = strong_text.strip().upper()
-                        
-                        # Case 1: strong tag explicitly says "Correct Answer: B" or "Answer: B"
-                        match_ans = re.search(r'\b(?:ANSWER|CORRECT)\s*(?:IS)?\s*:?\s*([A-D])\b', strong_clean)
-                        if match_ans:
-                            correct_opt_letter = match_ans.group(1)
-                            found_correct = True
-                            break
-                        
-                        # Case 2: strong tag is just the letter (e.g. "B" or "B.")
-                        if strong_clean in ['A', 'B', 'C', 'D', 'A.', 'B.', 'C.', 'D.']:
-                            correct_opt_letter = strong_clean[0]
-                            found_correct = True
-                            break
-                            
-                    # Case 3: strong tag contains the option text (e.g. "B. option text")
-                    if not found_correct:
-                        for strong_text in strong_elements:
-                            for opt_letter, opt_text in matches:
-                                clean_opt = opt_text.strip()
-                                if clean_opt and clean_opt in strong_text:
-                                    correct_opt_letter = opt_letter.upper()
-                                    found_correct = True
-                                    break
-                            if found_correct:
-                                break
+                    correct_opt_letter = self._extract_correct_from_strong(strong_elements, matches) or correct_opt_letter
                                 
                     # Fill options array
                     for _, opt_text in matches:
@@ -268,6 +283,23 @@ class AIScraperSuite:
                 question_clean = re.sub(r'^\s*(?:Q\.?\s*)?\d+[\s.\)]+', '', question).strip()
 
                 if len(options) >= 2:
+                    if debug:
+                        if matches:
+                            option_debug = ' | '.join(
+                                f'{letter.upper()}={opt_text.strip()[:70]}'
+                                for letter, opt_text in matches[:4]
+                            )
+                        else:
+                            option_debug = ' | '.join(
+                                f'{chr(65 + idx)}={opt[:70]}'
+                                for idx, opt in enumerate(options[:4])
+                            )
+                        strong_debug = ' | '.join(strong_elements[:5]) or 'none'
+                        self._debug_log(f'[PakMCQs DEBUG] Q: {question_clean[:120]}')
+                        self._debug_log(f'  strong_tags: {strong_debug}')
+                        self._debug_log(f'  options: {option_debug}')
+                        self._debug_log(f'  detected_correct: {correct_opt_letter}')
+
                     results.append({
                         'question': question_clean,
                         'options': options,
@@ -504,7 +536,7 @@ class AIScraperSuite:
 
     # ── AI OPTIMIZATION: MCQ ──────────────────────────────────────────────────
 
-    def optimize_mcq(self, raw_question: str, options: list = None) -> dict:
+    def optimize_mcq(self, raw_question: str, options: list = None, correct_option: str = None) -> dict:
         """
         Clean, spellcheck, and format an MCQ using Gemini AI.
         Falls back to smart local rules if AI unavailable.
@@ -512,12 +544,21 @@ class AIScraperSuite:
         if not options or len(options) < 4:
             options = ['Option A', 'Option B', 'Option C', 'Option D']
 
+        source_correct = str(correct_option or '').strip().upper()
+        if source_correct not in {'A', 'B', 'C', 'D'}:
+            source_correct = ''
+        source_correct_hint = (
+            f'The source HTML marks option {source_correct} as correct; preserve that correct_option.\n'
+            if source_correct else ''
+        )
+
         # ── Gemini AI path ────────────────────────────────────────────────────
         if self.ai_enabled:
             prompt = (
                 'You are a professional Pakistani civil service exam coordinator.\n'
                 'Fix the grammar, spelling, and formatting of this MCQ question.\n'
                 'Identify the correct answer from the options based on real general knowledge.\n'
+                f'{source_correct_hint}'
                 'If options are placeholders like "Option A", write 4 realistic choices.\n'
                 'Output ONLY a valid JSON object — no markdown, no extra text.\n'
                 'JSON keys: "question" (string), "options" (list of 4 strings), '
@@ -533,6 +574,8 @@ class AIScraperSuite:
                 data = json.loads(text)
                 if all(k in data for k in ('question', 'options', 'correct_option')):
                     if len(data['options']) == 4:
+                        if source_correct:
+                            data['correct_option'] = source_correct
                         return data
             except json.JSONDecodeError:
                 print('[AI] Gemini returned invalid JSON — using local fallback.')
@@ -564,7 +607,7 @@ class AIScraperSuite:
         return {
             'question':       clean_q,
             'options':        clean_opts[:4],
-            'correct_option': 'A',   # will be reviewed by admin
+            'correct_option': source_correct or 'A',   # will be reviewed by admin if no source answer
             'explanation':    'Please verify and add explanation in admin panel.',
         }
 

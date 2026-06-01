@@ -24,6 +24,7 @@ import os
 import time
 import requests
 from bs4 import BeautifulSoup
+from core.utils import scraper_control
 
 
 # ── Seed MCQs — used when live scraping fails ─────────────────────────────────
@@ -225,6 +226,14 @@ class Command(BaseCommand):
         else:
             self.stdout.write(clean_msg)
 
+    def stop_requested(self) -> bool:
+        return scraper_control.should_stop()
+
+    def log_stop_save(self, label: str):
+        self.stdout.write(self.style.WARNING(
+            f'  [STOP] Stop requested. Saving collected {label} before exit...'
+        ))
+
     def get_last_page(self, base_url: str, headers: dict) -> int:
         """Auto-detect the total number of pages for a pakmcqs.com category."""
         try:
@@ -264,11 +273,16 @@ class Command(BaseCommand):
         if dtype in ('all', 'mcqs'):
             self.scrape_mcqs_pipeline(suite)
 
-        if dtype in ('all', 'current-affairs'):
+        if dtype in ('all', 'current-affairs') and not self.stop_requested():
             self.scrape_current_affairs_pipeline(suite)
 
-        if dtype in ('all', 'jobs'):
+        if dtype in ('all', 'jobs') and not self.stop_requested():
             self.scrape_jobs_pipeline(suite)
+
+        if self.stop_requested():
+            self.stdout.write(self.style.WARNING(
+                '[STOP] Remaining pipelines skipped after stop request.'
+            ))
 
         # Print final counts
         self.stdout.write(self.style.SUCCESS(
@@ -344,7 +358,12 @@ class Command(BaseCommand):
             ('urdu-general-knowledge',  'urdu',               'ppsc'),
         ]
 
+        stop_collection = False
         for cat_slug, subject_slug, exam_slug in categories:
+            if self.stop_requested():
+                self.log_stop_save('MCQs')
+                stop_collection = True
+                break
             self.stdout.write(self.style.MIGRATE_LABEL(f'    -> Category: {cat_slug} ({subject_slug})...'))
             base_url = f'https://pakmcqs.com/category/{cat_slug}'
 
@@ -360,9 +379,13 @@ class Command(BaseCommand):
                     last_page = self.start_page
 
             for page in range(self.start_page, last_page + 1):
+                if self.stop_requested():
+                    self.log_stop_save('MCQs')
+                    stop_collection = True
+                    break
                 url = base_url if page == 1 else f'{base_url}/page/{page}'
                 self.stdout.write(f'      Scraping page {page}/{last_page}: {url}')
-                items = suite.scrape_pakmcqs_category(url)
+                items = suite.scrape_pakmcqs_category(url, debug=self.debug)
                 for item in items:
                     raw_items.append({
                         'question': item['question'],
@@ -371,19 +394,31 @@ class Command(BaseCommand):
                         'subject': subject_slug,
                         'exam': exam_slug,
                     })
+                if self.stop_requested():
+                    self.log_stop_save('MCQs')
+                    stop_collection = True
+                    break
                 time.sleep(1.2)  # polite delay between pages
 
+            if stop_collection:
+                break
+
         # ── Source 2: cssmcqs.com ─────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_LABEL('  [2/3] Scraping cssmcqs.com...'))
-        url2 = 'https://cssmcqs.com/pakistan-studies-mcqs-for-css-pms/'
-        elements2 = suite.scrape_static(
-            url2,
-            '.mcq-question, .question-text, article h3, .entry-content p strong'
-        )
-        if self.debug:
-            self.stdout.write(f'  [DEBUG] cssmcqs raw: {len(elements2)} items')
+        elements2 = []
+        if not self.stop_requested():
+            self.stdout.write(self.style.MIGRATE_LABEL('  [2/3] Scraping cssmcqs.com...'))
+            url2 = 'https://cssmcqs.com/pakistan-studies-mcqs-for-css-pms/'
+            elements2 = suite.scrape_static(
+                url2,
+                '.mcq-question, .question-text, article h3, .entry-content p strong'
+            )
+            if self.debug:
+                self.stdout.write(f'  [DEBUG] cssmcqs raw: {len(elements2)} items')
 
         for text in elements2:
+            if self.stop_requested():
+                self.log_stop_save('MCQs')
+                break
             if suite._is_valid_mcq(text):
                 raw_items.append({
                     'question': text,
@@ -394,13 +429,18 @@ class Command(BaseCommand):
                 })
 
         # ── Source 3: English MCQs ────────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_LABEL('  [3/3] Scraping English MCQs...'))
-        url3 = 'https://www.pakmcqs.com/english-mcqs'
-        elements3 = suite.scrape_static(
-            url3,
-            '.single-question .question-title, h2.question-title'
-        )
+        elements3 = []
+        if not self.stop_requested():
+            self.stdout.write(self.style.MIGRATE_LABEL('  [3/3] Scraping English MCQs...'))
+            url3 = 'https://www.pakmcqs.com/english-mcqs'
+            elements3 = suite.scrape_static(
+                url3,
+                '.single-question .question-title, h2.question-title'
+            )
         for text in elements3:
+            if self.stop_requested():
+                self.log_stop_save('MCQs')
+                break
             if suite._is_valid_mcq(text):
                 raw_items.append({
                     'question': text,
@@ -411,7 +451,7 @@ class Command(BaseCommand):
                 })
 
         # ── Self-healing fallback ─────────────────────────────────────────────
-        if not raw_items:
+        if not raw_items and not self.stop_requested():
             self.stdout.write(self.style.WARNING(
                 '  [!] Live scraping returned nothing — loading seed MCQs.'
             ))
@@ -438,7 +478,12 @@ class Command(BaseCommand):
             )
 
             try:
-                optimized = suite.optimize_mcq(item['question'], item['options'])
+                optimized = suite.optimize_mcq(item['question'], item['options'], item.get('correct'))
+                if self.debug:
+                    self.stdout.write(
+                        f'    [DEBUG] Correct option source={item.get("correct", "")} '
+                        f'saved={optimized.get("correct_option", "")}'
+                    )
 
                 # Look up related objects
                 try:
@@ -513,6 +558,9 @@ class Command(BaseCommand):
             self.stdout.write(f'  [DEBUG] testpointpk raw: {len(elements)} items')
 
         for text in elements:
+            if self.stop_requested():
+                self.log_stop_save('current affairs')
+                break
             if suite._is_valid_mcq(text):
                 raw_items.append({
                     'question': text,
@@ -526,16 +574,29 @@ class Command(BaseCommand):
         current_year = timezone.now().year
         
         # Scrape last year and current year
+        stop_collection = False
         for year in [current_year - 1, current_year]:
+            if self.stop_requested():
+                self.log_stop_save('current affairs')
+                stop_collection = True
+                break
             for month in range(1, 13):
+                if self.stop_requested():
+                    self.log_stop_save('current affairs')
+                    stop_collection = True
+                    break
                 for page in range(1, 6): # Max 5 pages per month
+                    if self.stop_requested():
+                        self.log_stop_save('current affairs')
+                        stop_collection = True
+                        break
                     if page == 1:
                         url = f'https://pakmcqs.com/{year}/{month:02d}?cat=70'
                     else:
                         url = f'https://pakmcqs.com/{year}/{month:02d}/page/{page}?cat=70'
                     
                     self.stdout.write(f'    Scraping {year}/{month:02d} page {page}: {url}')
-                    items = suite.scrape_pakmcqs_category(url)
+                    items = suite.scrape_pakmcqs_category(url, debug=self.debug)
                     
                     if not items:
                         if page == 1:
@@ -553,22 +614,43 @@ class Command(BaseCommand):
                             'exam': 'fpsc',
                             'target_date': datetime(year, month, 15)
                         })
+                    if self.stop_requested():
+                        self.log_stop_save('current affairs')
+                        stop_collection = True
+                        break
                     time.sleep(1.0)
+                if stop_collection:
+                    break
+            if stop_collection:
+                break
 
         # ── Source 3: World Current Affairs MCQs (Month-Wise) ────────────
         self.stdout.write(self.style.MIGRATE_LABEL('  [3/3] Scraping World Current Affairs MCQs Month-Wise...'))
         
         # Scrape last year and current year
+        stop_collection = False
         for year in [current_year - 1, current_year]:
+            if self.stop_requested():
+                self.log_stop_save('current affairs')
+                stop_collection = True
+                break
             for month in range(1, 13):
+                if self.stop_requested():
+                    self.log_stop_save('current affairs')
+                    stop_collection = True
+                    break
                 for page in range(1, 6): # Max 5 pages per month
+                    if self.stop_requested():
+                        self.log_stop_save('current affairs')
+                        stop_collection = True
+                        break
                     if page == 1:
                         url = f'https://pakmcqs.com/{year}/{month:02d}?cat=37'
                     else:
                         url = f'https://pakmcqs.com/{year}/{month:02d}/page/{page}?cat=37'
                     
                     self.stdout.write(f'    Scraping {year}/{month:02d} page {page}: {url}')
-                    items = suite.scrape_pakmcqs_category(url)
+                    items = suite.scrape_pakmcqs_category(url, debug=self.debug)
                     
                     if not items:
                         if page == 1:
@@ -586,10 +668,18 @@ class Command(BaseCommand):
                             'exam': 'fpsc',
                             'target_date': datetime(year, month, 15)
                         })
+                    if self.stop_requested():
+                        self.log_stop_save('current affairs')
+                        stop_collection = True
+                        break
                     time.sleep(1.0)
+                if stop_collection:
+                    break
+            if stop_collection:
+                break
 
         # ── Self-healing fallback ─────────────────────────────────────────────
-        if not raw_items:
+        if not raw_items and not self.stop_requested():
             self.stdout.write(self.style.WARNING(
                 '  [!] Live scraping returned nothing — loading seed Current Affairs.'
             ))
@@ -614,7 +704,12 @@ class Command(BaseCommand):
                 self.style.MIGRATE_LABEL
             )
             try:
-                optimized = suite.optimize_mcq(item['question'], item['options'])
+                optimized = suite.optimize_mcq(item['question'], item['options'], item.get('correct'))
+                if self.debug:
+                    self.stdout.write(
+                        f'    [DEBUG] Correct option source={item.get("correct", "")} '
+                        f'saved={optimized.get("correct_option", "")}'
+                    )
 
                 try:
                     ex = Exam.objects.get(slug=item['exam'])
@@ -732,6 +827,10 @@ class Command(BaseCommand):
         ]
 
         for src in job_sources:
+            if self.stop_requested():
+                self.log_stop_save('jobs')
+                break
+
             self.stdout.write(self.style.MIGRATE_LABEL(
                 f'  [Scrape] {src["board"].upper()} — {src["url"]}'
             ))
@@ -777,6 +876,9 @@ class Command(BaseCommand):
                     self.stdout.write(f'    [{i}] {repr(el[:80])}')
 
             for title in elements:
+                if self.stop_requested():
+                    self.log_stop_save('jobs')
+                    break
                 title = title.strip()
                 if suite._is_valid_job(title):
                     raw_jobs.append({
@@ -785,10 +887,13 @@ class Command(BaseCommand):
                         'desc':  f'Official vacancy announced by {src["board"].upper()}.',
                     })
 
+            if self.stop_requested():
+                self.log_stop_save('jobs')
+                break
             time.sleep(1.5)  # polite delay between sources
 
         # ── Self-healing fallback ─────────────────────────────────────────────
-        if not raw_jobs:
+        if not raw_jobs and not self.stop_requested():
             self.stdout.write(self.style.WARNING(
                 '  [!] Live job scraping returned nothing — loading seed jobs.'
             ))
