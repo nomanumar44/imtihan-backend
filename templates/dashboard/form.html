@@ -108,6 +108,8 @@
         <a href="{% url 'dashboard_syllabus' %}" class="btn-cancel">Cancel</a>
       {% elif active_page == 'past_papers' %}
         <a href="{% url 'dashboard_past_papers' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'ca_categories' %}
+        <a href="{% url 'dashboard_current_affairs_categories' %}" class="btn-cancel">Cancel</a>
       {% else %}
         <a href="{% url 'dashboard_home' %}" class="btn-cancel">Cancel</a>
       {% endif %}

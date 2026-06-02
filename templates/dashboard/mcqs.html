@@ -33,6 +33,7 @@
     <div class="page-subtitle">{{ total_count }} questions in the database</div>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+    <a href="{% url 'dashboard_current_affairs_categories' %}" class="btn-add" style="background:#0C3638"><i class="ti ti-category"></i> Manage Categories</a>
     <a href="{% url 'dashboard_mcq_bulk_upload' %}" class="btn-add" style="background:#0EA5E9"><i class="ti ti-file-text"></i> Text Import</a>
     <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
   </div>
@@ -232,6 +233,16 @@
           </div>
         </div>
 
+        <div id="current_affairs_category_wrap" style="display:none;margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Current Affairs Category</label>
+          <select id="current_affairs_category" name="current_affairs_category" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+            <option value="">No category</option>
+            {% for cat in current_affairs_categories %}
+              <option value="{{ cat.id }}">{{ cat.get_region_display }} - {{ cat.name }}{% if not cat.is_active %} (Inactive){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+
         <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:18px;margin-top:18px">
           <button type="button" onclick="closeMCQEditModal()" style="padding:8px 18px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:500;color:#374151;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
             Cancel
@@ -282,6 +293,18 @@ document.getElementById('importForm').addEventListener('submit', function() {
 
 // MCQ Edit Modal Functions
 let currentMCQId = null;
+let subjectSlugById = {};
+
+function selectedModalSubjectIsCurrentAffairs() {
+  const subjectSelect = document.getElementById('subject');
+  return subjectSlugById[String(subjectSelect.value)] === 'current-affairs';
+}
+
+function toggleModalCurrentAffairsCategory() {
+  const wrap = document.getElementById('current_affairs_category_wrap');
+  if (!wrap) return;
+  wrap.style.display = selectedModalSubjectIsCurrentAffairs() ? 'block' : 'none';
+}
 
 async function openMCQEditModal(mcqId) {
   currentMCQId = mcqId;
@@ -305,6 +328,8 @@ async function openMCQEditModal(mcqId) {
     document.getElementById('explanation').value = mcq.explanation || '';
     document.getElementById('exam').value = mcq.exam;
     document.getElementById('subject').value = mcq.subject;
+    document.getElementById('current_affairs_category').value = mcq.current_affairs_category || '';
+    toggleModalCurrentAffairsCategory();
     
     modal.style.display = 'flex';
   } catch (error) {
@@ -335,6 +360,9 @@ document.getElementById('mcqEditForm').addEventListener('submit', async (e) => {
     exam: formData.get('exam'),
     subject: formData.get('subject'),
   };
+  data.current_affairs_category = selectedModalSubjectIsCurrentAffairs()
+    ? (formData.get('current_affairs_category') || null)
+    : null;
   
   try {
     const response = await fetch(`/api/mcqs/${currentMCQId}/`, {
@@ -381,6 +409,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const subjects = await subjectsResponse.json();
     const subjectSelect = document.getElementById('subject');
     subjectSelect.innerHTML = subjects.results.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    subjectSlugById = Object.fromEntries(subjects.results.map(s => [String(s.id), s.slug]));
+    subjectSelect.addEventListener('change', toggleModalCurrentAffairsCategory);
   } catch (error) {
     console.error('Failed to load exams/subjects:', error);
   }

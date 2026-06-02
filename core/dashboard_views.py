@@ -18,7 +18,10 @@ from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage
 )
-from .forms import JobListingForm, SyllabusForm, PastPaperForm, MCQForm
+from .forms import (
+    JobListingForm, SyllabusForm, PastPaperForm, MCQForm,
+    CurrentAffairsCategoryForm,
+)
 from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
 
@@ -97,7 +100,6 @@ def dashboard_mcqs(request):
     subjects = Subject.objects.annotate(mcq_count=Count('mcqs')).order_by('name')
     current_affairs_categories = (
         CurrentAffairsCategory.objects
-        .filter(is_active=True)
         .annotate(mcq_count=Count('mcqs'))
         .order_by('region', 'sort_order', 'name')
     )
@@ -276,6 +278,80 @@ def dashboard_mcq_edit(request, pk):
         'active_page': 'mcqs'
     }
     return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_current_affairs_categories(request):
+    """Create and manage Current Affairs category buckets."""
+    categories = (
+        CurrentAffairsCategory.objects
+        .annotate(mcq_count=Count('mcqs'))
+        .order_by('region', 'sort_order', 'name')
+    )
+
+    region_filter = request.GET.get('region')
+    status_filter = request.GET.get('status')
+
+    if region_filter in ('pakistan', 'world'):
+        categories = categories.filter(region=region_filter)
+    if status_filter == 'active':
+        categories = categories.filter(is_active=True)
+    elif status_filter == 'inactive':
+        categories = categories.filter(is_active=False)
+
+    if request.method == 'POST':
+        form = CurrentAffairsCategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Current Affairs category added successfully.')
+            return redirect('dashboard_current_affairs_categories')
+    else:
+        form = CurrentAffairsCategoryForm()
+
+    context = {
+        'active_page': 'ca_categories',
+        'categories': categories,
+        'form': form,
+        'total_count': categories.count(),
+    }
+    return render(request, 'dashboard/current_affairs_categories.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_current_affairs_category_edit(request, pk):
+    category = get_object_or_404(CurrentAffairsCategory, pk=pk)
+    if request.method == 'POST':
+        form = CurrentAffairsCategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Current Affairs category updated successfully.')
+            return redirect('dashboard_current_affairs_categories')
+    else:
+        form = CurrentAffairsCategoryForm(instance=category)
+
+    context = {
+        'form': form,
+        'title': 'Edit Current Affairs Category',
+        'active_page': 'ca_categories',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_current_affairs_category_delete(request, pk):
+    category = get_object_or_404(CurrentAffairsCategory, pk=pk)
+    if request.method == 'POST':
+        name = category.name
+        mcq_count = category.mcqs.count()
+        category.delete()
+        if mcq_count:
+            messages.success(
+                request,
+                f'Deleted "{name}" and removed it from {mcq_count} linked MCQs.'
+            )
+        else:
+            messages.success(request, f'Deleted "{name}".')
+    return redirect('dashboard_current_affairs_categories')
 
 
 @login_required(login_url='/dashboard/login/')

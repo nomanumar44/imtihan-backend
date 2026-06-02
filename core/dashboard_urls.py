@@ -11,6 +11,9 @@ urlpatterns = [
     path('mcqs/<int:pk>/edit/', dashboard_views.dashboard_mcq_edit, name='dashboard_mcq_edit'),
     path('mcqs/export/', dashboard_views.dashboard_mcq_export, name='dashboard_mcq_export'),
     path('mcqs/import/', dashboard_views.dashboard_mcq_import, name='dashboard_mcq_import'),
+    path('current-affairs-categories/', dashboard_views.dashboard_current_affairs_categories, name='dashboard_current_affairs_categories'),
+    path('current-affairs-categories/<int:pk>/edit/', dashboard_views.dashboard_current_affairs_category_edit, name='dashboard_current_affairs_category_edit'),
+    path('current-affairs-categories/<int:pk>/delete/', dashboard_views.dashboard_current_affairs_category_delete, name='dashboard_current_affairs_category_delete'),
     
     path('past-papers/', dashboard_views.dashboard_past_papers, name='dashboard_past_papers'),
     path('past-papers/upload/', dashboard_views.dashboard_past_paper_create, name='dashboard_past_paper_create'),

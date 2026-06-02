@@ -420,7 +420,7 @@ class Command(BaseCommand):
         elements2 = []
         if not self.stop_requested():
             self.stdout.write(self.style.MIGRATE_LABEL('  [2/3] Scraping cssmcqs.com...'))
-            url2 = 'https://cssmcqs.com/pakistan-studies-mcqs-for-css-pms/'
+            url2 = 'https://cssmcqs.com'
             elements2 = suite.scrape_static(
                 url2,
                 '.mcq-question, .question-text, article h3, .entry-content p strong'

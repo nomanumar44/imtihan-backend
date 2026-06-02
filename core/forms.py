@@ -1,5 +1,6 @@
 from django import forms
-from .models import JobListing, Syllabus, PastPaper, Exam, Subject, MCQ
+from django.utils.text import slugify
+from .models import JobListing, Syllabus, PastPaper, Exam, Subject, CurrentAffairsCategory, MCQ
 
 class JobListingForm(forms.ModelForm):
     class Meta:
@@ -72,3 +73,47 @@ class MCQForm(forms.ModelForm):
             'current_affairs_category': forms.Select(attrs={'class': 'form-input'}),
             'status': forms.Select(attrs={'class': 'form-input'}),
         }
+
+
+class CurrentAffairsCategoryForm(forms.ModelForm):
+    class Meta:
+        model = CurrentAffairsCategory
+        fields = ['name', 'slug', 'region', 'keywords', 'sort_order', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'e.g., Current Chief Justices'
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Auto generated from name if empty'
+            }),
+            'region': forms.Select(attrs={'class': 'form-input'}),
+            'keywords': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 3,
+                'placeholder': 'chief justice, supreme court, ajk court'
+            }),
+            'sort_order': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': 0
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+
+    def clean_slug(self):
+        raw_slug = self.cleaned_data.get('slug') or self.cleaned_data.get('name') or ''
+        slug = slugify(raw_slug)
+        if not slug:
+            raise forms.ValidationError('Please enter a valid category name or slug.')
+
+        qs = CurrentAffairsCategory.objects.filter(slug=slug)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A category with this slug already exists.')
+        return slug
