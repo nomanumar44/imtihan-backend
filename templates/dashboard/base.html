@@ -444,6 +444,12 @@
       <a href="{% url 'dashboard_home' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
         <i class="ti ti-layout-dashboard"></i> Dashboard
       </a>
+      <a href="{% url 'dashboard_exams' %}" class="nav-item {% if active_page == 'exams' %}active{% endif %}">
+        <i class="ti ti-building-bank"></i> Exam boards
+      </a>
+      <a href="{% url 'dashboard_subjects' %}" class="nav-item {% if active_page == 'subjects' %}active{% endif %}">
+        <i class="ti ti-books"></i> Subjects
+      </a>
       <a href="{% url 'dashboard_mcqs' %}" class="nav-item {% if active_page == 'mcqs' %}active{% endif %}">
         <i class="ti ti-checkbox"></i> MCQ bank
       </a>
@@ -458,6 +464,9 @@
       </a>
       <a href="{% url 'dashboard_jobs' %}" class="nav-item {% if active_page == 'jobs' %}active{% endif %}">
         <i class="ti ti-briefcase"></i> Job listings
+      </a>
+      <a href="{% url 'dashboard_announcements' %}" class="nav-item {% if active_page == 'announcements' %}active{% endif %}">
+        <i class="ti ti-speakerphone"></i> Announcements
       </a>
       <a href="{% url 'dashboard_scraper' %}" class="nav-item {% if active_page == 'scraper' %}active{% endif %}">
         <i class="ti ti-spider"></i> Data Scraper
@@ -477,6 +486,9 @@
       <div class="sidebar-spacer"></div>
 
       <div class="sidebar-section">Settings</div>
+      <a href="{% url 'dashboard_sections' %}" class="nav-item {% if active_page == 'sections' %}active{% endif %}">
+        <i class="ti ti-text-caption"></i> Page sections
+      </a>
       <a href="{% url 'dashboard_settings' %}" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
         <i class="ti ti-settings"></i> Settings
       </a>

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog, ContactMessage
+    JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement
 )
 
 
@@ -13,7 +13,7 @@ class ExamSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Exam
-        fields = ['id', 'name', 'slug', 'badge_color', 'mcq_count', 'papers_count', 'syllabi_count', 'created_at']
+        fields = ['id', 'name', 'slug', 'description', 'icon', 'badge_color', 'mcq_count', 'papers_count', 'syllabi_count', 'created_at']
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -21,7 +21,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'slug', 'mcq_count', 'created_at']
+        fields = ['id', 'name', 'slug', 'icon', 'badge_color', 'mcq_count', 'created_at']
 
 
 class CurrentAffairsCategorySerializer(serializers.ModelSerializer):
@@ -76,7 +76,7 @@ class SyllabusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Syllabus
-        fields = '__all__'
+        fields = ['id', 'title', 'slug', 'exam', 'exam_name', 'post_name', 'content', 'pdf_file', 'created_at', 'updated_at']
 
 
 class JobListingSerializer(serializers.ModelSerializer):
@@ -85,7 +85,13 @@ class JobListingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobListing
-        fields = '__all__'
+        fields = [
+            'id', 'title', 'exam', 'exam_name', 'syllabus', 'syllabus_title',
+            'department', 'location', 'bps_grade', 'description', 'qualifications',
+            'vacancies', 'salary_range', 'experience', 'age_limit',
+            'responsibilities', 'how_to_apply',
+            'last_date', 'apply_link', 'status', 'created_at', 'updated_at',
+        ]
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -118,6 +124,12 @@ class ActivityLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActivityLog
         fields = '__all__'
+
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Announcement
+        fields = ['id', 'text', 'url', 'placement', 'is_active', 'sort_order']
 
 
 class DashboardStatsSerializer(serializers.Serializer):

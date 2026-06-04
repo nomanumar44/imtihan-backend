@@ -1,0 +1,168 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Announcements{% endblock %}
+{% block content %}
+
+<style>
+  .ann-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  .ann-form {
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 18px;
+    background: #fff;
+  }
+  .ann-form h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--color-text-primary);
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #fff;
+    outline: none;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-text-primary);
+    margin: 4px 0 18px;
+  }
+  .checkbox-row input { width: 16px; height: 16px; accent-color: var(--brand-green); }
+  .helptext {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 5px; }
+  .muted { font-size: 12px; color: var(--color-text-tertiary); }
+  .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inline-delete { display: inline; }
+  @media(max-width: 980px) { .ann-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">Announcement Bar</div>
+    <div class="page-subtitle">{{ total_count }} item{{ total_count|pluralize }} — shown in the site-wide bar on the home page</div>
+  </div>
+</div>
+
+<div class="ann-grid">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Text</th>
+          <th>Placement</th>
+          <th>Link</th>
+          <th>Sort</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ann in announcements %}
+          <tr>
+            <td><strong>{{ ann.text }}</strong></td>
+            <td>
+              {% if ann.placement == 'headline' %}
+                <span class="badge badge-blue">Headline</span>
+              {% else %}
+                <span class="badge badge-purple">Quick link</span>
+              {% endif %}
+            </td>
+            <td class="truncate" title="{{ ann.url }}">{{ ann.url|default:"—" }}</td>
+            <td>{{ ann.sort_order }}</td>
+            <td>
+              {% if ann.is_active %}
+                <span class="badge badge-green">Active</span>
+              {% else %}
+                <span class="badge badge-red">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'dashboard_announcement_edit' ann.pk %}" class="action-btn">Edit</a>
+                <form method="post" action="{% url 'dashboard_announcement_delete' ann.pk %}" id="del-ann-{{ ann.pk }}" class="inline-delete">
+                  {% csrf_token %}
+                  <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete this announcement? This cannot be undone.',function(){document.getElementById('del-ann-{{ ann.pk }}').submit();},'Delete announcement','This action cannot be undone.');return false;">Delete</a>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="empty-state"><i class="ti ti-speakerphone"></i>No announcements yet</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ann-form">
+    <h3><i class="ti ti-plus"></i> Add Announcement</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.text.id_for_label }}">Text</label>
+        {{ form.text }}
+        {{ form.text.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.placement.id_for_label }}">Placement</label>
+        {{ form.placement }}
+        <span class="helptext">Headline shows as the bell message on the left. Quick link shows on the right.</span>
+        {{ form.placement.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.url.id_for_label }}">Link (optional)</label>
+        {{ form.url }}
+        <span class="helptext">e.g. /past-papers or a full https:// URL. Leave blank for plain text.</span>
+        {{ form.url.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.sort_order.id_for_label }}">Sort Order</label>
+        {{ form.sort_order }}
+        {{ form.sort_order.errors }}
+      </div>
+      <label class="checkbox-row">
+        {{ form.is_active }} Active (visible on site)
+      </label>
+      {{ form.is_active.errors }}
+      <button type="submit" class="btn-add" style="width:100%;justify-content:center">
+        <i class="ti ti-device-floppy"></i> Save Announcement
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

@@ -16,11 +16,13 @@ from openpyxl.utils import get_column_letter
 
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog, ContactMessage
+    JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement,
+    SectionContent
 )
 from .forms import (
     JobListingForm, SyllabusForm, PastPaperForm, MCQForm,
-    CurrentAffairsCategoryForm,
+    CurrentAffairsCategoryForm, AnnouncementForm, ExamForm, SectionContentForm,
+    SubjectForm,
 )
 from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
@@ -160,6 +162,75 @@ def dashboard_mcq_create(request):
         'current_affairs_categories': current_affairs_categories,
     }
     return render(request, 'dashboard/mcq_create.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_mcq_create_with_paper(request, paper_pk):
+    """Create an MCQ pre-linked to a specific past paper."""
+    paper = get_object_or_404(PastPaper, pk=paper_pk)
+    if request.method == 'POST':
+        form = MCQForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'MCQ linked to paper successfully.')
+            return redirect('dashboard_past_papers')
+    else:
+        form = MCQForm(initial={
+            'past_paper': paper.pk,
+            'exam': paper.exam.pk if paper.exam else None,
+            'subject': paper.subject.pk if paper.subject else None,
+        })
+
+    context = {
+        'form': form,
+        'title': f'Add MCQ to {paper.title}',
+        'active_page': 'past_papers',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_paper_mcqs(request, paper_pk):
+    """Manage all MCQs linked to a specific past paper — add, view, edit, delete."""
+    paper = get_object_or_404(PastPaper.objects.select_related('exam', 'subject'), pk=paper_pk)
+
+    if request.method == 'POST':
+        form = MCQForm(request.POST)
+        if form.is_valid():
+            mcq = form.save(commit=False)
+            mcq.past_paper = paper
+            mcq.created_by = request.user
+            mcq.save()
+            messages.success(request, 'MCQ added to paper successfully.')
+            return redirect('dashboard_paper_mcqs', paper_pk=paper.pk)
+    else:
+        form = MCQForm(initial={
+            'past_paper': paper.pk,
+            'exam': paper.exam.pk if paper.exam else None,
+            'subject': paper.subject.pk if paper.subject else None,
+        })
+
+    mcqs = MCQ.objects.filter(past_paper=paper).select_related('exam', 'subject').order_by('id')
+    total_count = mcqs.count()
+
+    # Pagination
+    paginator = Paginator(mcqs, 25)
+    page = request.GET.get('page')
+    try:
+        mcqs_page = paginator.page(page)
+    except PageNotAnInteger:
+        mcqs_page = paginator.page(1)
+    except EmptyPage:
+        mcqs_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'paper': paper,
+        'form': form,
+        'mcqs': mcqs_page,
+        'total_count': total_count,
+        'active_page': 'past_papers',
+    }
+    return render(request, 'dashboard/paper_mcqs.html', context)
 
 
 @login_required(login_url='/dashboard/login/')
@@ -472,6 +543,225 @@ def dashboard_test_results(request):
         'total_count': total_count,
     }
     return render(request, 'dashboard/test_results.html', context)
+
+
+# ─── Page sections CRUD ────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_sections(request):
+    """List and create editable frontend section headings."""
+    if request.method == 'POST':
+        form = SectionContentForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Section content added successfully.')
+            return redirect('dashboard_sections')
+    else:
+        form = SectionContentForm()
+
+    sections = SectionContent.objects.all()
+    context = {
+        'active_page': 'sections',
+        'sections': sections,
+        'form': form,
+        'total_count': sections.count(),
+    }
+    return render(request, 'dashboard/sections.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_section_edit(request, pk):
+    section = get_object_or_404(SectionContent, pk=pk)
+    if request.method == 'POST':
+        form = SectionContentForm(request.POST, instance=section)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Section content updated successfully.')
+            return redirect('dashboard_sections')
+    else:
+        form = SectionContentForm(instance=section)
+
+    context = {
+        'form': form,
+        'title': 'Edit Section Content',
+        'active_page': 'sections',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_section_delete(request, pk):
+    section = get_object_or_404(SectionContent, pk=pk)
+    if request.method == 'POST':
+        section.delete()
+        messages.success(request, 'Section content deleted.')
+    return redirect('dashboard_sections')
+
+
+# ─── Exam boards CRUD ─────────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_exams(request):
+    """List and create exam boards."""
+    if request.method == 'POST':
+        form = ExamForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Exam board added successfully.')
+            return redirect('dashboard_exams')
+    else:
+        form = ExamForm()
+
+    exams = Exam.objects.annotate(
+        mcq_count=Count('mcqs', distinct=True),
+        paper_count=Count('past_papers', distinct=True),
+        syllabus_count=Count('syllabi', distinct=True),
+    ).order_by('name')
+    context = {
+        'active_page': 'exams',
+        'exams': exams,
+        'form': form,
+        'total_count': exams.count(),
+    }
+    return render(request, 'dashboard/exams.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_exam_edit(request, pk):
+    exam = get_object_or_404(Exam, pk=pk)
+    if request.method == 'POST':
+        form = ExamForm(request.POST, instance=exam)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Exam board updated successfully.')
+            return redirect('dashboard_exams')
+    else:
+        form = ExamForm(instance=exam)
+
+    context = {
+        'form': form,
+        'title': 'Edit Exam Board',
+        'active_page': 'exams',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_exam_delete(request, pk):
+    exam = get_object_or_404(Exam, pk=pk)
+    if request.method == 'POST':
+        name = exam.name
+        exam.delete()
+        messages.success(request, f'Deleted "{name}" and its linked content.')
+    return redirect('dashboard_exams')
+
+
+# ─── Subjects CRUD ────────────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_subjects(request):
+    """List and create subjects."""
+    if request.method == 'POST':
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Subject added successfully.')
+            return redirect('dashboard_subjects')
+    else:
+        form = SubjectForm()
+
+    subjects = Subject.objects.annotate(mcq_count=Count('mcqs', distinct=True)).order_by('name')
+    context = {
+        'active_page': 'subjects',
+        'subjects': subjects,
+        'form': form,
+        'total_count': subjects.count(),
+    }
+    return render(request, 'dashboard/subjects.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_subject_edit(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == 'POST':
+        form = SubjectForm(request.POST, instance=subject)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Subject updated successfully.')
+            return redirect('dashboard_subjects')
+    else:
+        form = SubjectForm(instance=subject)
+
+    context = {
+        'form': form,
+        'title': 'Edit Subject',
+        'active_page': 'subjects',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_subject_delete(request, pk):
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == 'POST':
+        name = subject.name
+        mcq_count = subject.mcqs.count()
+        subject.delete()
+        messages.success(request, f'Deleted "{name}" and its {mcq_count} linked MCQs.')
+    return redirect('dashboard_subjects')
+
+
+# ─── Announcements CRUD ───────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_announcements(request):
+    """List and create announcement-bar items."""
+    if request.method == 'POST':
+        form = AnnouncementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Announcement added successfully.')
+            return redirect('dashboard_announcements')
+    else:
+        form = AnnouncementForm()
+
+    announcements = Announcement.objects.all()
+    context = {
+        'active_page': 'announcements',
+        'announcements': announcements,
+        'form': form,
+        'total_count': announcements.count(),
+    }
+    return render(request, 'dashboard/announcements.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_announcement_edit(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if request.method == 'POST':
+        form = AnnouncementForm(request.POST, instance=announcement)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Announcement updated successfully.')
+            return redirect('dashboard_announcements')
+    else:
+        form = AnnouncementForm(instance=announcement)
+
+    context = {
+        'form': form,
+        'title': 'Edit Announcement',
+        'active_page': 'announcements',
+    }
+    return render(request, 'dashboard/form.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_announcement_delete(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if request.method == 'POST':
+        announcement.delete()
+        messages.success(request, 'Announcement deleted.')
+    return redirect('dashboard_announcements')
 
 
 @login_required(login_url='/dashboard/login/')

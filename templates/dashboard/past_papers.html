@@ -7,22 +7,30 @@
 </div>
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Title</th><th>Exam</th><th>Subject</th><th>Year</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Title</th><th>Exam</th><th>Subject</th><th>Year</th><th>MCQs</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>
       {% for p in papers %}
       <tr>
-        <td>{{ p.title|truncatechars:50 }}</td>
+        <td>{{ p.title|truncatechars:45 }}</td>
         <td><span class="badge badge-{{ p.exam.badge_color }}">{{ p.exam.name }}</span></td>
         <td>{{ p.subject.name|default:"—" }}</td>
         <td>{{ p.year }}</td>
+        <td>
+          {% if p.mcqs.count > 0 %}
+            <span class="badge badge-green">{{ p.mcqs.count }}</span>
+          {% else %}
+            <span class="text-slate-400 text-xs">0</span>
+          {% endif %}
+        </td>
         <td>{% if p.status == 'published' %}<span class="badge badge-blue">Published</span>{% else %}<span class="badge badge-amber">Draft</span>{% endif %}</td>
         <td>
           <a href="{% url 'dashboard_past_paper_edit' p.id %}" class="action-btn">Edit</a>
-          <button onclick="apiDelete('/api/past-papers/{{ p.id }}/')" class="action-btn danger">Delete</button>
+          <a href="{% url 'dashboard_paper_mcqs' p.id %}" class="action-btn" style="background:#0ea5e9;color:#fff;">Manage MCQs</a>
+          <button onclick="showConfirmModal('Delete paper', 'Are you sure you want to delete &quot;{{ p.title|escapejs }}&quot;?', function(){ apiDelete('/api/past-papers/{{ p.id }}/'); })" class="action-btn danger">Delete</button>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="empty-state"><i class="ti ti-file-off"></i>No past papers yet</td></tr>
+      <tr><td colspan="7" class="empty-state"><i class="ti ti-file-off"></i>No past papers yet</td></tr>
       {% endfor %}
     </tbody>
   </table>

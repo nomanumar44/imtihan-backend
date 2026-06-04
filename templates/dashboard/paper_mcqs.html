@@ -1,0 +1,219 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ paper.title }} — MCQs{% endblock %}
+{% block content %}
+
+<style>
+  .paper-header {
+    background: linear-gradient(135deg, #0B2A3C 0%, #0D3D4D 100%);
+    border-radius: 10px;
+    padding: 18px 22px;
+    color: #fff;
+    margin-bottom: 20px;
+  }
+  .paper-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .paper-meta { font-size: 12px; color: rgba(255,255,255,0.7); display: flex; gap: 12px; flex-wrap: wrap; }
+  .paper-meta span { display: flex; align-items: center; gap: 4px; }
+  .add-form {
+    background: #f8fffe;
+    border: 1.5px solid #b2dfdb;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+  .add-form h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0C3638;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .form-grid .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .form-grid .form-row.full {
+    grid-column: 1 / -1;
+  }
+  .form-grid .form-row.half {
+    grid-column: span 2;
+  }
+  .form-grid label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .form-grid input,
+  .form-grid select,
+  .form-grid textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+  .form-grid input:focus,
+  .form-grid select:focus,
+  .form-grid textarea:focus {
+    outline: none;
+    border-color: #1D9E75;
+  }
+  .btn-add-mcq {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: #1D9E75;
+    color: #fff;
+    margin-top: 8px;
+  }
+  .btn-add-mcq:hover { background: #0F6E56; }
+  .mcq-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #0F6E56;
+    background: #E1F5EE;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  @media (max-width: 900px) {
+    .form-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 500px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .form-row.half { grid-column: 1 / -1; }
+  }
+</style>
+
+<div class="top-bar" style="margin-bottom: 10px;">
+  <div>
+    <div class="page-title">Paper MCQs</div>
+    <div class="page-subtitle">Manage questions linked to this past paper</div>
+  </div>
+  <a href="{% url 'dashboard_past_papers' %}" class="btn-back" style="text-decoration:none;">← Back to Papers</a>
+</div>
+
+<!-- Paper Info -->
+<div class="paper-header">
+  <div class="paper-title">{{ paper.title }}</div>
+  <div class="paper-meta">
+    <span><i class="ti ti-building"></i> {{ paper.exam.name }}</span>
+    {% if paper.subject %}<span><i class="ti ti-book"></i> {{ paper.subject.name }}</span>{% endif %}
+    <span><i class="ti ti-calendar"></i> {{ paper.year }}</span>
+    <span><i class="ti ti-file-check"></i> {{ total_count }} MCQs</span>
+  </div>
+</div>
+
+<!-- Add MCQ Form -->
+<div class="add-form">
+  <h3><i class="ti ti-plus" style="color:#1D9E75"></i> Add New MCQ to this Paper</h3>
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="form-row full">
+        <label>Question</label>
+        <textarea name="question_text" rows="2" placeholder="Enter question text..." required>{{ form.question_text.value|default:'' }}</textarea>
+      </div>
+      <div class="form-row">
+        <label>Option A</label>
+        <input type="text" name="option_a" value="{{ form.option_a.value|default:'' }}" placeholder="Option A" required>
+      </div>
+      <div class="form-row">
+        <label>Option B</label>
+        <input type="text" name="option_b" value="{{ form.option_b.value|default:'' }}" placeholder="Option B" required>
+      </div>
+      <div class="form-row">
+        <label>Option C</label>
+        <input type="text" name="option_c" value="{{ form.option_c.value|default:'' }}" placeholder="Option C" required>
+      </div>
+      <div class="form-row">
+        <label>Option D</label>
+        <input type="text" name="option_d" value="{{ form.option_d.value|default:'' }}" placeholder="Option D" required>
+      </div>
+      <div class="form-row">
+        <label>Correct Option</label>
+        <select name="correct_option" required>
+          <option value="A" {% if form.correct_option.value == 'A' %}selected{% endif %}>A</option>
+          <option value="B" {% if form.correct_option.value == 'B' %}selected{% endif %}>B</option>
+          <option value="C" {% if form.correct_option.value == 'C' %}selected{% endif %}>C</option>
+          <option value="D" {% if form.correct_option.value == 'D' %}selected{% endif %}>D</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Status</label>
+        <select name="status">
+          <option value="draft" {% if form.status.value == 'draft' %}selected{% endif %}>Draft</option>
+          <option value="published" {% if form.status.value == 'published' %}selected{% endif %}>Published</option>
+        </select>
+      </div>
+      <div class="form-row half">
+        <label>Explanation (optional)</label>
+        <input type="text" name="explanation" value="{{ form.explanation.value|default:'' }}" placeholder="Explanation...">
+      </div>
+      <!-- Hidden fields auto-filled by the view -->
+      <input type="hidden" name="exam" value="{{ paper.exam.pk }}">
+      <input type="hidden" name="subject" value="{{ paper.subject.pk|default:'' }}">
+      <input type="hidden" name="past_paper" value="{{ paper.pk }}">
+    </div>
+    <button type="submit" class="btn-add-mcq">
+      <i class="ti ti-plus"></i> Add MCQ & Add Another
+    </button>
+  </form>
+</div>
+
+<!-- MCQ List -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>Question</th>
+        <th style="width:60px">Correct</th>
+        <th style="width:80px">Status</th>
+        <th style="width:120px">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mcq in mcqs %}
+      <tr>
+        <td style="font-size:12px;color:var(--color-text-tertiary)">{{ forloop.counter }}</td>
+        <td class="truncate">{{ mcq.question_text|truncatechars:70 }}</td>
+        <td><span class="badge badge-green">{{ mcq.correct_option }}</span></td>
+        <td>
+          {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
+          {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'dashboard_mcq_edit' mcq.id %}" class="action-btn">Edit</a>
+          <button class="action-btn danger" onclick="showConfirmModal('Delete MCQ', 'Are you sure?', function(){ apiDelete('/api/mcqs/{{ mcq.id }}/'); })">Delete</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty-state"><i class="ti ti-clipboard-off"></i>No MCQs linked to this paper yet. Add one above.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=mcqs %}
+
+{% endblock %}

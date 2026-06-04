@@ -1,14 +1,45 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 
 class Exam(models.Model):
     """Exam body like PPSC, FPSC, NTS, SPSC, etc."""
+
+    class Icon(models.TextChoices):
+        LANDMARK = 'landmark', 'Landmark'
+        FLAG = 'flag', 'Flag'
+        AWARD = 'award', 'Award'
+        CROWN = 'crown', 'Crown'
+        BUILDING = 'building', 'Building'
+        SHIELD = 'shield', 'Shield'
+        FILE = 'file', 'File'
+        BOOK = 'book', 'Book'
+
+    COLOR_CHOICES = [
+        ('green', 'Green'),
+        ('blue', 'Blue'),
+        ('amber', 'Amber'),
+        ('red', 'Red'),
+        ('rose', 'Rose'),
+        ('violet', 'Violet'),
+        ('cyan', 'Cyan'),
+        ('slate', 'Slate'),
+    ]
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
+    description = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text='Full name shown under the badge, e.g. Punjab Public Service Commission'
+    )
+    icon = models.CharField(
+        max_length=20, choices=Icon.choices, default=Icon.LANDMARK,
+        help_text='Icon shown on the exam card.'
+    )
     badge_color = models.CharField(
-        max_length=10, default='green',
-        help_text='Badge color class: green, blue, amber, red'
+        max_length=10, choices=COLOR_CHOICES, default='green',
+        help_text='Accent color for the exam card.'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -24,6 +55,18 @@ class Subject(models.Model):
     """Subject like Pakistan Studies, English, Math, etc."""
     name = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(max_length=220, unique=True)
+    icon = models.CharField(
+        max_length=20,
+        choices=Exam.Icon.choices,
+        default=Exam.Icon.LANDMARK,
+        help_text='Icon shown on the subject card.'
+    )
+    badge_color = models.CharField(
+        max_length=10,
+        choices=Exam.COLOR_CHOICES,
+        default='green',
+        help_text='Accent color for the subject card.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -86,11 +129,11 @@ class MCQ(models.Model):
         choices=[('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')]
     )
     explanation = models.TextField(blank=True, default='')
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='mcqs')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='mcqs')
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='mcqs', db_index=True)
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='mcqs', db_index=True)
     past_paper = models.ForeignKey(
         'PastPaper', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='mcqs'
+        related_name='mcqs', db_index=True
     )
     current_affairs_category = models.ForeignKey(
         CurrentAffairsCategory,
@@ -102,7 +145,7 @@ class MCQ(models.Model):
     )
     source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.DRAFT
+        max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True
     )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='mcqs'
@@ -114,9 +157,16 @@ class MCQ(models.Model):
         ordering = ['-created_at']
         verbose_name = 'MCQ'
         verbose_name_plural = 'MCQs'
+        indexes = [
+            models.Index(fields=['exam', 'subject', 'status']),
+        ]
 
     def __str__(self):
         return self.question_text[:80]
+
+    def clean(self):
+        if self.correct_option == 'D' and not self.option_d.strip():
+            raise ValidationError("Correct option cannot be 'D' when option D is empty.")
 
 
 class PastPaper(models.Model):
@@ -127,17 +177,17 @@ class PastPaper(models.Model):
         PUBLISHED = 'published', 'Published'
 
     title = models.CharField(max_length=300)
-    slug = models.SlugField(max_length=350, unique=True, blank=True, default='')
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='past_papers')
+    slug = models.SlugField(max_length=350, unique=True, blank=True, default='', db_index=True)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='past_papers', db_index=True)
     subject = models.ForeignKey(
-        Subject, on_delete=models.CASCADE, related_name='past_papers',
-        null=True, blank=True
+        Subject, on_delete=models.SET_NULL, related_name='past_papers',
+        null=True, blank=True, db_index=True
     )
     year = models.PositiveIntegerField(default=0)
     pdf_file = models.FileField(upload_to='past_papers/', blank=True, null=True)
     source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.DRAFT
+        max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True
     )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True
@@ -151,11 +201,24 @@ class PastPaper(models.Model):
     def __str__(self):
         return f"{self.title} ({self.year})"
 
+    def clean(self):
+        from django.utils.text import slugify
+        if not self.slug.strip():
+            base = f"{self.title}-{self.year}" if self.title and self.year else (self.title or 'paper')
+            self.slug = slugify(base)[:350]
+        if not self.slug.strip():
+            raise ValidationError("Unable to generate a valid slug. Please provide a title or slug.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class Syllabus(models.Model):
     """Syllabus for an exam/post"""
     title = models.CharField(max_length=300)
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='syllabi')
+    slug = models.SlugField(max_length=350, unique=True, blank=True, default='', db_index=True)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='syllabi', db_index=True)
     post_name = models.CharField(max_length=200, blank=True, default='')
     content = models.TextField(help_text='Syllabus content in markdown or plain text')
     pdf_file = models.FileField(upload_to='syllabus/', blank=True, null=True)
@@ -168,6 +231,18 @@ class Syllabus(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        from django.utils.text import slugify
+        if not self.slug.strip():
+            base = f"{self.title}-{self.post_name}" if self.title and self.post_name else (self.title or 'syllabus')
+            self.slug = slugify(base)[:350]
+        if not self.slug.strip():
+            raise ValidationError("Unable to generate a valid slug. Please provide a title or slug.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class JobListing(models.Model):
@@ -192,10 +267,16 @@ class JobListing(models.Model):
     bps_grade = models.CharField(max_length=50, blank=True, default='', help_text="e.g., BPS-14, BPS-16")
     description = models.TextField()
     qualifications = models.TextField(blank=True, default='')
+    vacancies = models.PositiveIntegerField(default=1, help_text='Number of open positions')
+    salary_range = models.CharField(max_length=200, blank=True, default='', help_text='e.g., Rs. 22,000 - 65,000/month')
+    experience = models.CharField(max_length=200, blank=True, default='', help_text='e.g., Fresh candidates can apply')
+    age_limit = models.CharField(max_length=100, blank=True, default='', help_text='e.g., 18-25 years (plus 5 years relaxation)')
+    responsibilities = models.JSONField(default=list, blank=True, help_text='List of key responsibilities (one per line in admin)')
+    how_to_apply = models.JSONField(default=list, blank=True, help_text='List of how-to-apply steps (one per line in admin)')
     last_date = models.DateField(null=True, blank=True)
     apply_link = models.URLField(blank=True, default='')
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.ACTIVE
+        max_length=10, choices=Status.choices, default=Status.ACTIVE, db_index=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -272,6 +353,65 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return self.message[:80]
+
+
+class Announcement(models.Model):
+    """Items shown in the site-wide announcement bar.
+
+    A `headline` placement renders as the bell message on the left, while
+    `link` placement items render as quick links on the right of the bar.
+    """
+
+    class Placement(models.TextChoices):
+        HEADLINE = 'headline', 'Headline (left message)'
+        LINK = 'link', 'Quick link (right side)'
+
+    text = models.CharField(
+        max_length=255,
+        help_text='Announcement message or quick-link label.'
+    )
+    url = models.CharField(
+        max_length=500, blank=True, default='',
+        help_text='Optional link. Leave blank for a non-clickable message.'
+    )
+    placement = models.CharField(
+        max_length=10, choices=Placement.choices, default=Placement.HEADLINE
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', '-created_at']
+
+    def __str__(self):
+        return self.text[:80]
+
+
+class SectionContent(models.Model):
+    """Editable heading/subheading text for frontend sections.
+
+    The `key` is referenced by the frontend (e.g. `exam_board`) to look up
+    the title/subtitle so admins can edit section copy without code changes.
+    """
+
+    key = models.SlugField(
+        max_length=60, unique=True,
+        help_text='Identifier used by the frontend, e.g. exam_board'
+    )
+    title = models.CharField(max_length=200)
+    subtitle = models.CharField(max_length=300, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['key']
+        verbose_name = 'Section Content'
+        verbose_name_plural = 'Section Content'
+
+    def __str__(self):
+        return self.key
 
 
 class ContactMessage(models.Model):

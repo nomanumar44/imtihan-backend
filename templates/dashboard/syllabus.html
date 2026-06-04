@@ -7,11 +7,12 @@
 </div>
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Title</th><th>Exam</th><th>Post</th><th>Updated</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Title</th><th>Slug</th><th>Exam</th><th>Post</th><th>Updated</th><th>Actions</th></tr></thead>
     <tbody>
       {% for s in syllabi %}
       <tr>
         <td>{{ s.title|truncatechars:50 }}</td>
+        <td class="muted">{{ s.slug|default:"—" }}</td>
         <td><span class="badge badge-{{ s.exam.badge_color }}">{{ s.exam.name }}</span></td>
         <td>{{ s.post_name|default:"—" }}</td>
         <td style="font-size:12px;color:var(--color-text-tertiary)">{{ s.updated_at|date:"d M Y" }}</td>
@@ -21,7 +22,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="empty-state"><i class="ti ti-book-off"></i>No syllabi yet</td></tr>
+      <tr><td colspan="6" class="empty-state"><i class="ti ti-book-off"></i>No syllabi yet</td></tr>
       {% endfor %}
     </tbody>
   </table>
