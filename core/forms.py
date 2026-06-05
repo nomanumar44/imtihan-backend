@@ -73,14 +73,14 @@ class SubjectForm(forms.ModelForm):
 
 class JobListingForm(forms.ModelForm):
     responsibilities = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'One responsibility per line...'}),
+        widget=forms.Textarea(attrs={'class': 'form-input rich-text-editor', 'rows': 5, 'placeholder': 'Describe key responsibilities...'}),
         required=False,
-        help_text='Enter one responsibility per line. They will be saved as a list.'
+        help_text='Use the editor to format responsibilities. They will be saved as rich text.'
     )
     how_to_apply = forms.CharField(
-        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'One step per line...'}),
+        widget=forms.Textarea(attrs={'class': 'form-input rich-text-editor', 'rows': 5, 'placeholder': 'Describe application steps...'}),
         required=False,
-        help_text='Enter one step per line. They will be saved as a list.'
+        help_text='Use the editor to format how-to-apply steps. They will be saved as rich text.'
     )
 
     class Meta:
@@ -119,23 +119,28 @@ class JobListingForm(forms.ModelForm):
 
     def clean_responsibilities(self):
         text = self.cleaned_data.get('responsibilities', '')
-        return [line.strip() for line in text.splitlines() if line.strip()]
+        stripped = text.strip()
+        return [stripped] if stripped else []
 
     def clean_how_to_apply(self):
         text = self.cleaned_data.get('how_to_apply', '')
-        return [line.strip() for line in text.splitlines() if line.strip()]
+        stripped = text.strip()
+        return [stripped] if stripped else []
 
 
 class SyllabusForm(forms.ModelForm):
     class Meta:
         model = Syllabus
-        fields = ['title', 'slug', 'exam', 'post_name', 'content', 'pdf_file']
+        fields = ['title', 'slug', 'exam', 'post_name', 'bps_grade', 'marks', 'time', 'content', 'pdf_file']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Sub Inspector Syllabus'}),
             'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto generated from title if empty'}),
             'exam': forms.Select(attrs={'class': 'form-input'}),
             'post_name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Sub Inspector'}),
-            'content': forms.Textarea(attrs={'class': 'form-input', 'rows': 6, 'placeholder': 'Syllabus topics and distribution...'}),
+            'bps_grade': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., BPS-14'}),
+            'marks': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'e.g., 100', 'min': 1}),
+            'time': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., 90 minutes'}),
+            'content': forms.Textarea(attrs={'class': 'form-input rich-text-editor', 'rows': 6, 'placeholder': 'Syllabus topics and distribution...'}),
             'pdf_file': forms.FileInput(attrs={'class': 'form-input'}),
         }
 

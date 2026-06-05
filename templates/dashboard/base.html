@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
   <style>
     /* ─── CSS Variables (Design Tokens) ─────────────────────────── */
     :root {
@@ -422,6 +423,50 @@
       pointer-events: none;
     }
 
+    /* ─── Choices.js Custom Overrides ───────────────────────────── */
+    .choices { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; margin-bottom: 0; }
+    .choices__inner {
+      min-height: 40px;
+      padding: 7px 14px;
+      border: 0.5px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      font-size: 14px;
+      color: var(--color-text-primary);
+      background: #ffffff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .choices__inner:hover { border-color: var(--color-border-secondary); }
+    .choices.is-focused .choices__inner {
+      border-color: var(--brand-green);
+      box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+    }
+    .choices__list--dropdown {
+      border: 0.5px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      margin-top: 4px;
+    }
+    .choices__list--dropdown .choices__item {
+      font-size: 13px;
+      padding: 8px 12px;
+      color: var(--color-text-primary);
+    }
+    .choices__list--dropdown .choices__item--selectable.is-highlighted {
+      background: var(--brand-green-bg);
+    }
+    .choices__input {
+      font-size: 14px;
+      color: var(--color-text-primary);
+      background: transparent;
+    }
+    .choices[data-type*=select-one]::after {
+      border-color: var(--color-text-secondary) transparent transparent;
+      right: 10px;
+    }
+    .choices[data-type*=select-one].is-open::after {
+      border-color: transparent transparent var(--color-text-secondary);
+    }
+
     /* ─── Responsive ─────────────────────────────────────────────── */
     @media (max-width: 900px) {
       .admin-wrap { grid-template-columns: 1fr; }
@@ -430,6 +475,16 @@
       .two-col { grid-template-columns: 1fr; }
     }
   </style>
+  {% if active_page == 'jobs' or active_page == 'syllabus' %}
+  <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+  <style>
+    .ql-toolbar { border-radius: var(--border-radius-md) var(--border-radius-md) 0 0; border-color: var(--color-border-secondary); border-bottom: none; }
+    .ql-container { border-radius: 0 0 var(--border-radius-md) var(--border-radius-md); border-color: var(--color-border-secondary); font-family: 'Inter', sans-serif; }
+    .ql-editor { min-height: 160px; font-size: 14px; color: var(--color-text-primary); }
+    .rich-text-editor { display: none; }
+  </style>
+  {% endif %}
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
   <div class="admin-wrap">
@@ -602,5 +657,58 @@
       document.getElementById('confirmModal').style.display = 'flex';
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('select').forEach(function(select) {
+        if (select.closest('.choices')) return;
+        new Choices(select, {
+          searchEnabled: true,
+          shouldSort: false,
+          searchPlaceholderValue: 'Search...',
+          noResultsText: 'No results found',
+          itemSelectText: 'Press to select',
+          allowHTML: false,
+        });
+      });
+    });
+  </script>
+  {% if active_page == 'jobs' or active_page == 'syllabus' %}
+  <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('textarea.rich-text-editor').forEach(function(textarea) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'quill-wrapper';
+      textarea.parentNode.insertBefore(wrapper, textarea);
+      const editorDiv = document.createElement('div');
+      editorDiv.style.minHeight = '160px';
+      wrapper.appendChild(editorDiv);
+      const quill = new Quill(editorDiv, {
+        theme: 'snow',
+        placeholder: textarea.placeholder || 'Type here...',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['link'],
+            ['clean']
+          ]
+        }
+      });
+      if (textarea.value) {
+        quill.root.innerHTML = textarea.value;
+      }
+      const form = textarea.closest('form');
+      if (form) {
+        form.addEventListener('submit', function() {
+          textarea.value = quill.root.innerHTML;
+        });
+      }
+    });
+  });
+  </script>
+  {% endif %}
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

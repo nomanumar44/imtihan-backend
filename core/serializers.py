@@ -76,7 +76,7 @@ class SyllabusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Syllabus
-        fields = ['id', 'title', 'slug', 'exam', 'exam_name', 'post_name', 'content', 'pdf_file', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'slug', 'exam', 'exam_name', 'post_name', 'bps_grade', 'marks', 'time', 'content', 'pdf_file', 'created_at', 'updated_at']
 
 
 class JobListingSerializer(serializers.ModelSerializer):

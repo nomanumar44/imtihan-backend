@@ -35,6 +35,6 @@ urlpatterns = [
     path('frontend/past-papers/<slug:slug>/', views.frontend_past_paper_detail, name='api-past-paper-detail'),
     path('frontend/past-papers/<slug:slug>/pdf/', views.frontend_past_paper_pdf, name='api-past-paper-pdf'),
     path('frontend/syllabus/', views.frontend_syllabus_list, name='api-frontend-syllabus-list'),
-    path('frontend/syllabus/<int:pk>/', views.frontend_syllabus_detail, name='api-frontend-syllabus-detail'),
+    path('frontend/syllabus/<slug:slug>/', views.frontend_syllabus_detail, name='api-frontend-syllabus-detail'),
     path('frontend/contact/', views.frontend_contact, name='api-frontend-contact'),
 ]

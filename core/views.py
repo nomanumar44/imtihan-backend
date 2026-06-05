@@ -541,45 +541,58 @@ def student_login(request):
 def current_affairs_months(request):
     """
     Returns grouped list of months with MCQ counts for subject 'Current Affairs'
-    grouped by year.
+    grouped by year. Includes per-region counts.
     """
     try:
-        mcqs = MCQ.objects.filter(subject__slug='current-affairs', status='published')
-        
+        mcqs = MCQ.objects.filter(subject__slug='current-affairs', status='published').select_related('current_affairs_category')
+
         if not mcqs.exists():
             return Response({
                 '2026': [
-                    { 'name': 'January 2026', 'slug': 'january', 'count': 120 },
-                    { 'name': 'February 2026', 'slug': 'february', 'count': 95 },
-                    { 'name': 'March 2026', 'slug': 'march', 'count': 110 },
-                    { 'name': 'April 2026', 'slug': 'april', 'count': 85 },
-                    { 'name': 'May 2026', 'slug': 'may', 'count': 70 },
+                    { 'name': 'January 2026', 'slug': 'january', 'count': 120, 'pak_count': 60, 'world_count': 60 },
+                    { 'name': 'February 2026', 'slug': 'february', 'count': 95, 'pak_count': 45, 'world_count': 50 },
+                    { 'name': 'March 2026', 'slug': 'march', 'count': 110, 'pak_count': 55, 'world_count': 55 },
+                    { 'name': 'April 2026', 'slug': 'april', 'count': 85, 'pak_count': 40, 'world_count': 45 },
+                    { 'name': 'May 2026', 'slug': 'may', 'count': 70, 'pak_count': 35, 'world_count': 35 },
                 ],
                 '2025': [
-                    { 'name': 'December 2025', 'slug': 'december', 'count': 130 },
-                    { 'name': 'November 2025', 'slug': 'november', 'count': 115 },
-                    { 'name': 'October 2025', 'slug': 'october', 'count': 105 },
-                    { 'name': 'September 2025', 'slug': 'september', 'count': 90 },
-                    { 'name': 'August 2025', 'slug': 'august', 'count': 88 },
+                    { 'name': 'December 2025', 'slug': 'december', 'count': 130, 'pak_count': 65, 'world_count': 65 },
+                    { 'name': 'November 2025', 'slug': 'november', 'count': 115, 'pak_count': 55, 'world_count': 60 },
+                    { 'name': 'October 2025', 'slug': 'october', 'count': 105, 'pak_count': 50, 'world_count': 55 },
+                    { 'name': 'September 2025', 'slug': 'september', 'count': 90, 'pak_count': 45, 'world_count': 45 },
+                    { 'name': 'August 2025', 'slug': 'august', 'count': 88, 'pak_count': 43, 'world_count': 45 },
                 ]
             })
-            
+
         grouped = {}
         for mcq in mcqs:
             yr = str(mcq.created_at.year)
             m_name = mcq.created_at.strftime('%B')
             m_slug = m_name.lower()
-            
+            region = 'general'
+            cat = mcq.current_affairs_category
+            if cat:
+                region = cat.region
+
             if yr not in grouped:
                 grouped[yr] = {}
             if m_slug not in grouped[yr]:
                 grouped[yr][m_slug] = {
                     'name': f"{m_name} {yr}",
                     'slug': m_slug,
-                    'count': 0
+                    'count': 0,
+                    'pak_count': 0,
+                    'world_count': 0,
+                    'general_count': 0,
                 }
             grouped[yr][m_slug]['count'] += 1
-            
+            if region == 'pakistan':
+                grouped[yr][m_slug]['pak_count'] += 1
+            elif region == 'world':
+                grouped[yr][m_slug]['world_count'] += 1
+            else:
+                grouped[yr][m_slug]['general_count'] += 1
+
         res = {}
         for yr, months_dict in grouped.items():
             res[yr] = list(months_dict.values())
@@ -591,7 +604,8 @@ def current_affairs_months(request):
 @api_view(['GET'])
 def current_affairs_detail(request, year, month):
     """
-    Returns MCQs for a specific year and month categorized under International/Pakistan Affairs
+    Returns MCQs for a specific year and month categorized under International/Pakistan Affairs.
+    Optional query param: ?region=pakistan|world
     """
     try:
         import calendar
@@ -600,13 +614,15 @@ def current_affairs_detail(request, year, month):
         except ValueError:
             month_num = 1
 
+        region_filter = request.query_params.get('region', '').lower()
+
         mcqs = MCQ.objects.filter(
             subject__slug='current-affairs',
             status='published',
             created_at__year=year,
             created_at__month=month_num
         )
-        
+
         if not mcqs.exists():
             return Response({
                 'title': f"{month.title()} {year} Current Affairs",
@@ -626,25 +642,24 @@ def current_affairs_detail(request, year, month):
                 intl_questions.append(serialized)
             else:
                 general_questions.append(serialized)
-        
+
+        # When a region is explicitly requested, exclude general/uncategorized questions
+        # and only return the matching region category.
         categories = []
-        if intl_questions:
-            categories.append({
-                'name': 'International Affairs',
-                'questions': intl_questions
-            })
-        if pk_questions:
-            categories.append({
-                'name': 'Pakistan Affairs',
-                'questions': pk_questions
-            })
-            
-        if general_questions:
-            categories.append({
-                'name': 'General Current Affairs',
-                'questions': general_questions
-            })
-            
+        if region_filter == 'pakistan':
+            if pk_questions:
+                categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
+        elif region_filter == 'world':
+            if intl_questions:
+                categories.append({'name': 'International Affairs', 'questions': intl_questions})
+        else:
+            if intl_questions:
+                categories.append({'name': 'International Affairs', 'questions': intl_questions})
+            if pk_questions:
+                categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
+            if general_questions:
+                categories.append({'name': 'General Current Affairs', 'questions': general_questions})
+
         return Response({
             'title': f"{month.title()} {year} Current Affairs",
             'categories': categories
@@ -1067,6 +1082,7 @@ def frontend_syllabus_list(request):
             'title':      s.title,
             'slug':       s.slug,
             'post_name':  s.post_name,
+            'bps_grade':  s.bps_grade,
             'exam_name':  s.exam.name,
             'exam_slug':  s.exam.slug,
             'has_pdf':    bool(s.pdf_file),
@@ -1081,15 +1097,18 @@ def frontend_syllabus_list(request):
 
 
 @api_view(['GET'])
-def frontend_syllabus_detail(request, pk):
+def frontend_syllabus_detail(request, slug):
     """Returns one syllabus record including full content and PDF url."""
     from django.shortcuts import get_object_or_404
-    s = get_object_or_404(Syllabus.objects.select_related('exam'), pk=pk)
+    s = get_object_or_404(Syllabus.objects.select_related('exam'), slug=slug)
     return Response({
         'id':         s.id,
         'title':      s.title,
         'slug':       s.slug,
         'post_name':  s.post_name,
+        'bps_grade':  s.bps_grade,
+        'marks':      s.marks,
+        'time':       s.time,
         'exam_name':  s.exam.name,
         'exam_slug':  s.exam.slug,
         'content':    s.content,
