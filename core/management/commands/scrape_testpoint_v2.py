@@ -95,10 +95,12 @@ def _fetch_playwright(url: str, timeout: int = 30) -> str | None:
 
 
 def _fetch_curl(url: str, timeout: int = 20) -> str | None:
-    """Fallback: fetch via system curl.exe."""
+    """Fallback: fetch via system curl."""
+    import sys
+    curl_bin = 'curl.exe' if sys.platform == 'win32' else 'curl'
     try:
         r = subprocess.run(
-            ['curl.exe', '-s', '--max-time', str(timeout), '-A', CURL_UA,
+            [curl_bin, '-s', '--max-time', str(timeout), '-A', CURL_UA,
              '-H', 'Accept: text/html,*/*', '-L', url],
             capture_output=True, timeout=timeout + 5
         )

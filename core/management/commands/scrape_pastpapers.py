@@ -128,10 +128,10 @@ def _guess_pool(correct: str) -> str:
 
 
 def _curl_text(url: str, timeout: int = 20) -> str | None:
-    """Fetch a URL via system curl.exe and return response body text, or None."""
+    """Fetch a URL via system curl and return response body text, or None."""
     try:
         result = subprocess.run(
-            ['curl.exe', '-s', '--max-time', str(timeout),
+            ['curl', '-s', '--max-time', str(timeout),
              '-A', CURL_UA,
              '-H', 'Accept: text/html,application/json,*/*',
              '-H', 'Accept-Language: en-US,en;q=0.9',
@@ -202,7 +202,7 @@ def _fetch_posts_via_api(search_term: str, max_posts: int = 0) -> list[dict]:
         ).replace(' ', '%20')
         try:
             result = subprocess.run(
-                ['curl.exe', '-s', '--max-time', '20',
+                ['curl', '-s', '--max-time', '20',
                  '-A', CURL_UA,
                  '-H', 'Accept: application/json',
                  '-L', url],

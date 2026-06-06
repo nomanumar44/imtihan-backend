@@ -10,7 +10,7 @@ url = 'https://gotest.com.pk/general-english-online-test-preparation/'
 
 # Fetch using curl
 result = subprocess.run(
-    ['curl.exe', '-s', '-A', 'Mozilla/5.0', url],
+    ['curl', '-s', '-A', 'Mozilla/5.0', url],
     capture_output=True
 )
 
@@ -44,7 +44,7 @@ if test_links:
     
     print(f"\n2. Fetching test: {test_url[:80]}")
     result = subprocess.run(
-        ['curl.exe', '-s', '-A', 'Mozilla/5.0', test_url],
+        ['curl', '-s', '-A', 'Mozilla/5.0', test_url],
         capture_output=True,
         timeout=30
     )
