@@ -953,9 +953,11 @@ def dashboard_scraper(request):
             _sd_type    = request.POST.get('scrape_type', 'all')
             _sd_start   = int(request.POST.get('start_page', 1))
             _sd_max     = int(request.POST.get('max_pages', 0))
+            _tp_mode    = request.POST.get('tp_mode', 'past-papers')
             _tp_exam    = request.POST.get('tp_exam', 'all')
             _tp_engine  = request.POST.get('tp_engine', 'curl')
             _tp_max     = int(request.POST.get('tp_max_papers', 0))
+            _tp_max_pages = int(request.POST.get('tp_max_pages', 0))
             _tp_subj    = request.POST.get('tp_subject', '')
             _tp_debug   = request.POST.get('tp_debug') == '1'
             _gt_subject = request.POST.get('gt_subject', '')
@@ -978,10 +980,21 @@ def dashboard_scraper(request):
                         call_command('scrape_data', stdout=stream, stderr=stream, **kwargs)
 
                     elif _cmd == 'scrape_testpoint':
+                        kwargs = {
+                            'mode': _tp_mode,
+                            'engine': _tp_engine,
+                            'subject': _tp_subj,
+                            'debug': _tp_debug,
+                        }
+                        if _tp_mode == 'past-papers':
+                            kwargs['exam'] = _tp_exam
+                            if _tp_max > 0:
+                                kwargs['max_papers'] = _tp_max
+                        else:
+                            if _tp_max_pages > 0:
+                                kwargs['max_pages'] = _tp_max_pages
                         call_command(
-                            'scrape_testpoint', stdout=stream, stderr=stream,
-                            exam=_tp_exam, engine=_tp_engine,
-                            max_papers=_tp_max, subject=_tp_subj, debug=_tp_debug,
+                            'scrape_testpoint_v2', stdout=stream, stderr=stream, **kwargs
                         )
 
                     elif _cmd == 'scrape_gotest':

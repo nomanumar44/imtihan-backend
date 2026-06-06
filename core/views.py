@@ -1,3 +1,5 @@
+import json
+import random
 from datetime import timedelta
 from io import BytesIO
 
@@ -717,6 +719,57 @@ def frontend_mcq_sets(request, subject_slug):
     })
 
 @api_view(['GET'])
+def frontend_mcq_subject_questions(request, subject_slug):
+    """Return paginated questions for a subject, plus sets info for the sidebar."""
+    from django.shortcuts import get_object_or_404
+    from django.core.paginator import Paginator
+    subject = get_object_or_404(Subject, slug=subject_slug)
+    
+    page_num = int(request.query_params.get('page', 1))
+    page_size = 20
+    
+    mcqs = MCQ.objects.filter(subject=subject, status='published').order_by('id')
+    
+    paginator = Paginator(mcqs, page_size)
+    page_obj = paginator.get_page(page_num)
+    
+    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    questions_list = []
+    for q in page_obj.object_list:
+        questions_list.append({
+            'id': q.id,
+            'question': q.question_text,
+            'options': [q.option_a, q.option_b, q.option_c, q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
+            'correct': opt_map.get(q.correct_option, 0),
+            'explanation': q.explanation
+        })
+        
+    total = paginator.count
+    set_size = 20
+    num_sets = (total + set_size - 1) // set_size
+    sets = []
+    for i in range(num_sets):
+        start = i * set_size + 1
+        end = min((i + 1) * set_size, total)
+        sets.append({
+            'id': str(i + 1),
+            'name': f'Set {i + 1}',
+            'range': f'Questions {start}-{end}',
+            'count': end - start + 1
+        })
+
+    return Response({
+        'title': subject.name,
+        'slug': subject.slug,
+        'total': total,
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'page': page_num,
+        'questions': questions_list,
+        'sets': sets
+    })
+
+@api_view(['GET'])
 def frontend_mcq_set_detail(request, subject_slug, set_id):
     """Return exactly 20 questions for a specific test set."""
     from django.shortcuts import get_object_or_404
@@ -749,6 +802,148 @@ def frontend_mcq_set_detail(request, subject_slug, set_id):
 
     return Response({
         'title': subject.name,
+        'questions': questions_list
+    })
+
+@api_view(['GET'])
+def frontend_mock_test(request, job_slug):
+    """Generate a dynamic 100-question mock test based on specific syllabus weightages.
+
+    Predefined configs exist for known job slugs.
+    For unknown slugs:
+      1. Check query param `?breakdown={"english":20,"math":30,...}` for user-provided weightages.
+      2. If no breakdown given, auto-distribute 100 questions equally across all subjects
+         that have published MCQs in the database.
+    """
+
+    # Predefined mock test configurations (known job slugs)
+    mock_configs = {
+        'ppsc-patwari': {
+            'title': 'PPSC Patwari Mock Test',
+            'total': 100,
+            'breakdown': {
+                'english': 20,
+                'general-knowledge': 20,
+                'pakistan-studies': 20,
+                'islamic-studies': 10,
+                'computer-science': 20,
+                'mathematics': 10,
+            }
+        },
+        'fpsc-inspector-customs': {
+            'title': 'FPSC Inspector Customs Mock Test',
+            'total': 100,
+            'breakdown': {
+                'english': 20,
+                'general-knowledge': 20,
+                'current-affairs': 20,
+                'pakistan-studies': 10,
+                'islamic-studies': 10,
+                'everyday-science': 20,
+            }
+        },
+        'ppsc-sub-inspector': {
+            'title': 'PPSC Sub Inspector Mock Test',
+            'total': 100,
+            'breakdown': {
+                'english': 40,
+                'computer-science': 40,
+                'general-knowledge': 20,
+            }
+        },
+        'ppsc-assistant': {
+            'title': 'PPSC Assistant Mock Test',
+            'total': 100,
+            'breakdown': {
+                'english': 20,
+                'pakistan-studies': 10,
+                'general-knowledge': 30,
+                'islamic-studies': 10,
+                'mathematics': 10,
+                'computer-science': 20,
+            }
+        }
+    }
+
+    config = mock_configs.get(job_slug)
+
+    if not config:
+        # ── Unknown slug: try user-provided breakdown first ──
+        user_breakdown = request.query_params.get('breakdown')
+        if user_breakdown:
+            try:
+                parsed = json.loads(user_breakdown)
+                if isinstance(parsed, dict) and parsed:
+                    total = sum(parsed.values())
+                    if total == 0:
+                        total = 100
+                    config = {
+                        'title': f'Mock Test ({job_slug.replace("-", " ").title()})',
+                        'total': total,
+                        'breakdown': {str(k): int(v) for k, v in parsed.items()},
+                    }
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass  # fall through to auto-distribution
+
+        # ── Auto-distribute across all subjects with published MCQs ──
+        if not config:
+            # Find every subject slug that has at least 1 published MCQ
+            active_subjects = (
+                Subject.objects
+                .filter(mcqs__status='published')
+                .annotate(mcq_count=Count('mcqs'))
+                .filter(mcq_count__gt=0)
+                .values_list('slug', flat=True)
+                .distinct()
+                .order_by('slug')
+            )
+            subject_slugs = list(active_subjects)
+
+            if not subject_slugs:
+                return Response(
+                    {'error': 'No subjects with published MCQs found.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            total_questions = 100
+            count_per_subject = total_questions // len(subject_slugs)
+            remainder = total_questions % len(subject_slugs)
+
+            breakdown = {}
+            for i, subj_slug in enumerate(subject_slugs):
+                breakdown[subj_slug] = count_per_subject + (1 if i < remainder else 0)
+
+            config = {
+                'title': f'Mock Test ({job_slug.replace("-", " ").title()})',
+                'total': total_questions,
+                'breakdown': breakdown,
+            }
+
+    questions_list = []
+    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+
+    for subj_slug, count in config['breakdown'].items():
+        # Fetch up to `count` random questions for this subject
+        mcqs = list(MCQ.objects.filter(subject__slug=subj_slug, status='published').order_by('?')[:count])
+
+        for q in mcqs:
+            questions_list.append({
+                'id': q.id,
+                'question': q.question_text,
+                'options': [q.option_a, q.option_b, q.option_c, q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
+                'correct': opt_map.get(q.correct_option, 0),
+                'explanation': q.explanation,
+                'subject': subj_slug
+            })
+
+    # Shuffle the combined list so subjects are mixed
+    random.shuffle(questions_list)
+
+    # Ensure exactly total number of questions if possible (or less if not enough questions in DB)
+    questions_list = questions_list[:config['total']]
+
+    return Response({
+        'title': config['title'],
         'questions': questions_list
     })
 

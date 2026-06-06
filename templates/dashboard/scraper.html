@@ -87,14 +87,25 @@
 
 <!-- ── Tab 2: scrape_testpoint ───────────────────────────────────────────── -->
 <div id="t2" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
-  <p class="sc-desc">
+  <p class="sc-desc" id="tp-desc-past">
     Subject-wise past paper MCQs from <strong>testpointpk.com</strong> (PPSC / FPSC).
     <strong>Playwright</strong> or <strong>curl</strong> engine. Auto-creates <strong>PastPaper</strong> records and links MCQs.
+  </p>
+  <p class="sc-desc" id="tp-desc-impt" style="display:none;">
+    Important MCQs by category from <strong>testpointpk.com</strong>.
+    Direct MCQ scraping (no PastPaper). Select a subject below or leave empty to scrape all.
   </p>
   <form method="post">{% csrf_token %}
     <input type="hidden" name="scraper_cmd" value="scrape_testpoint">
     <div class="sc-row">
       <div class="sc-field">
+        <label class="sc-label">Mode</label>
+        <select name="tp_mode" id="tp-mode" class="sc-input" onchange="toggleTpMode(this.value)">
+          <option value="past-papers">Past Papers</option>
+          <option value="important-mcqs">Important MCQs</option>
+        </select>
+      </div>
+      <div class="sc-field" id="tp-exam-wrap">
         <label class="sc-label">Exam</label>
         <select name="tp_exam" class="sc-input">
           <option value="all">All (PPSC + FPSC)</option>
@@ -109,13 +120,39 @@
           <option value="playwright">Playwright (browser)</option>
         </select>
       </div>
-      <div class="sc-field">
+      <div class="sc-field" id="tp-max-papers-wrap">
         <label class="sc-label">Max Papers <em>(0=all)</em></label>
         <input type="number" name="tp_max_papers" value="0" min="0" class="sc-input">
       </div>
-      <div class="sc-field" style="flex:2;">
-        <label class="sc-label">Subject Filter <em>(optional)</em></label>
-        <input type="text" name="tp_subject" placeholder="e.g. english, gk, math" class="sc-input">
+      <div class="sc-field" id="tp-max-pages-wrap" style="display:none;">
+        <label class="sc-label">Max Pages <em>(0=all)</em></label>
+        <input type="number" name="tp_max_pages" value="0" min="0" class="sc-input">
+      </div>
+      <div class="sc-field" style="flex:2;" id="tp-subject-wrap">
+        <label class="sc-label">Subject <em>(optional)</em></label>
+        <select name="tp_subject" class="sc-input" id="tp-subject-select">
+          <option value="">All subjects</option>
+          <option value="islamiat">Islamiat</option>
+          <option value="pakistan-studies">Pakistan Studies</option>
+          <option value="computer-science">Computer Science</option>
+          <option value="english">English</option>
+          <option value="general-knowledge">General Knowledge</option>
+          <option value="everyday-science">Everyday Science</option>
+          <option value="general-science">General Science</option>
+          <option value="pedagogy">Pedagogy</option>
+          <option value="mathematics">Mathematics</option>
+          <option value="urdu">Urdu</option>
+          <option value="current-affairs">Current Affairs</option>
+          <option value="law">Law</option>
+          <option value="accounting">Accounting</option>
+          <option value="first-aid">First Aid</option>
+          <option value="intelligence-test">Intelligence Test</option>
+          <option value="guess-paper">Guess Paper</option>
+          <option value="airport-security">Airport Security</option>
+          <option value="election-act">Election Act</option>
+          <option value="ctd-law">CTD Law</option>
+          <option value="nab-ordinance">NAB Ordinance</option>
+        </select>
       </div>
     </div>
     <label class="sc-check"><input type="checkbox" name="tp_debug" value="1"> Enable debug output</label>
@@ -306,6 +343,15 @@ function switchTab(btn, id) {
   document.getElementById(id).style.display = 'block';
   // Persist active tab in URL hash
   window.location.hash = id;
+}
+
+function toggleTpMode(mode) {
+  const isPast = mode === 'past-papers';
+  document.getElementById('tp-desc-past').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-desc-impt').style.display = isPast ? 'none' : 'block';
+  document.getElementById('tp-exam-wrap').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-max-papers-wrap').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-max-pages-wrap').style.display = isPast ? 'none' : 'block';
 }
 
 document.addEventListener('DOMContentLoaded', function () {

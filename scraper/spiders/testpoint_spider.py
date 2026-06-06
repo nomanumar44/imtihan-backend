@@ -132,11 +132,11 @@ class TestPointSpider(scrapy.Spider):
             all_options = []
             correct_idx = 0
             for i, li in enumerate(ol.css('li')):
-                classes = ' '.join(li.attrib.get('class', '').split())
+                classes = li.attrib.get('class', '').split()
                 text = li.css('::text').get('').strip()
                 if text:
                     all_options.append(text)
-                    if 'correct' in classes:
+                    if 'correct' in classes or ('font-weight-bold' in classes and 'text-red' in classes):
                         correct_idx = len(all_options) - 1
 
             if len(all_options) < 2:

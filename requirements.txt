@@ -1,0 +1,73 @@
+# ── Imtihan Backend — Python Requirements ─────────────────────────────────────
+# Generated from active venv + codebase analysis.
+# Install:  pip install -r requirements.txt
+# Optional scraper deps are listed separately; install them if you plan to use
+# the full Playwright / Scrapy / Selenium / AI-powered scraping stack.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Core Web Framework ────────────────────────────────────────────────────────
+Django==6.0.5
+asgiref==3.11.1
+sqlparse==0.5.5
+typing_extensions==4.15.0
+
+# ── REST API ──────────────────────────────────────────────────────────────────
+djangorestframework==3.17.1
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+django-cors-headers==4.9.0
+
+# ── HTML Parsing (used by ALL scrapers) ───────────────────────────────────────
+beautifulsoup4==4.14.3
+soupsieve==2.8.4
+
+# ── HTTP Requests ─────────────────────────────────────────────────────────────
+requests==2.34.2
+urllib3==2.7.0
+idna==3.18
+charset-normalizer==3.4.7
+certifi==2026.5.20
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# SQLite is built-in (default). Uncomment ONE of the following for production:
+
+# -- SQL Server --
+mssql-django==1.7.2
+pyodbc==5.3.0
+
+# -- PostgreSQL --
+# psycopg2-binary>=2.9.0
+
+# ── Timezone ──────────────────────────────────────────────────────────────────
+pytz==2026.2
+tzdata==2026.2
+
+# ── Media / Files ─────────────────────────────────────────────────────────────
+Pillow==12.2.0
+openpyxl==3.1.5
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  OPTIONAL — Full Scraper / AI Stack (install only if needed)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Scrapy CLI spider (testpoint_spider.py, pastpapers_spider.py, etc.) ───────
+# scrapy>=2.11.0
+
+# ── Playwright headless browser (scrape_testpoint_v2.py, scrape_gotest.py) ──────
+# playwright>=1.40.0
+# # After installing playwright, also run:
+# #   playwright install chromium
+
+# ── CloudScraper (bypasses Cloudflare in ai_scraper_suite.py) ─────────────────
+# cloudscraper>=1.2.71
+
+# ── Selenium + Auto ChromeDriver (ai_scraper_suite.py fallback) ───────────────
+# selenium>=4.15.0
+# webdriver-manager>=4.0.1
+
+# ── Data processing (ai_scraper_suite.py optional) ────────────────────────────
+# pandas>=2.1.0
+
+# ── Google Gemini AI (ai_scraper_suite.py optional) ───────────────────────────
+# google-generativeai>=0.8.0
