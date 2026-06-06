@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='pastpaper',
             name='slug',
-            field=models.SlugField(blank=True, default='', max_length=350),
+            field=models.SlugField(blank=True, default='', max_length=350, db_index=False),
         ),
         migrations.RunPython(_populate_pastpaper_slugs, migrations.RunPython.noop),
         migrations.AlterField(
