@@ -82,6 +82,7 @@
         <tr>
           <th>Name</th>
           <th>Description</th>
+          <th>Logo</th>
           <th>Icon</th>
           <th>Color</th>
           <th>MCQs</th>
@@ -98,6 +99,13 @@
               <div class="muted">{{ exam.slug }}</div>
             </td>
             <td class="truncate" title="{{ exam.description }}">{{ exam.description|default:"—" }}</td>
+            <td>
+              {% if exam.logo_url %}
+                <img src="{{ exam.logo_url }}" alt="{{ exam.name }}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;">
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
             <td>{{ exam.get_icon_display }}</td>
             <td><span class="badge badge-green">{{ exam.get_badge_color_display }}</span></td>
             <td>{{ exam.mcq_count }}</td>
@@ -115,7 +123,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="8" class="empty-state"><i class="ti ti-building-bank"></i>No exam boards yet</td>
+            <td colspan="9" class="empty-state"><i class="ti ti-building-bank"></i>No exam boards yet</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -147,6 +155,12 @@
         <label for="{{ form.icon.id_for_label }}">Icon</label>
         {{ form.icon }}
         {{ form.icon.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.logo_url.id_for_label }}">Logo URL</label>
+        {{ form.logo_url }}
+        <span class="helptext">Direct image URL (PNG/JPG/SVG). Leave blank to use the icon instead.</span>
+        {{ form.logo_url.errors }}
       </div>
       <div class="form-group">
         <label for="{{ form.badge_color.id_for_label }}">Accent Color</label>

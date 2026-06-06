@@ -12,7 +12,7 @@ from . import admin_views
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'description', 'icon', 'badge_color',
+    list_display = ['name', 'slug', 'description', 'logo_preview', 'icon', 'badge_color',
                     'mcq_count', 'paper_count', 'syllabus_count', 'job_count', 'created_at']
     list_editable = ['icon', 'badge_color']
     prepopulated_fields = {'slug': ('name',)}
@@ -46,10 +46,17 @@ class ExamAdmin(admin.ModelAdmin):
     job_count.short_description = 'Jobs'
     job_count.admin_order_field = '_job_count'
 
+    def logo_preview(self, obj):
+        if obj.logo_url:
+            return format_html('<img src="{}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;"/>', obj.logo_url)
+        return '—'
+    logo_preview.short_description = 'Logo'
+    logo_preview.admin_order_field = 'logo_url'
+
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'icon', 'badge_color',
+    list_display = ['name', 'slug', 'logo_preview', 'icon', 'badge_color',
                     'mcq_count', 'published_mcq_count', 'paper_count', 'created_at']
     list_editable = ['icon', 'badge_color']
     prepopulated_fields = {'slug': ('name',)}
@@ -76,6 +83,13 @@ class SubjectAdmin(admin.ModelAdmin):
         return obj._paper_count
     paper_count.short_description = 'Papers'
     paper_count.admin_order_field = '_paper_count'
+
+    def logo_preview(self, obj):
+        if obj.logo_url:
+            return format_html('<img src="{}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;"/>', obj.logo_url)
+        return '—'
+    logo_preview.short_description = 'Logo'
+    logo_preview.admin_order_field = 'logo_url'
 
 
 @admin.register(CurrentAffairsCategory)

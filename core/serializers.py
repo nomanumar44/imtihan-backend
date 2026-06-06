@@ -13,7 +13,7 @@ class ExamSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Exam
-        fields = ['id', 'name', 'slug', 'description', 'icon', 'badge_color', 'mcq_count', 'papers_count', 'syllabi_count', 'created_at']
+        fields = ['id', 'name', 'slug', 'description', 'icon', 'logo_url', 'badge_color', 'mcq_count', 'papers_count', 'syllabi_count', 'created_at']
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -21,7 +21,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'slug', 'icon', 'badge_color', 'mcq_count', 'created_at']
+        fields = ['id', 'name', 'slug', 'icon', 'logo_url', 'badge_color', 'mcq_count', 'created_at']
 
 
 class CurrentAffairsCategorySerializer(serializers.ModelSerializer):

@@ -41,6 +41,10 @@ class Exam(models.Model):
         max_length=10, choices=COLOR_CHOICES, default='green',
         help_text='Accent color for the exam card.'
     )
+    logo_url = models.URLField(
+        max_length=500, blank=True, default='',
+        help_text='External logo image URL (e.g. from scraped site or CDN).'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -66,6 +70,10 @@ class Subject(models.Model):
         choices=Exam.COLOR_CHOICES,
         default='green',
         help_text='Accent color for the subject card.'
+    )
+    logo_url = models.URLField(
+        max_length=500, blank=True, default='',
+        help_text='External logo image URL (e.g. from scraped site or CDN).'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -18,12 +18,13 @@ class SectionContentForm(forms.ModelForm):
 class ExamForm(forms.ModelForm):
     class Meta:
         model = Exam
-        fields = ['name', 'slug', 'description', 'icon', 'badge_color']
+        fields = ['name', 'slug', 'description', 'icon', 'logo_url', 'badge_color']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., PPSC'}),
             'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto generated from name if empty'}),
             'description': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Punjab Public Service Commission'}),
             'icon': forms.Select(attrs={'class': 'form-input'}),
+            'logo_url': forms.URLInput(attrs={'class': 'form-input', 'placeholder': 'https://example.com/logo.png'}),
             'badge_color': forms.Select(attrs={'class': 'form-input'}),
         }
 
@@ -47,11 +48,12 @@ class ExamForm(forms.ModelForm):
 class SubjectForm(forms.ModelForm):
     class Meta:
         model = Subject
-        fields = ['name', 'slug', 'icon', 'badge_color']
+        fields = ['name', 'slug', 'icon', 'logo_url', 'badge_color']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., General Knowledge'}),
             'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto generated from name if empty'}),
             'icon': forms.Select(attrs={'class': 'form-input'}),
+            'logo_url': forms.URLInput(attrs={'class': 'form-input', 'placeholder': 'https://example.com/logo.png'}),
             'badge_color': forms.Select(attrs={'class': 'form-input'}),
         }
 

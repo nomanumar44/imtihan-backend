@@ -108,7 +108,7 @@ if _db_engine == 'mssql':
             'HOST': os.environ.get('DB_SERVER', r'.\SQLEXPRESS'),
             'PORT': os.environ.get('DB_PORT', ''),
             'OPTIONS': {
-                'driver': os.environ.get('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
+                'driver': os.environ.get('DB_DRIVER', 'ODBC Driver 18 for SQL Server'),
                 'extra_params': 'Encrypt=no;TrustServerCertificate=yes;',
                 # Windows Authentication when no username provided
                 'Trusted_Connection': 'yes' if not _db_user else 'no',

@@ -81,6 +81,7 @@
       <thead>
         <tr>
           <th>Name</th>
+          <th>Logo</th>
           <th>Icon</th>
           <th>Color</th>
           <th>MCQs</th>
@@ -93,6 +94,13 @@
             <td>
               <strong>{{ subject.name }}</strong>
               <div class="muted">{{ subject.slug }}</div>
+            </td>
+            <td>
+              {% if subject.logo_url %}
+                <img src="{{ subject.logo_url }}" alt="{{ subject.name }}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;">
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
             </td>
             <td>{{ subject.get_icon_display }}</td>
             <td><span class="badge badge-green">{{ subject.get_badge_color_display }}</span></td>
@@ -109,7 +117,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="empty-state"><i class="ti ti-books"></i>No subjects yet</td>
+            <td colspan="6" class="empty-state"><i class="ti ti-books"></i>No subjects yet</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -135,6 +143,12 @@
         <label for="{{ form.icon.id_for_label }}">Icon</label>
         {{ form.icon }}
         {{ form.icon.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.logo_url.id_for_label }}">Logo URL</label>
+        {{ form.logo_url }}
+        <span class="helptext">Direct image URL (PNG/JPG/SVG). Leave blank to use the icon instead.</span>
+        {{ form.logo_url.errors }}
       </div>
       <div class="form-group">
         <label for="{{ form.badge_color.id_for_label }}">Accent Color</label>
