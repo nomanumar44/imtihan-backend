@@ -31,12 +31,12 @@ certifi==2026.5.20
 # ── Database ──────────────────────────────────────────────────────────────────
 # SQLite is built-in (default). Uncomment ONE of the following for production:
 
-# -- SQL Server --
-mssql-django==1.7.2
-pyodbc==5.3.0
+# -- PostgreSQL (active) --
+psycopg2-binary>=2.9.0
 
-# -- PostgreSQL --
-# psycopg2-binary>=2.9.0
+# -- SQL Server (optional) --
+# mssql-django==1.7.2
+# pyodbc==5.3.0
 
 # ── Timezone ──────────────────────────────────────────────────────────────────
 pytz==2026.2
