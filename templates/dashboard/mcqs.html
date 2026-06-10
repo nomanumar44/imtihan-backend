@@ -416,6 +416,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 </script>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<style>@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width: 640px) {
+  #mcqEditModal > div { margin: 8px; max-height: 95vh; }
+  #mcqEditModal [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+</style>
 
 {% endblock %}

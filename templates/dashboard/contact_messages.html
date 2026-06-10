@@ -10,7 +10,12 @@
 </div>
 
 <!-- Filter bar -->
-<div class="filter-bar" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<style>
+  @media (max-width: 640px) {
+    .msg-filter-bar .action-btn { padding: 4px 10px; font-size: 11px; }
+  }
+</style>
+<div class="filter-bar msg-filter-bar" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
   <a href="?status=" class="action-btn {% if not status_filter %}active{% endif %}" style="{% if not status_filter %}background:var(--brand-green);color:#fff;{% endif %}">All</a>
   <a href="?status=unread"  class="action-btn {% if status_filter == 'unread' %}active{% endif %}"  style="{% if status_filter == 'unread' %}background:#e57373;color:#fff;{% endif %}">Unread</a>
   <a href="?status=read"    class="action-btn {% if status_filter == 'read' %}active{% endif %}"    style="{% if status_filter == 'read' %}background:#64b5f6;color:#fff;{% endif %}">Read</a>

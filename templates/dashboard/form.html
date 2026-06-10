@@ -75,6 +75,11 @@
     margin-top: 4px;
     display: block;
   }
+  @media (max-width: 640px) {
+    .form-container { padding: 20px 16px; margin-top: 12px; }
+    .form-actions { flex-direction: column; gap: 8px; }
+    .form-actions .btn-cancel, .form-actions .btn-add { width: 100%; text-align: center; }
+  }
 </style>
 
 <div class="top-bar">
