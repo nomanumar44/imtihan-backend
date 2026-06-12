@@ -46,6 +46,9 @@ tzdata==2026.2
 Pillow==12.2.0
 openpyxl==3.1.5
 
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+google-auth==2.38.0
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  OPTIONAL — Full Scraper / AI Stack (install only if needed)

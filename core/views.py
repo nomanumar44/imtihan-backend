@@ -3,6 +3,7 @@ import random
 from datetime import timedelta
 from io import BytesIO
 
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -12,15 +13,18 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.contrib.auth import authenticate
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, throttle_classes
+from rest_framework.decorators import api_view, throttle_classes, authentication_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement,
-    SectionContent
+    SectionContent, Bookmark, EmailSubscription,
+    Achievement, UserAchievement, DailyPracticeLog,
 )
 from .serializers import (
     ExamSerializer, SubjectSerializer,
@@ -29,6 +33,7 @@ from .serializers import (
     JobListingSerializer, StudentSerializer,
     TestResultSerializer, ActivityLogSerializer,
     DashboardStatsSerializer, ContactMessageSerializer,
+    BookmarkSerializer, EmailSubscriptionSerializer,
 )
 
 
@@ -486,13 +491,23 @@ def student_signup(request):
 
     token, _ = Token.objects.get_or_create(user=user)
 
+    avatar_url = None
+    if student.avatar:
+        avatar_url = student.avatar.url
+    elif student.google_picture:
+        avatar_url = student.google_picture
+
     return Response({
         'token': token.key,
         'user': {
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'full_name': user.get_full_name(),
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': student.phone if student else '',
+            'city': student.city if student else '',
+            'avatar': avatar_url,
         }
     }, status=status.HTTP_201_CREATED)
 
@@ -522,6 +537,13 @@ def student_login(request):
     
     student = getattr(user, 'student_profile', None)
 
+    avatar_url = None
+    if student:
+        if student.avatar:
+            avatar_url = student.avatar.url
+        elif student.google_picture:
+            avatar_url = student.google_picture
+
     return Response({
         'token': token.key,
         'user': {
@@ -532,7 +554,7 @@ def student_login(request):
             'last_name': user.last_name,
             'phone': student.phone if student else '',
             'city': student.city if student else '',
-            'avatar': student.avatar.url if student and student.avatar else None,
+            'avatar': avatar_url,
         }
     })
 
@@ -1322,3 +1344,556 @@ def frontend_contact(request):
         serializer.save()
         return Response({'success': True, 'message': 'Your message has been received. We\'ll get back to you soon.'}, status=status.HTTP_201_CREATED)
     return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ─── Google OAuth ───────────────────────────────────────────────────────────
+
+try:
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+    GOOGLE_AUTH_AVAILABLE = True
+except ImportError:
+    GOOGLE_AUTH_AVAILABLE = False
+
+
+class GoogleLoginThrottle(AnonRateThrottle):
+    rate = '10/min'
+
+
+@api_view(['POST'])
+@throttle_classes([GoogleLoginThrottle])
+def google_login(request):
+    """Verify a Google ID token and return an auth token."""
+    if not GOOGLE_AUTH_AVAILABLE:
+        return Response(
+            {'error': 'Google auth library not installed. Run: pip install google-auth'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    id_token_str = request.data.get('id_token')
+    if not id_token_str:
+        return Response({'error': 'id_token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    client_id = settings.GOOGLE_CLIENT_ID
+    if not client_id:
+        return Response(
+            {'error': 'GOOGLE_CLIENT_ID is not configured on the server.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            id_token_str,
+            google_requests.Request(),
+            client_id,
+            clock_skew_in_seconds=10
+        )
+    except Exception as e:
+        return Response({'error': f'Invalid Google token: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # Validate issuer
+    if idinfo.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
+        return Response({'error': 'Invalid token issuer.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    email = idinfo.get('email')
+    if not email:
+        return Response({'error': 'Email not provided by Google.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    google_id = idinfo.get('sub')
+    full_name = idinfo.get('name', '')
+    given_name = idinfo.get('given_name', '')
+    family_name = idinfo.get('family_name', '')
+    picture = idinfo.get('picture', '')
+
+    # Try to find existing user by email first
+    user = User.objects.filter(email=email).first()
+
+    if user:
+        # Update Google ID and picture on the profile if not set
+        student, _ = Student.objects.get_or_create(user=user)
+        updated_fields = []
+        if google_id and not student.google_id:
+            student.google_id = google_id
+            updated_fields.append('google_id')
+        if picture and not student.google_picture:
+            student.google_picture = picture
+            updated_fields.append('google_picture')
+        if updated_fields:
+            student.save(update_fields=updated_fields)
+    else:
+        # Create new user
+        base_username = email.split('@')[0]
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password='',  # unusable for password login
+            first_name=given_name or (full_name.split(' ')[0] if full_name else ''),
+            last_name=family_name or (' '.join(full_name.split(' ')[1:]) if full_name else ''),
+        )
+        Student.objects.create(
+            user=user,
+            google_id=google_id or '',
+            google_picture=picture or ''
+        )
+
+    token, _ = Token.objects.get_or_create(user=user)
+    student = getattr(user, 'student_profile', None)
+
+    # Prefer uploaded avatar, then Google picture, then null
+    avatar_url = None
+    if student:
+        if student.avatar:
+            avatar_url = student.avatar.url
+        elif student.google_picture:
+            avatar_url = student.google_picture
+
+    return Response({
+        'token': token.key,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone': student.phone if student else '',
+            'city': student.city if student else '',
+            'avatar': avatar_url,
+        }
+    })
+
+
+# ─── User Dashboard APIs ────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_dashboard_stats(request):
+    """Return comprehensive stats for the authenticated user's dashboard."""
+    user = request.user
+    student = getattr(user, 'student_profile', None)
+    today = timezone.now().date()
+
+    # Reset daily counter if last practice was not today
+    if student and student.last_practice_date != today:
+        student.mcqs_today = 0
+        student.last_practice_date = today
+        student.save(update_fields=['mcqs_today', 'last_practice_date'])
+
+    total_tests = TestResult.objects.filter(student=user).count()
+    avg_score = TestResult.objects.filter(student=user).aggregate(
+        avg=models.Avg('score_percent')
+    )['avg'] or 0
+    bookmarks_count = Bookmark.objects.filter(user=user).count()
+    total_mcqs = TestResult.objects.filter(student=user).aggregate(
+        total=models.Sum('total_questions')
+    )['total'] or 0
+
+    # Compute streak from test result dates
+    streak = 0
+    test_dates = sorted(
+        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
+        reverse=True
+    )
+    if test_dates:
+        streak = 1
+        for i in range(1, len(test_dates)):
+            if (test_dates[i-1] - test_dates[i]).days == 1:
+                streak += 1
+            else:
+                break
+
+    # Subject-wise performance for recommendations
+    subject_scores = {}
+    for tr in TestResult.objects.filter(student=user).select_related('subject'):
+        if tr.subject:
+            slug = tr.subject.slug
+            if slug not in subject_scores:
+                subject_scores[slug] = {
+                    'name': tr.subject.name,
+                    'slug': slug,
+                    'total_score': 0,
+                    'count': 0,
+                }
+            subject_scores[slug]['total_score'] += float(tr.score_percent)
+            subject_scores[slug]['count'] += 1
+
+    recommendations = sorted(
+        [
+            {
+                'name': v['name'],
+                'slug': v['slug'],
+                'avg_score': round(v['total_score'] / v['count'], 1),
+            }
+            for v in subject_scores.values()
+        ],
+        key=lambda x: x['avg_score']
+    )[:3]
+
+    return Response({
+        'username': user.first_name or user.username,
+        'tests_attempted': total_tests,
+        'average_score': round(float(avg_score), 1),
+        'bookmarks_count': bookmarks_count,
+        'total_mcqs_practiced': total_mcqs,
+        'streak_days': streak,
+        'daily_goal': student.daily_goal if student else 20,
+        'mcqs_today': student.mcqs_today if student else 0,
+        'recommendations': recommendations,
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_recent_tests(request):
+    """Return paginated, filterable test results with summary stats."""
+    user = request.user
+    qs = TestResult.objects.filter(student=user).select_related('exam', 'subject')
+
+    # Filters
+    exam = request.query_params.get('exam', '')
+    subject = request.query_params.get('subject', '')
+    date_from = request.query_params.get('date_from', '')
+    date_to = request.query_params.get('date_to', '')
+    score_min = request.query_params.get('score_min', '')
+    score_max = request.query_params.get('score_max', '')
+
+    if exam:
+        qs = qs.filter(exam__slug__iexact=exam)
+    if subject:
+        qs = qs.filter(subject__slug__iexact=subject)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    if score_min:
+        try:
+            qs = qs.filter(score_percent__gte=float(score_min))
+        except ValueError:
+            pass
+    if score_max:
+        try:
+            qs = qs.filter(score_percent__lte=float(score_max))
+        except ValueError:
+            pass
+
+    qs = qs.order_by('-created_at')
+
+    # Summary stats (on filtered set)
+    total = qs.count()
+    avg = qs.aggregate(avg=models.Avg('score_percent'))['avg'] or 0
+    best = qs.aggregate(best=models.Max('score_percent'))['best'] or 0
+    worst = qs.aggregate(worst=models.Min('score_percent'))['worst'] or 0
+
+    # Pagination
+    page_size = int(request.query_params.get('page_size', 10))
+    page_num = int(request.query_params.get('page', 1))
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, page_size)
+    page = paginator.get_page(page_num)
+
+    serializer = TestResultSerializer(page.object_list, many=True)
+
+    return Response({
+        'total': total,
+        'num_pages': paginator.num_pages,
+        'page': page.number,
+        'has_next': page.has_next(),
+        'has_prev': page.has_previous(),
+        'summary': {
+            'total_tests': total,
+            'average_score': round(float(avg), 1),
+            'best_score': round(float(best), 1),
+            'worst_score': round(float(worst), 1),
+        },
+        'tests': serializer.data,
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def quick_practice(request):
+    """Return 10 random published MCQs for quick practice."""
+    mcqs = MCQ.objects.filter(status='published').select_related('exam', 'subject').order_by('?')[:20]
+    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    questions = []
+    for q in mcqs:
+        questions.append({
+            'id': q.id,
+            'question': q.question_text,
+            'options': [q.option_a, q.option_b, q.option_c, q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
+            'correct': opt_map.get(q.correct_option, 0),
+            'explanation': q.explanation,
+            'subject': q.subject.name if q.subject else '',
+            'exam': q.exam.name if q.exam else '',
+        })
+    return Response({'questions': questions, 'title': 'Quick Practice (10 Questions)'})
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_progress(request):
+    """Return detailed progress data for charts and analytics."""
+    user = request.user
+    today = timezone.now().date()
+    last_30 = today - timezone.timedelta(days=30)
+
+    # Score over last 30 days
+    daily_scores = {}
+    for tr in TestResult.objects.filter(student=user, created_at__date__gte=last_30):
+        d = str(tr.created_at.date())
+        daily_scores[d] = max(daily_scores.get(d, 0), float(tr.score_percent))
+
+    scores_over_time = [
+        {'date': d, 'score': round(daily_scores[d], 1)}
+        for d in sorted(daily_scores.keys())
+    ]
+
+    # Subject performance
+    subject_perf = {}
+    for tr in TestResult.objects.filter(student=user).select_related('subject'):
+        if not tr.subject:
+            continue
+        slug = tr.subject.slug
+        if slug not in subject_perf:
+            subject_perf[slug] = {
+                'name': tr.subject.name,
+                'slug': slug,
+                'total_questions': 0,
+                'correct_answers': 0,
+                'tests': 0,
+                'total_score': 0,
+                'test_scores': [],
+            }
+        subject_perf[slug]['total_questions'] += tr.total_questions
+        subject_perf[slug]['correct_answers'] += tr.correct_answers
+        subject_perf[slug]['tests'] += 1
+        subject_perf[slug]['total_score'] += float(tr.score_percent)
+        subject_perf[slug]['test_scores'].append(float(tr.score_percent))
+
+    subject_stats = []
+    for v in subject_perf.values():
+        accuracy = round((v['correct_answers'] / v['total_questions']) * 100, 1) if v['total_questions'] > 0 else 0
+        avg_score = round(v['total_score'] / v['tests'], 1) if v['tests'] > 0 else 0
+
+        # Trend: compare first half vs second half of last 5 tests
+        scores = v['test_scores']
+        trend = 'neutral'
+        if len(scores) >= 3:
+            mid = len(scores) // 2
+            early = sum(scores[:mid]) / mid
+            recent = sum(scores[-mid:]) / mid
+            if recent > early + 3:
+                trend = 'improving'
+            elif recent < early - 3:
+                trend = 'declining'
+
+        subject_stats.append({
+            'name': v['name'],
+            'slug': v['slug'],
+            'accuracy': accuracy,
+            'avg_score': avg_score,
+            'tests': v['tests'],
+            'total_questions': v['total_questions'],
+            'correct_answers': v['correct_answers'],
+            'wrong_answers': v['total_questions'] - v['correct_answers'],
+            'trend': trend,
+        })
+
+    subject_stats_sorted = sorted(subject_stats, key=lambda x: x['accuracy'])
+    weak_subjects = subject_stats_sorted[:3]
+    strong_subjects = sorted(subject_stats, key=lambda x: x['accuracy'], reverse=True)[:3]
+
+    # Overall accuracy
+    total_q = sum(v['total_questions'] for v in subject_perf.values())
+    total_c = sum(v['correct_answers'] for v in subject_perf.values())
+    overall_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0
+
+    # Study time this week vs last week
+    week_start = today - timezone.timedelta(days=today.weekday())
+    last_week_start = week_start - timezone.timedelta(days=7)
+    last_week_end = week_start - timezone.timedelta(days=1)
+
+    this_week_time = TestResult.objects.filter(
+        student=user, created_at__date__gte=week_start
+    ).aggregate(total=models.Sum('time_taken_seconds'))['total'] or 0
+
+    last_week_time = TestResult.objects.filter(
+        student=user, created_at__date__gte=last_week_start, created_at__date__lte=last_week_end
+    ).aggregate(total=models.Sum('time_taken_seconds'))['total'] or 0
+
+    return Response({
+        'scores_over_time': scores_over_time,
+        'subject_performance': subject_stats,
+        'weak_subjects': weak_subjects,
+        'strong_subjects': strong_subjects,
+        'overall_accuracy': overall_accuracy,
+        'total_questions': total_q,
+        'total_correct': total_c,
+        'study_time_this_week': this_week_time,
+        'study_time_last_week': last_week_time,
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_gamification(request):
+    """Return streak, XP, achievements, and leaderboard data."""
+    user = request.user
+    student = getattr(user, 'student_profile', None)
+    today = timezone.now().date()
+
+    # Daily practice heatmap (last 90 days)
+    logs = DailyPracticeLog.objects.filter(
+        user=user, date__gte=today - timezone.timedelta(days=90)
+    ).order_by('date')
+    heatmap = [{'date': str(l.date), 'count': l.mcqs_answered} for l in logs]
+
+    # All achievements with unlock status
+    user_achievements = set(
+        UserAchievement.objects.filter(user=user).values_list('achievement__slug', flat=True)
+    )
+    achievements = []
+    for ach in Achievement.objects.filter(is_active=True):
+        achievements.append({
+            'slug': ach.slug,
+            'name': ach.name,
+            'description': ach.description,
+            'icon': ach.icon,
+            'xp_reward': ach.xp_reward,
+            'unlocked': ach.slug in user_achievements,
+        })
+
+    # Leaderboard: rank by XP this week
+    week_start = today - timezone.timedelta(days=today.weekday())
+    weekly_xp = DailyPracticeLog.objects.filter(
+        date__gte=week_start
+    ).values('user').annotate(total_xp=models.Sum('xp_earned')).order_by('-total_xp')
+
+    user_rank = None
+    total_students = weekly_xp.count()
+    for idx, entry in enumerate(weekly_xp, start=1):
+        if entry['user'] == user.id:
+            user_rank = idx
+            break
+
+    # Level thresholds
+    LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert']
+    xp = student.xp_points if student else 0
+    level_idx = min(student.level - 1 if student else 0, 3)
+    level_name = LEVELS[level_idx]
+    next_level_xp = (student.level * 500) if student else 500
+
+    # Streak (computed from test dates)
+    streak = 0
+    test_dates = sorted(
+        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
+        reverse=True
+    )
+    if test_dates:
+        streak = 1
+        for i in range(1, len(test_dates)):
+            if (test_dates[i-1] - test_dates[i]).days == 1:
+                streak += 1
+            else:
+                break
+
+    return Response({
+        'streak_days': streak,
+        'xp_points': xp,
+        'level': student.level if student else 1,
+        'level_name': level_name,
+        'next_level_xp': next_level_xp,
+        'xp_to_next': max(0, next_level_xp - xp),
+        'rank': user_rank,
+        'total_leaderboard': total_students,
+        'heatmap': heatmap,
+        'achievements': achievements,
+    })
+
+
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_bookmarks(request):
+    """List or create bookmarks for the authenticated user."""
+    if request.method == 'GET':
+        bookmarks = Bookmark.objects.filter(user=request.user).select_related('mcq__exam', 'mcq__subject')
+        serializer = BookmarkSerializer(bookmarks, many=True)
+        return Response(serializer.data)
+
+    # POST
+    mcq_id = request.data.get('mcq_id')
+    if not mcq_id:
+        return Response({'error': 'mcq_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    mcq = MCQ.objects.filter(id=mcq_id).first()
+    if not mcq:
+        return Response({'error': 'MCQ not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    bookmark, created = Bookmark.objects.get_or_create(user=request.user, mcq=mcq)
+    if not created:
+        return Response({'message': 'Already bookmarked.'}, status=status.HTTP_200_OK)
+
+    serializer = BookmarkSerializer(bookmark)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_bookmark(request, bookmark_id):
+    """Delete a bookmark for the authenticated user."""
+    bookmark = Bookmark.objects.filter(id=bookmark_id, user=request.user).first()
+    if not bookmark:
+        return Response({'error': 'Bookmark not found.'}, status=status.HTTP_404_NOT_FOUND)
+    bookmark.delete()
+    return Response({'message': 'Bookmark removed.'})
+
+
+class SubscribeThrottle(AnonRateThrottle):
+    rate = '5/hour'
+
+@api_view(['POST'])
+@throttle_classes([SubscribeThrottle])
+def subscribe_email(request):
+    """Subscribe an email for job alerts and newsletter."""
+    email = request.data.get('email', '').strip().lower()
+    name = request.data.get('name', '').strip()
+
+    if not email:
+        return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'error': 'Invalid email address.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    sub, created = EmailSubscription.objects.get_or_create(email=email, defaults={'name': name})
+    if not created:
+        return Response({'message': 'You are already subscribed.'}, status=status.HTTP_200_OK)
+
+    return Response({'message': 'Subscribed successfully!'}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def test_detail(request, test_id):
+    """Return a single test result with all question answers."""
+    test = TestResult.objects.filter(id=test_id, student=request.user).select_related('exam', 'subject').prefetch_related('answers').first()
+    if not test:
+        return Response({'error': 'Test not found.'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = TestResultDetailSerializer(test)
+    return Response(serializer.data)

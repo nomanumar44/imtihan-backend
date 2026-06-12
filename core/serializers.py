@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
-    JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement
+    JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement,
+    Bookmark, EmailSubscription, TestAnswer,
 )
 
 
@@ -148,3 +149,47 @@ class ContactMessageSerializer(serializers.ModelSerializer):
         model = ContactMessage
         fields = ['id', 'name', 'email', 'subject', 'message', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class BookmarkSerializer(serializers.ModelSerializer):
+    mcq_question = serializers.CharField(source='mcq.question_text', read_only=True)
+    mcq_exam_name = serializers.CharField(source='mcq.exam.name', read_only=True)
+    mcq_subject_name = serializers.CharField(source='mcq.subject.name', read_only=True)
+
+    class Meta:
+        model = Bookmark
+        fields = ['id', 'user', 'mcq', 'mcq_question', 'mcq_exam_name', 'mcq_subject_name', 'created_at']
+        read_only_fields = ['user', 'created_at']
+
+
+class EmailSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailSubscription
+        fields = ['id', 'email', 'name', 'is_active', 'subscribed_at']
+        read_only_fields = ['is_active', 'subscribed_at']
+
+
+class TestAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestAnswer
+        fields = [
+            'id', 'question_id', 'question_text',
+            'option_a', 'option_b', 'option_c', 'option_d',
+            'correct_option', 'selected_option', 'explanation', 'is_correct'
+        ]
+
+
+class TestResultDetailSerializer(serializers.ModelSerializer):
+    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    exam_slug = serializers.CharField(source='exam.slug', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    subject_slug = serializers.CharField(source='subject.slug', read_only=True)
+    answers = TestAnswerSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = TestResult
+        fields = [
+            'id', 'exam_name', 'exam_slug', 'subject_name', 'subject_slug',
+            'total_questions', 'correct_answers', 'wrong_answers',
+            'score_percent', 'time_taken_seconds', 'created_at', 'answers'
+        ]

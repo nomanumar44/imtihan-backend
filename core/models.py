@@ -306,11 +306,84 @@ class Student(models.Model):
     city = models.CharField(max_length=100, blank=True, default='')
     province = models.CharField(max_length=100, blank=True, default='')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    google_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
+    google_picture = models.URLField(max_length=500, blank=True, default='')
+    daily_goal = models.PositiveIntegerField(default=20, help_text='Daily MCQ target')
+    mcqs_today = models.PositiveIntegerField(default=0, help_text='MCQs answered today')
+    streak_days = models.PositiveIntegerField(default=0)
+    last_practice_date = models.DateField(null=True, blank=True)
+    xp_points = models.PositiveIntegerField(default=0)
+    level = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
+
+
+class Bookmark(models.Model):
+    """MCQs bookmarked by a student for revision."""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='bookmarks'
+    )
+    mcq = models.ForeignKey(
+        MCQ, on_delete=models.CASCADE, related_name='bookmarks'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'mcq']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} — MCQ #{self.mcq_id}"
+
+
+class Achievement(models.Model):
+    """Gamification badges that students can unlock."""
+    slug = models.SlugField(max_length=60, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.CharField(max_length=200)
+    icon = models.CharField(max_length=30, default='award', help_text='lucide icon name')
+    xp_reward = models.PositiveIntegerField(default=0)
+    condition = models.CharField(max_length=50, default='')
+    threshold = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return self.name
+
+
+class UserAchievement(models.Model):
+    """Tracks which achievements a user has unlocked."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='achievements')
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'achievement']
+
+    def __str__(self):
+        return f"{self.user.username} — {self.achievement.name}"
+
+
+class DailyPracticeLog(models.Model):
+    """Records which days a user practiced (for heatmap)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='practice_logs')
+    date = models.DateField()
+    mcqs_answered = models.PositiveIntegerField(default=0)
+    tests_completed = models.PositiveIntegerField(default=0)
+    xp_earned = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ['user', 'date']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.user.username} — {self.date}"
 
 
 class TestResult(models.Model):
@@ -336,6 +409,29 @@ class TestResult(models.Model):
 
     def __str__(self):
         return f"{self.student.username} — {self.score_percent}%"
+
+
+class TestAnswer(models.Model):
+    """Individual question answers recorded during a test."""
+    test_result = models.ForeignKey(
+        TestResult, on_delete=models.CASCADE, related_name='answers'
+    )
+    question_id = models.PositiveIntegerField()
+    question_text = models.TextField()
+    option_a = models.TextField(blank=True, default='')
+    option_b = models.TextField(blank=True, default='')
+    option_c = models.TextField(blank=True, default='')
+    option_d = models.TextField(blank=True, default='')
+    correct_option = models.CharField(max_length=1)
+    selected_option = models.CharField(max_length=1, blank=True, default='')
+    explanation = models.TextField(blank=True, default='')
+    is_correct = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f"Q{self.question_id} — {self.test_result}"
 
 
 class ActivityLog(models.Model):
@@ -451,3 +547,17 @@ class ContactMessage(models.Model):
 
     def __str__(self):
         return f"{self.name} — {self.get_subject_display()} ({self.created_at:%d %b %Y})"
+
+
+class EmailSubscription(models.Model):
+    """Email subscribers for job alerts and newsletter."""
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=100, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    subscribed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-subscribed_at']
+
+    def __str__(self):
+        return self.email
