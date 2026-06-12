@@ -40,6 +40,56 @@
   </div>
 </div>
 
+<!-- Service Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr); margin-bottom:20px;">
+  <a href="{% url 'dashboard_service_requests' %}" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#0ea5e9">{{ service_requests_count|default:"0" }}</div>
+      <div class="stat-label">Service Requests</div>
+      <div class="stat-change">Paid application submissions</div>
+    </div>
+  </a>
+  <a href="{% url 'dashboard_job_profiles' %}" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#10b981">{{ job_profiles_count|default:"0" }}</div>
+      <div class="stat-label">Job Profiles</div>
+      <div class="stat-change">User application profiles</div>
+    </div>
+  </a>
+  <a href="/admin/core/serviceplan/" target="_blank" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#8b5cf6">{{ service_plans_count|default:"0" }}</div>
+      <div class="stat-label">Service Plans</div>
+      <div class="stat-change">Pricing plans configured</div>
+    </div>
+  </a>
+</div>
+
+<!-- Blog Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr); margin-bottom:20px;">
+  <a href="{% url 'dashboard_posts' %}" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#f59e0b">{{ blog_posts_count|default:"0" }}</div>
+      <div class="stat-label">Blog Posts</div>
+      <div class="stat-change">Articles published</div>
+    </div>
+  </a>
+  <a href="{% url 'dashboard_posts' %}" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#ef4444">{{ blog_comments_count|default:"0" }}</div>
+      <div class="stat-label">Comments</div>
+      <div class="stat-change">Total comments</div>
+    </div>
+  </a>
+  <a href="{% url 'dashboard_news_subscribers' %}" style="text-decoration:none;">
+    <div class="stat-card" style="cursor:pointer; border:1px solid #e5e7eb;">
+      <div class="stat-num" style="color:#10b981">{{ news_subscribers_count|default:"0" }}</div>
+      <div class="stat-label">News Subscribers</div>
+      <div class="stat-change">Email subscribers</div>
+    </div>
+  </a>
+</div>
+
 <!-- Recent MCQs -->
 <div class="section-label">Recent MCQs added</div>
 <div class="table-wrap">

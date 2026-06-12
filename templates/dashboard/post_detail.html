@@ -1,0 +1,105 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ post.title|truncatechars:40 }}{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">{{ post.title|truncatechars:60 }}</div>
+    <div class="page-subtitle">Blog post details and comments</div>
+  </div>
+  <a href="{% url 'dashboard_posts' %}" class="btn-add" style="background:#6b7280;">
+    <i class="ti ti-arrow-left"></i> Back to list
+  </a>
+</div>
+
+<div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+  <!-- Left Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- Post Info -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+        <div>
+          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Status</div>
+          <div>
+            {% if post.status == 'published' %}<span class="badge badge-green">Published</span>
+            {% elif post.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+            {% else %}<span class="badge badge-slate">{{ post.status }}</span>{% endif %}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Category</div>
+          <div style="font-size:14px; font-weight:500;">{{ post.category.name|default:"—" }}</div>
+        </div>
+      </div>
+      <div style="padding-top:16px; border-top:1px solid #f3f4f6;">
+        <div style="font-size:13px; color:#374151; line-height:1.7; margin-bottom:16px;">
+          {{ post.excerpt|default:post.content|truncatechars:300|safe }}
+        </div>
+        {% if post.featured_image %}
+        <div style="margin-top:12px;">
+          <img src="{{ post.featured_image.url }}" alt="" style="max-width:100%; max-height:200px; border-radius:8px; object-fit:cover;">
+        </div>
+        {% endif %}
+      </div>
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #f3f4f6; display:flex; gap:16px; flex-wrap:wrap;">
+        <div><span style="color:#6b7280; font-size:12px;">Views:</span> <span style="font-weight:500;">{{ post.view_count|default:"0" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Created:</span> <span style="font-weight:500;">{{ post.created_at|date:"d M Y" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Author:</span> <span style="font-weight:500;">{{ post.author.username|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Tags:</span> <span style="font-weight:500;">{% for tag in post.tags.all %}{{ tag.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</span></div>
+      </div>
+    </div>
+
+    <!-- Comments -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Comments ({{ post.comments.count }})</div>
+      {% for comment in post.comments.all %}
+      {% if comment.is_approved %}
+      <div style="padding:12px; background:#f0fdf4; border-radius:8px; margin-bottom:8px; border:1px solid #bbf7d0">
+      {% else %}
+      <div style="padding:12px; background:#fef2f2; border-radius:8px; margin-bottom:8px; border:1px solid #fecaca">
+      {% endif %}
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-weight:500; font-size:13px;">{{ comment.name }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ comment.created_at|date:"d M Y H:i" }}</div>
+        </div>
+        <div style="font-size:13px; color:#374151; line-height:1.5;">{{ comment.content|truncatechars:200 }}</div>
+        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          {% if comment.is_approved %}
+          <span class="badge badge-green" style="font-size:10px;">Approved</span>
+          {% else %}
+          <span class="badge badge-red" style="font-size:10px;">Pending</span>
+          {% endif %}
+          <span style="font-size:11px; color:#6b7280;">{{ comment.email }}</span>
+        </div>
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No comments yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- Actions -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Actions</div>
+      <a href="/admin/core/post/{{ post.id }}/change/" target="_blank" class="btn-add" style="width:100%; justify-content:center; margin-bottom:8px;">
+        <i class="ti ti-edit"></i> Edit in Admin
+      </a>
+      {% if post.status == 'published' %}
+      <a href="/blog/{{ post.slug }}/" target="_blank" class="btn-add" style="width:100%; justify-content:center; background:#0EA5E9;">
+        <i class="ti ti-eye"></i> View on Website
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- SEO -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">SEO</div>
+      <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">Meta Title</div>
+      <div style="font-size:13px; font-weight:500; margin-bottom:12px;">{{ post.meta_title|default:"—" }}</div>
+      <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">Meta Description</div>
+      <div style="font-size:13px; color:#374151;">{{ post.meta_description|default:"—"|truncatechars:120 }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

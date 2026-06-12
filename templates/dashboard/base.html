@@ -82,6 +82,29 @@
       text-transform: uppercase;
       letter-spacing: 0.8px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      background: none;
+      border: none;
+      width: 100%;
+      font-family: inherit;
+      transition: color 0.15s ease;
+    }
+    .sidebar-section:hover { color: rgba(255, 255, 255, 0.8); }
+    .sidebar-section i.chevron { font-size: 14px; transition: transform 0.2s ease; color: rgba(255,255,255,0.4); }
+    .sidebar-section.collapsed i.chevron { transform: rotate(-90deg); }
+    .nav-group {
+      overflow: hidden;
+      transition: max-height 0.25s ease, opacity 0.2s ease;
+      max-height: 800px;
+      opacity: 1;
+    }
+    .nav-group.collapsed {
+      max-height: 0;
+      opacity: 0;
     }
     .nav-item {
       display: flex;
@@ -536,8 +559,9 @@
   <style>
     .ql-toolbar { border-radius: var(--border-radius-md) var(--border-radius-md) 0 0; border-color: var(--color-border-secondary); border-bottom: none; }
     .ql-container { border-radius: 0 0 var(--border-radius-md) var(--border-radius-md); border-color: var(--color-border-secondary); font-family: 'Inter', sans-serif; }
-    .ql-editor { min-height: 160px; font-size: 14px; color: var(--color-text-primary); }
+    .ql-editor { min-height: 200px; font-size: 14px; color: var(--color-text-primary); }
     .rich-text-editor { display: none; }
+    .quill-wrapper { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); overflow: hidden; background: #fff; }
   </style>
   {% endif %}
   {% block extra_head %}{% endblock %}
@@ -551,61 +575,117 @@
         <small>Admin portal</small>
       </div>
 
-      <div class="sidebar-section">Content</div>
-      <a href="{% url 'dashboard_home' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
-        <i class="ti ti-layout-dashboard"></i> Dashboard
-      </a>
-      <a href="{% url 'dashboard_exams' %}" class="nav-item {% if active_page == 'exams' %}active{% endif %}">
-        <i class="ti ti-building-bank"></i> Exam boards
-      </a>
-      <a href="{% url 'dashboard_subjects' %}" class="nav-item {% if active_page == 'subjects' %}active{% endif %}">
-        <i class="ti ti-books"></i> Subjects
-      </a>
-      <a href="{% url 'dashboard_mcqs' %}" class="nav-item {% if active_page == 'mcqs' %}active{% endif %}">
-        <i class="ti ti-checkbox"></i> MCQ bank
-      </a>
-      <a href="{% url 'dashboard_current_affairs_categories' %}" class="nav-item {% if active_page == 'ca_categories' %}active{% endif %}">
-        <i class="ti ti-category"></i> CA categories
-      </a>
-      <a href="{% url 'dashboard_past_papers' %}" class="nav-item {% if active_page == 'past_papers' %}active{% endif %}">
-        <i class="ti ti-file-text"></i> Past papers
-      </a>
-      <a href="{% url 'dashboard_syllabus' %}" class="nav-item {% if active_page == 'syllabus' %}active{% endif %}">
-        <i class="ti ti-book"></i> Syllabus
-      </a>
-      <a href="{% url 'dashboard_jobs' %}" class="nav-item {% if active_page == 'jobs' %}active{% endif %}">
-        <i class="ti ti-briefcase"></i> Job listings
-      </a>
-      <a href="{% url 'dashboard_announcements' %}" class="nav-item {% if active_page == 'announcements' %}active{% endif %}">
-        <i class="ti ti-speakerphone"></i> Announcements
-      </a>
-      <a href="{% url 'dashboard_scraper' %}" class="nav-item {% if active_page == 'scraper' %}active{% endif %}">
-        <i class="ti ti-spider"></i> Data Scraper
-      </a>
+      <button class="sidebar-section" data-section="content" type="button">Content<i class="ti ti-chevron-down chevron"></i></button>
+      <div class="nav-group" data-section="content">
+        <a href="{% url 'dashboard_home' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+          <i class="ti ti-layout-dashboard"></i> Dashboard
+        </a>
+        <a href="{% url 'dashboard_exams' %}" class="nav-item {% if active_page == 'exams' %}active{% endif %}">
+          <i class="ti ti-building-bank"></i> Exam boards
+        </a>
+        <a href="{% url 'dashboard_subjects' %}" class="nav-item {% if active_page == 'subjects' %}active{% endif %}">
+          <i class="ti ti-books"></i> Subjects
+        </a>
+        <a href="{% url 'dashboard_mcqs' %}" class="nav-item {% if active_page == 'mcqs' %}active{% endif %}">
+          <i class="ti ti-checkbox"></i> MCQ bank
+        </a>
+        <a href="{% url 'dashboard_current_affairs_categories' %}" class="nav-item {% if active_page == 'ca_categories' %}active{% endif %}">
+          <i class="ti ti-category"></i> CA categories
+        </a>
+        <a href="{% url 'dashboard_past_papers' %}" class="nav-item {% if active_page == 'past_papers' %}active{% endif %}">
+          <i class="ti ti-file-text"></i> Past papers
+        </a>
+        <a href="{% url 'dashboard_syllabus' %}" class="nav-item {% if active_page == 'syllabus' %}active{% endif %}">
+          <i class="ti ti-book"></i> Syllabus
+        </a>
+        <a href="{% url 'dashboard_jobs' %}" class="nav-item {% if active_page == 'jobs' %}active{% endif %}">
+          <i class="ti ti-briefcase"></i> Job listings
+        </a>
+        <a href="{% url 'dashboard_announcements' %}" class="nav-item {% if active_page == 'announcements' %}active{% endif %}">
+          <i class="ti ti-speakerphone"></i> Announcements
+        </a>
+        <a href="{% url 'dashboard_posts' %}" class="nav-item {% if active_page == 'posts' %}active{% endif %}">
+          <i class="ti ti-article"></i> Blog Posts
+        </a>
+        <a href="{% url 'dashboard_news_subscribers' %}" class="nav-item {% if active_page == 'news_subscribers' %}active{% endif %}">
+          <i class="ti ti-mail"></i> News Subscribers
+        </a>
+        <a href="{% url 'dashboard_scraper' %}" class="nav-item {% if active_page == 'scraper' %}active{% endif %}">
+          <i class="ti ti-spider"></i> Data Scraper
+        </a>
+      </div>
 
-      <div class="sidebar-section">Users</div>
-      <a href="{% url 'dashboard_students' %}" class="nav-item {% if active_page == 'students' %}active{% endif %}">
-        <i class="ti ti-users"></i> Students
-      </a>
-      <a href="{% url 'dashboard_test_results' %}" class="nav-item {% if active_page == 'test_results' %}active{% endif %}">
-        <i class="ti ti-chart-bar"></i> Test results
-      </a>
-      <a href="{% url 'dashboard_contact_messages' %}" class="nav-item {% if active_page == 'contact' %}active{% endif %}">
-        <i class="ti ti-mail"></i> Contact messages
-      </a>
+      <button class="sidebar-section" data-section="services" type="button">Services<i class="ti ti-chevron-down chevron"></i></button>
+      <div class="nav-group" data-section="services">
+        <a href="{% url 'dashboard_service_requests' %}" class="nav-item {% if active_page == 'service_requests' %}active{% endif %}">
+          <i class="ti ti-hand-helping"></i> Service Requests
+        </a>
+        <a href="{% url 'dashboard_job_profiles' %}" class="nav-item {% if active_page == 'job_profiles' %}active{% endif %}">
+          <i class="ti ti-briefcase"></i> Job Profiles
+        </a>
+      </div>
+
+      <button class="sidebar-section" data-section="users" type="button">Users<i class="ti ti-chevron-down chevron"></i></button>
+      <div class="nav-group" data-section="users">
+        <a href="{% url 'dashboard_students' %}" class="nav-item {% if active_page == 'students' %}active{% endif %}">
+          <i class="ti ti-users"></i> Students
+        </a>
+        <a href="{% url 'dashboard_test_results' %}" class="nav-item {% if active_page == 'test_results' %}active{% endif %}">
+          <i class="ti ti-chart-bar"></i> Test results
+        </a>
+        <a href="{% url 'dashboard_contact_messages' %}" class="nav-item {% if active_page == 'contact' %}active{% endif %}">
+          <i class="ti ti-mail"></i> Contact messages
+        </a>
+      </div>
+
+      <button class="sidebar-section" data-section="system" type="button">System<i class="ti ti-chevron-down chevron"></i></button>
+      <div class="nav-group" data-section="system">
+        <a href="{% url 'dashboard_job_profiles' %}" class="nav-item {% if active_page == 'job_profiles' %}active{% endif %}">
+          <i class="ti ti-user-check"></i> User Profiles
+        </a>
+        <a href="{% url 'dashboard_service_plans' %}" class="nav-item {% if active_page == 'service_plans' %}active{% endif %}">
+          <i class="ti ti-cash"></i> Service Plans
+        </a>
+        <a href="{% url 'dashboard_comments' %}" class="nav-item {% if active_page == 'comments' %}active{% endif %}">
+          <i class="ti ti-message"></i> Comments
+        </a>
+        <a href="{% url 'dashboard_categories' %}" class="nav-item {% if active_page == 'categories' %}active{% endif %}">
+          <i class="ti ti-category"></i> Categories
+        </a>
+        <a href="{% url 'dashboard_tags' %}" class="nav-item {% if active_page == 'tags' %}active{% endif %}">
+          <i class="ti ti-tag"></i> Tags
+        </a>
+        <a href="{% url 'dashboard_activity_logs' %}" class="nav-item {% if active_page == 'activity_logs' %}active{% endif %}">
+          <i class="ti ti-activity"></i> Activity Logs
+        </a>
+        <a href="{% url 'dashboard_ai_usage' %}" class="nav-item {% if active_page == 'ai_usage' %}active{% endif %}">
+          <i class="ti ti-robot"></i> AI Usage
+        </a>
+        <a href="{% url 'dashboard_chat_sessions' %}" class="nav-item {% if active_page == 'chat_sessions' %}active{% endif %}">
+          <i class="ti ti-messages"></i> Chat Sessions
+        </a>
+        <a href="{% url 'dashboard_chat_messages' %}" class="nav-item {% if active_page == 'chat_messages' %}active{% endif %}">
+          <i class="ti ti-message-circle"></i> Chat Messages
+        </a>
+        <a href="{% url 'dashboard_django_users' %}" class="nav-item {% if active_page == 'django_users' %}active{% endif %}">
+          <i class="ti ti-users"></i> Django Users
+        </a>
+      </div>
 
       <div class="sidebar-spacer"></div>
 
-      <div class="sidebar-section">Settings</div>
-      <a href="{% url 'dashboard_sections' %}" class="nav-item {% if active_page == 'sections' %}active{% endif %}">
-        <i class="ti ti-text-caption"></i> Page sections
-      </a>
-      <a href="{% url 'dashboard_settings' %}" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
-        <i class="ti ti-settings"></i> Settings
-      </a>
-      <a href="{% url 'dashboard_logout' %}" class="nav-item">
-        <i class="ti ti-logout"></i> Logout
-      </a>
+      <button class="sidebar-section" data-section="settings" type="button">Settings<i class="ti ti-chevron-down chevron"></i></button>
+      <div class="nav-group" data-section="settings">
+        <a href="{% url 'dashboard_sections' %}" class="nav-item {% if active_page == 'sections' %}active{% endif %}">
+          <i class="ti ti-text-caption"></i> Page sections
+        </a>
+        <a href="{% url 'dashboard_settings' %}" class="nav-item {% if active_page == 'settings' %}active{% endif %}">
+          <i class="ti ti-settings"></i> Settings
+        </a>
+        <a href="{% url 'dashboard_logout' %}" class="nav-item">
+          <i class="ti ti-logout"></i> Logout
+        </a>
+      </div>
     </div>
     <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -752,6 +832,54 @@
         });
       });
     });
+  </script>
+
+  <!-- Sidebar Accordion -->
+  <script>
+    (function() {
+      const sections = document.querySelectorAll('.sidebar-section');
+      const groups   = document.querySelectorAll('.nav-group');
+      const storageKey = 'sidebar_collapsed';
+      let collapsed = {};
+      try { collapsed = JSON.parse(localStorage.getItem(storageKey)) || {}; } catch(e) {}
+
+      // Auto-expand the section that contains the active nav-item
+      const activeItem = document.querySelector('.nav-item.active');
+      let activeSection = null;
+      if (activeItem) {
+        const parentGroup = activeItem.closest('.nav-group');
+        if (parentGroup) activeSection = parentGroup.dataset.section;
+      }
+
+      sections.forEach(function(btn) {
+        const sectionName = btn.dataset.section;
+        const group = document.querySelector('.nav-group[data-section="' + sectionName + '"]');
+        if (!group) return;
+
+        // Default: collapse all except the one with active page
+        let isCollapsed = collapsed[sectionName];
+        if (activeSection && sectionName === activeSection) {
+          isCollapsed = false;
+        }
+        if (isCollapsed) {
+          btn.classList.add('collapsed');
+          group.classList.add('collapsed');
+        }
+
+        btn.addEventListener('click', function() {
+          const nowCollapsed = !group.classList.contains('collapsed');
+          if (nowCollapsed) {
+            group.classList.add('collapsed');
+            btn.classList.add('collapsed');
+          } else {
+            group.classList.remove('collapsed');
+            btn.classList.remove('collapsed');
+          }
+          collapsed[sectionName] = nowCollapsed;
+          try { localStorage.setItem(storageKey, JSON.stringify(collapsed)); } catch(e) {}
+        });
+      });
+    })();
   </script>
   {% if active_page == 'jobs' or active_page == 'syllabus' %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>

@@ -46,6 +46,9 @@ tzdata==2026.2
 Pillow==12.2.0
 openpyxl==3.1.5
 
+# ── Rich Text Editor ──────────────────────────────────────────────────────────
+django-ckeditor==6.7.2
+
 # ── Google OAuth ──────────────────────────────────────────────────────────────
 google-auth==2.38.0
 
@@ -72,5 +75,8 @@ google-auth==2.38.0
 # ── Data processing (ai_scraper_suite.py optional) ────────────────────────────
 # pandas>=2.1.0
 
-# ── Google Gemini AI (ai_scraper_suite.py optional) ───────────────────────────
-# google-generativeai>=0.8.0
+# ── Google Gemini AI ───────────────────────────
+google-generativeai>=0.8.0
+
+# ── PDF Generation ─────────────────────────────
+reportlab>=4.0.0

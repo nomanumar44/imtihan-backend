@@ -1,6 +1,6 @@
 from django import forms
 from django.utils.text import slugify
-from .models import JobListing, Syllabus, PastPaper, Exam, Subject, CurrentAffairsCategory, MCQ, Announcement, SectionContent
+from .models import JobListing, Syllabus, PastPaper, Exam, Subject, CurrentAffairsCategory, MCQ, Announcement, SectionContent, Post, Category, Tag
 
 
 class SectionContentForm(forms.ModelForm):
@@ -270,4 +270,40 @@ class CurrentAffairsCategoryForm(forms.ModelForm):
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise forms.ValidationError('A category with this slug already exists.')
+        return slug
+
+
+class PostForm(forms.ModelForm):
+    class Meta:
+        model = Post
+        fields = ['title', 'slug', 'content', 'excerpt', 'thumbnail', 'category', 'tags', 'post_type', 'status', 'is_featured']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Post title'}),
+            'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto-generated from title if empty'}),
+            'content': forms.Textarea(attrs={'class': 'form-input rich-text-editor', 'rows': 15, 'placeholder': 'Write your post content here...'}),
+            'excerpt': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Short summary for previews'}),
+            'thumbnail': forms.ClearableFileInput(attrs={'class': 'form-input'}),
+            'category': forms.Select(attrs={'class': 'form-input'}),
+            'tags': forms.SelectMultiple(attrs={'class': 'form-input'}),
+            'post_type': forms.Select(attrs={'class': 'form-input'}),
+            'status': forms.Select(attrs={'class': 'form-input'}),
+            'is_featured': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['excerpt'].required = False
+        self.fields['thumbnail'].required = False
+
+    def clean_slug(self):
+        raw_slug = self.cleaned_data.get('slug') or self.cleaned_data.get('title') or ''
+        slug = slugify(raw_slug)
+        if not slug:
+            raise forms.ValidationError('Please enter a valid title or slug.')
+        qs = Post.objects.filter(slug=slug)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A post with this slug already exists.')
         return slug

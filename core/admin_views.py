@@ -1,14 +1,14 @@
 """
-Custom admin views for bulk MCQ upload.
+Custom admin views for bulk MCQ upload and post preview.
 """
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.urls import reverse
 from django.db import transaction
 
-from .models import Exam, Subject, MCQ
+from .models import Exam, Subject, MCQ, Post
 from .mcq_parser import parse_mcq_text
 
 
@@ -85,4 +85,14 @@ def bulk_upload_mcq(request):
     return render(request, 'admin/bulk_upload_mcq.html', {
         'exams': exams,
         'subjects': subjects,
+    })
+
+
+@staff_member_required
+def post_preview(request, post_id):
+    """Admin preview for a blog/news post."""
+    post = get_object_or_404(Post, pk=post_id)
+    return render(request, 'admin/core/post/preview.html', {
+        'post': post,
+        'title': f'Preview: {post.title}',
     })

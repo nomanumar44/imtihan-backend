@@ -1,0 +1,21 @@
+ImtihanHub News Digest
+Latest exam updates delivered to your inbox
+
+Hi there, here are the latest exam updates for the boards you follow:
+
+{% for post in posts %}
+---
+{{ post.title }}
+Category: {{ post.category.name }}
+Date: {{ post.published_at|date:"F j, Y" }}
+Views: {{ post.views_count }}
+Link: {{ site_url }}/news/{{ post.slug }}/
+
+{{ post.excerpt|default:"Read the full article for more details." }}
+{% endfor %}
+
+---
+You are receiving this because you subscribed to ImtihanHub exam alerts.
+Unsubscribe: {{ unsubscribe_url }}
+
+(c) ImtihanHub. All rights reserved.

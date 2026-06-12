@@ -1,0 +1,64 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Django Users{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Django Users</div>
+    <div class="page-subtitle">System user accounts</div>
+  </div>
+  <a href="/admin/auth/user/add/" target="_blank" class="btn-add">
+    <i class="ti ti-plus"></i> Add User
+  </a>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_users }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ active_users }}</div>
+    <div class="stat-label">Active</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#f59e0b">{{ staff_users }}</div>
+    <div class="stat-label">Staff</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Username</th><th>Email</th><th>Staff</th><th>Active</th><th>Joined</th><th>Posts</th><th>Requests</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td style="font-weight:500;">{{ u.username }}</td>
+        <td style="font-size:12px; color:#6b7280;">{{ u.email|default:"—" }}</td>
+        <td>
+          {% if u.is_staff %}<span class="badge badge-green">Yes</span>
+          {% else %}<span class="badge badge-slate">No</span>{% endif %}
+        </td>
+        <td>
+          {% if u.is_active %}<span class="badge badge-green">Yes</span>
+          {% else %}<span class="badge badge-red">No</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ u.date_joined|date:"d M Y" }}</span></td>
+        <td style="text-align:center;">{{ u.post_count }}</td>
+        <td style="text-align:center;">{{ u.app_count }}</td>
+        <td>
+          <a href="/admin/auth/user/{{ u.id }}/change/" target="_blank" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="empty-state"><i class="ti ti-users-off"></i>No users yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if users.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=users %}</div>
+{% endif %}
+{% endblock %}

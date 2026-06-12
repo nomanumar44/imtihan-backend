@@ -1,0 +1,41 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Activity Logs{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Activity Logs</div>
+    <div class="page-subtitle">Platform activity tracking</div>
+  </div>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(2, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_logs }}</div>
+    <div class="stat-label">Total Logs</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Message</th><th>Type</th><th>User</th><th>Date</th></tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td style="font-size:13px;">{{ log.message|truncatechars:80 }}</td>
+        <td><span class="badge badge-slate">{{ log.activity_type }}</span></td>
+        <td>{{ log.user.username|default:"System" }}</td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ log.created_at|date:"d M Y H:i" }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="empty-state"><i class="ti ti-activity-off"></i>No activity logs yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if logs.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=logs %}</div>
+{% endif %}
+{% endblock %}

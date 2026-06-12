@@ -9,12 +9,15 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
+from core import views
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/dashboard/', permanent=False)),
     path('admin/', admin.site.urls),
     path('api/', include('core.urls')),
     path('dashboard/', include('core.dashboard_urls')),
+    path('ckeditor/', include('ckeditor_uploader.urls')),
+    path('quick-post/', views.quick_post_page, name='quick-post-page'),
 ]
 
 if settings.DEBUG:

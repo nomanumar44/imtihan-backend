@@ -17,12 +17,15 @@ from openpyxl.utils import get_column_letter
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement,
-    SectionContent
+    SectionContent,
+    ServicePlan, ApplicationRequest, UserProfile, UserEducation, UserExperience, UserDocument,
+    Post, Comment, Category, Tag, NewsSubscriber,
+    AIUsage, ChatSession, ChatMessage,
 )
 from .forms import (
     JobListingForm, SyllabusForm, PastPaperForm, MCQForm,
     CurrentAffairsCategoryForm, AnnouncementForm, ExamForm, SectionContentForm,
-    SubjectForm,
+    SubjectForm, PostForm,
 )
 from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
@@ -78,6 +81,16 @@ def dashboard_home(request):
     # Recent Activity
     recent_activity = ActivityLog.objects.all()[:5]
 
+    # Service stats
+    service_requests_count = ApplicationRequest.objects.count()
+    job_profiles_count = UserProfile.objects.count()
+    service_plans_count = ServicePlan.objects.count()
+
+    # Blog stats
+    blog_posts_count = Post.objects.count()
+    blog_comments_count = Comment.objects.count()
+    news_subscribers_count = NewsSubscriber.objects.count()
+
     context = {
         'total_mcqs': f'{total_mcqs:,}',
         'mcqs_this_week': mcqs_this_week,
@@ -89,6 +102,12 @@ def dashboard_home(request):
         'tests_vs_yesterday': tests_vs_yesterday,
         'recent_mcqs': recent_mcqs,
         'recent_activity': recent_activity,
+        'service_requests_count': service_requests_count,
+        'job_profiles_count': job_profiles_count,
+        'service_plans_count': service_plans_count,
+        'blog_posts_count': blog_posts_count,
+        'blog_comments_count': blog_comments_count,
+        'news_subscribers_count': news_subscribers_count,
         'active_page': 'dashboard',
     }
     return render(request, 'dashboard/home.html', context)
@@ -1312,3 +1331,533 @@ def dashboard_mcq_import(request):
         messages.success(request, summary)
 
     return redirect('dashboard_mcqs')
+
+
+# ─── Service Requests Dashboard ──────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_service_requests(request):
+    """Admin dashboard for paid application service requests."""
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=7)
+
+    reqs = ApplicationRequest.objects.select_related('user', 'job', 'plan', 'assigned_to').prefetch_related('admin_notes')
+
+    # Stats
+    total_requests = reqs.count()
+    pending_payment = reqs.filter(request_status='payment_pending').count()
+    in_progress = reqs.filter(request_status='in_progress').count()
+    submitted = reqs.filter(request_status='submitted').count()
+    failed = reqs.filter(request_status='failed').count()
+    refunded = reqs.filter(request_status='refunded').count()
+    total_revenue = sum(
+        float(r.payment_amount or 0) for r in reqs.filter(payment_status='paid')
+    )
+    requests_today = reqs.filter(created_at__gte=today_start).count()
+    requests_this_week = reqs.filter(created_at__gte=week_start).count()
+
+    # Filters
+    status_filter = request.GET.get('status')
+    payment_filter = request.GET.get('payment_status')
+    if status_filter:
+        reqs = reqs.filter(request_status=status_filter)
+    if payment_filter:
+        reqs = reqs.filter(payment_status=payment_filter)
+
+    # Pagination
+    paginator = Paginator(reqs.order_by('-created_at'), 25)
+    page = request.GET.get('page')
+    try:
+        reqs_page = paginator.page(page)
+    except PageNotAnInteger:
+        reqs_page = paginator.page(1)
+    except EmptyPage:
+        reqs_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'requests': reqs_page,
+        'total_requests': total_requests,
+        'pending_payment': pending_payment,
+        'in_progress': in_progress,
+        'submitted': submitted,
+        'failed': failed,
+        'refunded': refunded,
+        'total_revenue': f'{total_revenue:,.0f}',
+        'requests_today': requests_today,
+        'requests_this_week': requests_this_week,
+        'active_page': 'service_requests',
+        'status_filter': status_filter,
+        'payment_filter': payment_filter,
+    }
+    return render(request, 'dashboard/service_requests.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_service_request_detail(request, pk):
+    """Admin: view single service request details."""
+    req = get_object_or_404(
+        ApplicationRequest.objects.select_related('user', 'job', 'plan', 'assigned_to').prefetch_related('admin_notes__added_by'),
+        pk=pk
+    )
+    return render(request, 'dashboard/service_request_detail.html', {
+        'req': req,
+        'active_page': 'service_requests',
+    })
+
+
+# ─── Job Profiles Dashboard ──────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_job_profiles(request):
+    """Admin dashboard for user job profiles."""
+    profiles = UserProfile.objects.select_related('user').prefetch_related(
+        'user__educations', 'user__experiences', 'user__documents'
+    )
+
+    # Stats
+    total_profiles = profiles.count()
+    profiles_this_week = profiles.filter(created_at__gte=timezone.now() - timedelta(days=7)).count()
+    total_education = UserEducation.objects.count()
+    total_experience = UserExperience.objects.count()
+    total_documents = UserDocument.objects.count()
+
+    # Profile completeness
+    complete_profiles = 0
+    partial_profiles = 0
+    for p in profiles:
+        has_personal = all([p.full_name, p.cnic, p.dob, p.phone, p.permanent_address])
+        has_education = p.user.educations.exists()
+        has_experience = p.user.experiences.exists()
+        if has_personal and has_education and has_experience:
+            complete_profiles += 1
+        elif has_personal or has_education or has_experience:
+            partial_profiles += 1
+
+    incomplete_profiles = total_profiles - complete_profiles - partial_profiles
+
+    # Pagination
+    paginator = Paginator(profiles.order_by('-updated_at'), 25)
+    page = request.GET.get('page')
+    try:
+        profiles_page = paginator.page(page)
+    except PageNotAnInteger:
+        profiles_page = paginator.page(1)
+    except EmptyPage:
+        profiles_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'profiles': profiles_page,
+        'total_profiles': total_profiles,
+        'profiles_this_week': profiles_this_week,
+        'total_education': total_education,
+        'total_experience': total_experience,
+        'total_documents': total_documents,
+        'complete_profiles': complete_profiles,
+        'partial_profiles': partial_profiles,
+        'incomplete_profiles': incomplete_profiles,
+        'active_page': 'job_profiles',
+    }
+    return render(request, 'dashboard/job_profiles.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_job_profile_detail(request, pk):
+    """Admin: view single user job profile details."""
+    profile = get_object_or_404(
+        UserProfile.objects.select_related('user').prefetch_related(
+            'user__educations', 'user__experiences', 'user__documents',
+            'user__application_requests__job',
+        ),
+        pk=pk
+    )
+    return render(request, 'dashboard/job_profile_detail.html', {
+        'profile': profile,
+        'active_page': 'job_profiles',
+    })
+
+
+# ─── Blog Posts Dashboard ────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_posts(request):
+    """Admin dashboard for blog posts."""
+    posts = Post.objects.select_related('author', 'category').prefetch_related('tags').order_by('-created_at')
+
+    # Stats
+    total_posts = Post.objects.count()
+    published_posts = Post.objects.filter(status='published').count()
+    draft_posts = Post.objects.filter(status='draft').count()
+    total_comments = Comment.objects.count()
+    pending_comments = Comment.objects.filter(is_approved=False).count()
+
+    # Filters
+    status_filter = request.GET.get('status')
+    category_filter = request.GET.get('category')
+    if status_filter:
+        posts = posts.filter(status=status_filter)
+    if category_filter:
+        posts = posts.filter(category__slug=category_filter)
+
+    # Pagination
+    paginator = Paginator(posts, 20)
+    page = request.GET.get('page')
+    try:
+        posts_page = paginator.page(page)
+    except PageNotAnInteger:
+        posts_page = paginator.page(1)
+    except EmptyPage:
+        posts_page = paginator.page(paginator.num_pages)
+
+    categories = Category.objects.all()
+
+    context = {
+        'posts': posts_page,
+        'categories': categories,
+        'total_posts': total_posts,
+        'published_posts': published_posts,
+        'draft_posts': draft_posts,
+        'total_comments': total_comments,
+        'pending_comments': pending_comments,
+        'active_page': 'posts',
+        'status_filter': status_filter,
+        'category_filter': category_filter,
+    }
+    return render(request, 'dashboard/posts.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_post_detail(request, pk):
+    """Admin: view single blog post details."""
+    post = get_object_or_404(
+        Post.objects.select_related('author', 'category').prefetch_related('tags', 'comments'),
+        pk=pk
+    )
+    return render(request, 'dashboard/post_detail.html', {
+        'post': post,
+        'active_page': 'posts',
+    })
+
+
+# ─── News Subscribers Dashboard ──────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_news_subscribers(request):
+    """Admin dashboard for news subscribers."""
+    subscribers = NewsSubscriber.objects.prefetch_related('boards').order_by('-subscribed_at')
+
+    # Stats
+    total_subscribers = subscribers.count()
+    active_subscribers = subscribers.filter(is_active=True).count()
+    inactive_subscribers = subscribers.filter(is_active=False).count()
+
+    # Filters
+    status_filter = request.GET.get('status')
+    if status_filter == 'active':
+        subscribers = subscribers.filter(is_active=True)
+    elif status_filter == 'inactive':
+        subscribers = subscribers.filter(is_active=False)
+
+    # Pagination
+    paginator = Paginator(subscribers, 25)
+    page = request.GET.get('page')
+    try:
+        subs_page = paginator.page(page)
+    except PageNotAnInteger:
+        subs_page = paginator.page(1)
+    except EmptyPage:
+        subs_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'subscribers': subs_page,
+        'total_subscribers': total_subscribers,
+        'active_subscribers': active_subscribers,
+        'inactive_subscribers': inactive_subscribers,
+        'active_page': 'news_subscribers',
+        'status_filter': status_filter,
+    }
+    return render(request, 'dashboard/news_subscribers.html', context)
+
+
+# ─── Blog Post Create/Edit ───────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_post_create(request):
+    """Admin: create a new blog post in the custom dashboard."""
+    if request.method == 'POST':
+        form = PostForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            form.save_m2m()  # Save tags ManyToMany
+            messages.success(request, 'Post created successfully.')
+            return redirect('dashboard_posts')
+    else:
+        form = PostForm()
+    return render(request, 'dashboard/post_form.html', {
+        'form': form,
+        'title': 'New Post',
+        'active_page': 'posts',
+    })
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_post_edit(request, pk):
+    """Admin: edit an existing blog post in the custom dashboard."""
+    post = get_object_or_404(Post, pk=pk)
+    if request.method == 'POST':
+        form = PostForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            post = form.save()
+            messages.success(request, 'Post updated successfully.')
+            return redirect('dashboard_posts')
+    else:
+        form = PostForm(instance=post)
+    return render(request, 'dashboard/post_form.html', {
+        'form': form,
+        'title': 'Edit Post',
+        'active_page': 'posts',
+    })
+
+
+# ─── Service Plans Dashboard ─────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_service_plans(request):
+    """Admin dashboard for service plans."""
+    plans = ServicePlan.objects.order_by('-created_at')
+    total_plans = plans.count()
+    active_plans = plans.filter(is_active=True).count()
+    total_revenue = sum(p.price for p in plans)
+
+    paginator = Paginator(plans, 20)
+    page = request.GET.get('page')
+    try:
+        plans_page = paginator.page(page)
+    except PageNotAnInteger:
+        plans_page = paginator.page(1)
+    except EmptyPage:
+        plans_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/service_plans.html', {
+        'plans': plans_page,
+        'total_plans': total_plans,
+        'active_plans': active_plans,
+        'total_revenue': total_revenue,
+        'active_page': 'service_plans',
+    })
+
+
+# ─── Comments Dashboard ──────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_comments(request):
+    """Admin dashboard for blog post comments."""
+    comments_list = Comment.objects.select_related('post').order_by('-created_at')
+    total_comments = comments_list.count()
+    pending_comments = comments_list.filter(is_approved=False).count()
+    approved_comments = comments_list.filter(is_approved=True).count()
+
+    status_filter = request.GET.get('status')
+    if status_filter == 'pending':
+        comments_list = comments_list.filter(is_approved=False)
+    elif status_filter == 'approved':
+        comments_list = comments_list.filter(is_approved=True)
+
+    paginator = Paginator(comments_list, 25)
+    page = request.GET.get('page')
+    try:
+        comments_page = paginator.page(page)
+    except PageNotAnInteger:
+        comments_page = paginator.page(1)
+    except EmptyPage:
+        comments_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/comments.html', {
+        'comments': comments_page,
+        'total_comments': total_comments,
+        'pending_comments': pending_comments,
+        'approved_comments': approved_comments,
+        'active_page': 'comments',
+        'status_filter': status_filter,
+    })
+
+
+# ─── Categories Dashboard ────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_categories(request):
+    """Admin dashboard for blog/news categories."""
+    categories = Category.objects.annotate(post_count=Count('posts')).order_by('name')
+    total_categories = categories.count()
+    blog_categories = categories.filter(type='blog').count()
+    news_categories = categories.filter(type='news').count()
+
+    return render(request, 'dashboard/categories.html', {
+        'categories': categories,
+        'total_categories': total_categories,
+        'blog_categories': blog_categories,
+        'news_categories': news_categories,
+        'active_page': 'categories',
+    })
+
+
+# ─── Tags Dashboard ──────────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_tags(request):
+    """Admin dashboard for blog tags."""
+    tags = Tag.objects.annotate(post_count=Count('posts')).order_by('name')
+    total_tags = tags.count()
+
+    paginator = Paginator(tags, 30)
+    page = request.GET.get('page')
+    try:
+        tags_page = paginator.page(page)
+    except PageNotAnInteger:
+        tags_page = paginator.page(1)
+    except EmptyPage:
+        tags_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/tags.html', {
+        'tags': tags_page,
+        'total_tags': total_tags,
+        'active_page': 'tags',
+    })
+
+
+# ─── Activity Logs Dashboard ─────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_activity_logs(request):
+    """Admin dashboard for activity logs."""
+    logs = ActivityLog.objects.select_related('user').order_by('-created_at')
+    total_logs = logs.count()
+
+    paginator = Paginator(logs, 30)
+    page = request.GET.get('page')
+    try:
+        logs_page = paginator.page(page)
+    except PageNotAnInteger:
+        logs_page = paginator.page(1)
+    except EmptyPage:
+        logs_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/activity_logs.html', {
+        'logs': logs_page,
+        'total_logs': total_logs,
+        'active_page': 'activity_logs',
+    })
+
+
+# ─── AI Usage Dashboard ──────────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_ai_usage(request):
+    """Admin dashboard for AI usage tracking."""
+    usage = AIUsage.objects.select_related('user').order_by('-date')
+    total_records = usage.count()
+    today = timezone.now().date()
+    today_usage = AIUsage.objects.filter(date=today).aggregate(total=Count('id'))['total'] or 0
+
+    paginator = Paginator(usage, 25)
+    page = request.GET.get('page')
+    try:
+        usage_page = paginator.page(page)
+    except PageNotAnInteger:
+        usage_page = paginator.page(1)
+    except EmptyPage:
+        usage_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/ai_usage.html', {
+        'usage': usage_page,
+        'total_records': total_records,
+        'today_usage': today_usage,
+        'active_page': 'ai_usage',
+    })
+
+
+# ─── Chat Sessions Dashboard ─────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_chat_sessions(request):
+    """Admin dashboard for chat sessions."""
+    sessions = ChatSession.objects.select_related('user', 'mcq').order_by('-created_at')
+    total_sessions = sessions.count()
+    active_sessions = sessions.filter(is_active=True).count()
+
+    paginator = Paginator(sessions, 25)
+    page = request.GET.get('page')
+    try:
+        sessions_page = paginator.page(page)
+    except PageNotAnInteger:
+        sessions_page = paginator.page(1)
+    except EmptyPage:
+        sessions_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/chat_sessions.html', {
+        'sessions': sessions_page,
+        'total_sessions': total_sessions,
+        'active_sessions': active_sessions,
+        'active_page': 'chat_sessions',
+    })
+
+
+# ─── Chat Messages Dashboard ─────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_chat_messages(request):
+    """Admin dashboard for chat messages."""
+    messages_list = ChatMessage.objects.select_related('session').order_by('-created_at')
+    total_messages = messages_list.count()
+    user_messages = messages_list.filter(role='user').count()
+    assistant_messages = messages_list.filter(role='assistant').count()
+
+    paginator = Paginator(messages_list, 30)
+    page = request.GET.get('page')
+    try:
+        messages_page = paginator.page(page)
+    except PageNotAnInteger:
+        messages_page = paginator.page(1)
+    except EmptyPage:
+        messages_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/chat_messages.html', {
+        'chat_messages': messages_page,
+        'total_messages': total_messages,
+        'user_messages': user_messages,
+        'assistant_messages': assistant_messages,
+        'active_page': 'chat_messages',
+    })
+
+
+# ─── Django Users Dashboard ──────────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_django_users(request):
+    """Admin dashboard for Django auth users."""
+    users = User.objects.annotate(
+        post_count=Count('posts', distinct=True),
+        app_count=Count('application_requests', distinct=True),
+    ).order_by('-date_joined')
+    total_users = users.count()
+    staff_users = users.filter(is_staff=True).count()
+    active_users = users.filter(is_active=True).count()
+
+    paginator = Paginator(users, 25)
+    page = request.GET.get('page')
+    try:
+        users_page = paginator.page(page)
+    except PageNotAnInteger:
+        users_page = paginator.page(1)
+    except EmptyPage:
+        users_page = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/django_users.html', {
+        'users': users_page,
+        'total_users': total_users,
+        'staff_users': staff_users,
+        'active_users': active_users,
+        'active_page': 'django_users',
+    })

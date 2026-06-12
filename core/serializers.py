@@ -3,7 +3,11 @@ from django.contrib.auth.models import User
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
     JobListing, Student, TestResult, ActivityLog, ContactMessage, Announcement,
-    Bookmark, EmailSubscription, TestAnswer,
+    Bookmark, EmailSubscription, TestAnswer, Notification,
+    Category, Tag, Post, Comment, NewsSubscriber, Achievement, UserAchievement,
+    AIUsage, ChatSession, ChatMessage,
+    UserProfile, UserEducation, UserExperience, UserDocument, JobApplication,
+    ServicePlan, ApplicationRequest, AdminNote,
 )
 
 
@@ -91,7 +95,11 @@ class JobListingSerializer(serializers.ModelSerializer):
             'department', 'location', 'bps_grade', 'description', 'qualifications',
             'vacancies', 'salary_range', 'experience', 'age_limit',
             'responsibilities', 'how_to_apply',
-            'last_date', 'apply_link', 'status', 'created_at', 'updated_at',
+            'last_date', 'apply_link', 'status',
+            # Eligibility requirements
+            'min_age', 'max_age', 'min_education',
+            'domicile_requirement', 'gender_requirement', 'min_experience_years',
+            'created_at', 'updated_at',
         ]
 
 
@@ -104,11 +112,49 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'username', 'email', 'full_name',
-            'phone', 'city', 'province', 'avatar', 'created_at'
+            'phone', 'city', 'province', 'avatar',
+            'xp_points', 'level', 'target_exam',
+            'notify_papers', 'notify_jobs', 'notify_affairs',
+            'daily_goal', 'streak_days', 'created_at'
         ]
 
     def get_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    full_name = serializers.SerializerMethodField()
+    member_since = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = Student
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
+            'phone', 'city', 'province', 'avatar',
+            'target_exam', 'notify_papers', 'notify_jobs', 'notify_affairs',
+            'member_since', 'xp_points', 'level', 'daily_goal', 'streak_days'
+        ]
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        user = instance.user
+        if 'first_name' in user_data:
+            user.first_name = user_data['first_name']
+        if 'last_name' in user_data:
+            user.last_name = user_data['last_name']
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
 
 
 class TestResultSerializer(serializers.ModelSerializer):
@@ -193,3 +239,260 @@ class TestResultDetailSerializer(serializers.ModelSerializer):
             'total_questions', 'correct_answers', 'wrong_answers',
             'score_percent', 'time_taken_seconds', 'created_at', 'answers'
         ]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    type_label = serializers.CharField(source='get_notification_type_display', read_only=True)
+    time_ago = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'notification_type', 'type_label', 'message', 'link', 'is_read', 'created_at', 'time_ago']
+
+    def get_time_ago(self, obj):
+        from django.utils import timezone
+        delta = timezone.now() - obj.created_at
+        if delta.days > 0:
+            return f"{delta.days}d ago"
+        hours = delta.seconds // 3600
+        if hours > 0:
+            return f"{hours}h ago"
+        mins = delta.seconds // 60
+        return f"{mins}m ago"
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    post_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug', 'type', 'color', 'icon', 'post_count']
+
+    def get_post_count(self, obj):
+        return obj.posts.filter(status=Post.Status.PUBLISHED).count()
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name', 'slug']
+
+
+class PostListSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    type_label = serializers.CharField(source='get_post_type_display', read_only=True)
+    status_label = serializers.CharField(source='get_status_display', read_only=True)
+    read_time = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = [
+            'id', 'title', 'slug', 'excerpt', 'thumbnail_url',
+            'category', 'tags', 'post_type', 'type_label',
+            'status', 'status_label', 'is_featured',
+            'views_count', 'author_name', 'read_time',
+            'created_at', 'published_at',
+        ]
+
+    def get_read_time(self, obj):
+        words = len(obj.content.split())
+        minutes = max(1, words // 200)
+        return f"{minutes} min read"
+
+    def get_thumbnail_url(self, obj):
+        if obj.thumbnail:
+            return obj.thumbnail.url
+        return None
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['id', 'name', 'content', 'created_at']
+
+
+class PostDetailSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    author_post_count = serializers.SerializerMethodField()
+    author_bio = serializers.SerializerMethodField()
+    type_label = serializers.CharField(source='get_post_type_display', read_only=True)
+    status_label = serializers.CharField(source='get_status_display', read_only=True)
+    read_time = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    comments = CommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Post
+        fields = [
+            'id', 'title', 'slug', 'content', 'excerpt', 'thumbnail_url',
+            'category', 'tags', 'post_type', 'type_label',
+            'status', 'status_label', 'is_featured',
+            'views_count', 'author_name', 'author_post_count', 'author_bio', 'read_time',
+            'created_at', 'published_at', 'comments',
+        ]
+
+    def get_read_time(self, obj):
+        words = len(obj.content.split())
+        minutes = max(1, words // 200)
+        return f"{minutes} min read"
+
+    def get_thumbnail_url(self, obj):
+        if obj.thumbnail:
+            return obj.thumbnail.url
+        return None
+
+    def get_author_post_count(self, obj):
+        return Post.objects.filter(author=obj.author).count()
+
+    def get_author_bio(self, obj):
+        student = getattr(obj.author, 'student_profile', None)
+        if student and student.city:
+            return f"Exam prep enthusiast based in {student.city}."
+        return "Content writer at ImtihanHub sharing exam prep tips and guides."
+
+
+class NewsSubscriberSerializer(serializers.ModelSerializer):
+    boards = serializers.PrimaryKeyRelatedField(
+        queryset=Exam.objects.all(), many=True, required=False
+    )
+
+    class Meta:
+        model = NewsSubscriber
+        fields = ['id', 'email', 'boards', 'is_active', 'subscribed_at']
+
+
+class AIUsageSerializer(serializers.ModelSerializer):
+    remaining = serializers.ReadOnlyField()
+
+    class Meta:
+        model = AIUsage
+        fields = ['id', 'user', 'date', 'questions_used', 'max_questions', 'remaining']
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'session', 'role', 'content', 'created_at']
+
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    messages = ChatMessageSerializer(many=True, read_only=True)
+    mcq_question = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatSession
+        fields = ['id', 'user', 'mcq', 'mcq_question', 'session_id', 'created_at', 'is_active', 'messages']
+
+    def get_mcq_question(self, obj):
+        return obj.mcq.question_text[:200] if obj.mcq else None
+
+
+# ─── Job Application Assistant Serializers ───
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id', 'user', 'full_name', 'father_name', 'cnic', 'dob',
+            'domicile', 'religion', 'gender',
+            'permanent_address', 'current_address',
+            'phone', 'whatsapp_number', 'profile_photo', 'is_profile_complete',
+            'updated_at', 'created_at',
+        ]
+        read_only_fields = ['id', 'user', 'updated_at', 'created_at']
+
+
+class UserEducationSerializer(serializers.ModelSerializer):
+    percentage = serializers.ReadOnlyField()
+
+    class Meta:
+        model = UserEducation
+        fields = [
+            'id', 'user', 'level', 'board_university', 'passing_year',
+            'total_marks', 'obtained_marks', 'grade', 'certificate_file',
+            'percentage', 'created_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'percentage']
+
+
+class UserExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserExperience
+        fields = [
+            'id', 'user', 'organization', 'designation',
+            'from_date', 'to_date', 'is_current', 'experience_letter',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at']
+
+
+class UserDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserDocument
+        fields = ['id', 'user', 'doc_type', 'file', 'uploaded_at']
+        read_only_fields = ['id', 'user', 'uploaded_at']
+
+
+class JobApplicationSerializer(serializers.ModelSerializer):
+    job_title = serializers.CharField(source='job.title', read_only=True)
+    job_department = serializers.CharField(source='job.department', read_only=True)
+    job_location = serializers.CharField(source='job.location', read_only=True)
+    job_last_date = serializers.DateField(source='job.last_date', read_only=True)
+    job_status = serializers.CharField(source='job.status', read_only=True)
+    job_apply_link = serializers.CharField(source='job.apply_link', read_only=True)
+
+    class Meta:
+        model = JobApplication
+        fields = [
+            'id', 'user', 'job', 'job_title', 'job_department', 'job_location',
+            'job_last_date', 'job_status', 'job_apply_link',
+            'applied_at', 'status', 'roll_number', 'test_date', 'test_venue',
+            'notes', 'reminder_sent', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'applied_at', 'updated_at']
+
+
+class ServicePlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServicePlan
+        fields = ['id', 'name', 'price', 'applications_included', 'validity_days', 'is_active', 'created_at']
+
+
+class AdminNoteSerializer(serializers.ModelSerializer):
+    added_by_name = serializers.CharField(source='added_by.username', read_only=True)
+
+    class Meta:
+        model = AdminNote
+        fields = ['id', 'request', 'note', 'added_by', 'added_by_name', 'created_at']
+        read_only_fields = ['id', 'added_by', 'created_at']
+
+
+class ApplicationRequestSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    job_title = serializers.CharField(source='job.title', read_only=True)
+    job_department = serializers.CharField(source='job.department', read_only=True)
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
+    plan_price = serializers.DecimalField(source='plan.price', max_digits=10, decimal_places=2, read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
+    admin_notes = AdminNoteSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ApplicationRequest
+        fields = [
+            'id', 'user', 'user_username', 'user_email',
+            'job', 'job_title', 'job_department',
+            'plan', 'plan_name', 'plan_price',
+            'profile_snapshot', 'special_instructions',
+            'payment_status', 'payment_method', 'payment_reference', 'payment_amount', 'payment_screenshot',
+            'request_status', 'assigned_to', 'assigned_to_name',
+            'submission_screenshot', 'submission_reference', 'submitted_at', 'failure_reason',
+            'admin_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']

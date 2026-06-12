@@ -51,4 +51,48 @@ urlpatterns = [
     path('contact/', dashboard_views.dashboard_contact_messages, name='dashboard_contact_messages'),
     path('contact/<int:pk>/mark-read/', dashboard_views.dashboard_contact_mark_read, name='dashboard_contact_mark_read'),
     path('contact/<int:pk>/delete/', dashboard_views.dashboard_contact_delete, name='dashboard_contact_delete'),
+
+    # Paid Application Service
+    path('service-requests/', dashboard_views.dashboard_service_requests, name='dashboard_service_requests'),
+    path('service-requests/<int:pk>/', dashboard_views.dashboard_service_request_detail, name='dashboard_service_request_detail'),
+
+    # Job Profiles
+    path('job-profiles/', dashboard_views.dashboard_job_profiles, name='dashboard_job_profiles'),
+    path('job-profiles/<int:pk>/', dashboard_views.dashboard_job_profile_detail, name='dashboard_job_profile_detail'),
+
+    # Blog
+    path('posts/', dashboard_views.dashboard_posts, name='dashboard_posts'),
+    path('posts/create/', dashboard_views.dashboard_post_create, name='dashboard_post_create'),
+    path('posts/<int:pk>/edit/', dashboard_views.dashboard_post_edit, name='dashboard_post_edit'),
+    path('posts/<int:pk>/', dashboard_views.dashboard_post_detail, name='dashboard_post_detail'),
+
+    # News Subscribers
+    path('news-subscribers/', dashboard_views.dashboard_news_subscribers, name='dashboard_news_subscribers'),
+
+    # Service Plans
+    path('service-plans/', dashboard_views.dashboard_service_plans, name='dashboard_service_plans'),
+
+    # Comments
+    path('comments/', dashboard_views.dashboard_comments, name='dashboard_comments'),
+
+    # Categories
+    path('categories/', dashboard_views.dashboard_categories, name='dashboard_categories'),
+
+    # Tags
+    path('tags/', dashboard_views.dashboard_tags, name='dashboard_tags'),
+
+    # Activity Logs
+    path('activity-logs/', dashboard_views.dashboard_activity_logs, name='dashboard_activity_logs'),
+
+    # AI Usage
+    path('ai-usage/', dashboard_views.dashboard_ai_usage, name='dashboard_ai_usage'),
+
+    # Chat Sessions
+    path('chat-sessions/', dashboard_views.dashboard_chat_sessions, name='dashboard_chat_sessions'),
+
+    # Chat Messages
+    path('chat-messages/', dashboard_views.dashboard_chat_messages, name='dashboard_chat_messages'),
+
+    # Django Users
+    path('django-users/', dashboard_views.dashboard_django_users, name='dashboard_django_users'),
 ]

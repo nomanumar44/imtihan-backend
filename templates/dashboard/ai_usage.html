@@ -1,0 +1,46 @@
+{% extends "dashboard/base.html" %}
+{% block title %}AI Usage{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">AI Usage</div>
+    <div class="page-subtitle">AI assistant question usage tracking</div>
+  </div>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_records }}</div>
+    <div class="stat-label">Total Records</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#8b5cf6">{{ today_usage }}</div>
+    <div class="stat-label">Today</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>User</th><th>Date</th><th>Used</th><th>Max</th><th>Remaining</th></tr>
+    </thead>
+    <tbody>
+      {% for u in usage %}
+      <tr>
+        <td style="font-weight:500;">{{ u.user.username }}</td>
+        <td>{{ u.date }}</td>
+        <td style="text-align:center;">{{ u.questions_used }}</td>
+        <td style="text-align:center;">{{ u.max_questions }}</td>
+        <td style="text-align:center;">{{ u.remaining }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty-state"><i class="ti ti-robot-off"></i>No AI usage records yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if usage.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=usage %}</div>
+{% endif %}
+{% endblock %}

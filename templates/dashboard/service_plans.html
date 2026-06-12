@@ -1,0 +1,60 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Service Plans{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Service Plans</div>
+    <div class="page-subtitle">Pricing plans for paid application submissions</div>
+  </div>
+  <a href="/admin/core/serviceplan/add/" target="_blank" class="btn-add">
+    <i class="ti ti-plus"></i> Add Plan
+  </a>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_plans }}</div>
+    <div class="stat-label">Total Plans</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ active_plans }}</div>
+    <div class="stat-label">Active</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#0ea5e9">{{ total_revenue }}</div>
+    <div class="stat-label">Total Revenue (Rs)</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Price</th><th>Applications</th><th>Validity (days)</th><th>Active</th><th>Created</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for plan in plans %}
+      <tr>
+        <td style="font-weight:500;">{{ plan.name }}</td>
+        <td>Rs {{ plan.price }}</td>
+        <td style="text-align:center;">{{ plan.applications_included }}</td>
+        <td style="text-align:center;">{{ plan.validity_days }}</td>
+        <td>
+          {% if plan.is_active %}<span class="badge badge-green">Yes</span>
+          {% else %}<span class="badge badge-slate">No</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ plan.created_at|date:"d M Y" }}</span></td>
+        <td>
+          <a href="/admin/core/serviceplan/{{ plan.id }}/change/" target="_blank" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty-state"><i class="ti ti-cash-off"></i>No service plans yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if plans.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=plans %}</div>
+{% endif %}
+{% endblock %}

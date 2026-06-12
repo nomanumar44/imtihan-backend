@@ -1,0 +1,53 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Chat Messages{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Chat Messages</div>
+    <div class="page-subtitle">AI assistant conversation messages</div>
+  </div>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_messages }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#0ea5e9">{{ user_messages }}</div>
+    <div class="stat-label">User</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ assistant_messages }}</div>
+    <div class="stat-label">Assistant</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Content</th><th>Session</th><th>Date</th></tr>
+    </thead>
+    <tbody>
+      {% for msg in chat_messages %}
+      <tr>
+        <td>
+          {% if msg.role == 'user' %}<span class="badge badge-blue">User</span>
+          {% elif msg.role == 'assistant' %}<span class="badge badge-green">AI</span>
+          {% else %}<span class="badge badge-slate">{{ msg.role }}</span>{% endif %}
+        </td>
+        <td style="font-size:13px;">{{ msg.content|truncatechars:80 }}</td>
+        <td style="font-family:monospace; font-size:11px;">{{ msg.session.session_id|truncatechars:16 }}</td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ msg.created_at|date:"d M Y H:i" }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="empty-state"><i class="ti ti-message-circle-off"></i>No chat messages yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if chat_messages.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=chat_messages %}</div>
+{% endif %}
+{% endblock %}
