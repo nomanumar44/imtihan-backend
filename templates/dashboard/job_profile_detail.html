@@ -1,0 +1,127 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ profile.user.username }} — Profile{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">{{ profile.full_name|default:profile.user.username }}</div>
+    <div class="page-subtitle">Job Application Profile</div>
+  </div>
+  <a href="{% url 'dashboard_job_profiles' %}" class="btn-add" style="background:#6b7280;">
+    <i class="ti ti-arrow-left"></i> Back to list
+  </a>
+</div>
+
+<div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+  <!-- Left Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- Personal Info -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Personal Information</div>
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px;">
+        <div><span style="color:#6b7280; font-size:12px;">Full Name:</span> <span style="font-weight:500;">{{ profile.full_name|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Father's Name:</span> <span style="font-weight:500;">{{ profile.father_name|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">CNIC:</span> <span style="font-weight:500; font-family:monospace;">{{ profile.cnic|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Date of Birth:</span> <span style="font-weight:500;">{{ profile.dob|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Gender:</span> <span style="font-weight:500;">{{ profile.get_gender_display|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Religion:</span> <span style="font-weight:500;">{{ profile.get_religion_display|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Domicile:</span> <span style="font-weight:500;">{{ profile.get_domicile_display|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Phone:</span> <span style="font-weight:500;">{{ profile.phone|default:"—" }}</span></div>
+        <div style="grid-column:1 / -1;"><span style="color:#6b7280; font-size:12px;">WhatsApp:</span> <span style="font-weight:500;">{{ profile.whatsapp_number|default:"—" }}</span></div>
+        <div style="grid-column:1 / -1;"><span style="color:#6b7280; font-size:12px;">Permanent Address:</span> <span style="font-weight:500;">{{ profile.permanent_address|default:"—" }}</span></div>
+        <div style="grid-column:1 / -1;"><span style="color:#6b7280; font-size:12px;">Current Address:</span> <span style="font-weight:500;">{{ profile.current_address|default:"—" }}</span></div>
+      </div>
+    </div>
+
+    <!-- Education -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Education ({{ profile.user.educations.count }})</div>
+      {% for edu in profile.user.educations.all %}
+      <div style="padding:12px; background:#f9fafb; border-radius:8px; margin-bottom:8px;">
+        <div style="font-weight:500; font-size:13px;">{{ edu.get_level_display|default:edu.level }}</div>
+        <div style="font-size:12px; color:#6b7280; margin-top:4px;">{{ edu.board_university|default:"—" }} — {{ edu.passing_year|default:"—" }}</div>
+        <div style="font-size:12px; color:#6b7280; margin-top:2px;">Grade: {{ edu.grade|default:"—" }} | Marks: {{ edu.obtained_marks|default:"—" }}/{{ edu.total_marks|default:"—" }}</div>
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No education records added.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Experience -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Work Experience ({{ profile.user.experiences.count }})</div>
+      {% for exp in profile.user.experiences.all %}
+      <div style="padding:12px; background:#f9fafb; border-radius:8px; margin-bottom:8px;">
+        <div style="font-weight:500; font-size:13px;">{{ exp.designation|default:"—" }}</div>
+        <div style="font-size:12px; color:#6b7280; margin-top:4px;">{{ exp.organization|default:"—" }}</div>
+        <div style="font-size:12px; color:#6b7280; margin-top:2px;">{{ exp.from_date|default:"—" }} — {% if exp.is_current %}Present{% else %}{{ exp.to_date|default:"—" }}{% endif %}</div>
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No experience records added.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- User Card -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">User Account</div>
+      <div style="font-size:16px; font-weight:600;">{{ profile.user.username }}</div>
+      <div style="font-size:13px; color:#6b7280;">{{ profile.user.email }}</div>
+      <div style="font-size:12px; color:#6b7280; margin-top:8px;">Joined: {{ profile.user.date_joined|date:"d M Y" }}</div>
+    </div>
+
+    <!-- Completeness -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Profile Status</div>
+      {% if profile.full_name and profile.cnic and profile.dob and profile.phone and profile.permanent_address and profile.user.educations.exists and profile.user.experiences.exists %}
+        <span class="badge badge-green" style="font-size:13px; padding:6px 12px;">Complete</span>
+      {% elif profile.full_name or profile.user.educations.exists or profile.user.experiences.exists %}
+        <span class="badge badge-amber" style="font-size:13px; padding:6px 12px;">Partial</span>
+      {% else %}
+        <span class="badge badge-slate" style="font-size:13px; padding:6px 12px;">Incomplete</span>
+      {% endif %}
+      <div style="margin-top:12px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Personal</span> <span>{% if profile.full_name and profile.cnic %}✓{% else %}○{% endif %}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Education</span> <span>{% if profile.user.educations.exists %}✓{% else %}○{% endif %}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Experience</span> <span>{% if profile.user.experiences.exists %}✓{% else %}○{% endif %}</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Documents</span> <span>{% if profile.user.documents.exists %}✓{% else %}○{% endif %}</span></div>
+      </div>
+    </div>
+
+    <!-- Documents -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Documents ({{ profile.user.documents.count }})</div>
+      {% for doc in profile.user.documents.all %}
+      <div style="padding:10px; background:#f9fafb; border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:13px; font-weight:500;">{{ doc.get_doc_type_display|default:doc.doc_type }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ doc.title|default:"" }}</div>
+        </div>
+        {% if doc.file %}<a href="{{ doc.file.url }}" target="_blank" style="font-size:12px; color:#0ea5e9;">View</a>{% endif %}
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No documents uploaded.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Service Requests -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Service Requests ({{ profile.user.application_requests.count }})</div>
+      {% for req in profile.user.application_requests.all|slice:":5" %}
+      <div style="padding:10px; background:#f9fafb; border-radius:6px; margin-bottom:6px;">
+        <div style="font-size:12px; font-weight:500;">{{ req.job.title|truncatechars:30 }}</div>
+        <div style="font-size:11px; color:#6b7280; margin-top:2px;">
+          {% if req.request_status == 'submitted' %}<span style="color:#10b981">Submitted</span>
+          {% elif req.request_status == 'failed' %}<span style="color:#ef4444">Failed</span>
+          {% else %}<span style="color:#6b7280">{{ req.request_status }}</span>{% endif %}
+          — {{ req.created_at|date:"d M Y" }}
+        </div>
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No service requests.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

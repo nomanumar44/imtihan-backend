@@ -1,0 +1,249 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-toolbar { border-radius: var(--border-radius-md) var(--border-radius-md) 0 0; border-color: var(--color-border-secondary) !important; border-bottom: none !important; background: #f9fafb; }
+  .ql-container { border-radius: 0 0 var(--border-radius-md) var(--border-radius-md); border-color: var(--color-border-secondary) !important; font-family: 'Inter', sans-serif; }
+  .ql-editor { min-height: 300px; font-size: 14px; color: var(--color-text-primary); }
+  .rich-text-editor { display: none; }
+  .quill-wrapper { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); overflow: hidden; background: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+  .form-container {
+    max-width: 900px;
+    background: #ffffff;
+    border-radius: var(--border-radius-lg);
+    border: 0.5px solid var(--color-border-tertiary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    padding: 30px;
+    margin-top: 20px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .form-group {
+    margin-bottom: 20px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+  }
+  .rich-text-editor { display: none !important; }
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  textarea.form-input {
+    resize: vertical;
+  }
+  select[multiple].form-input {
+    min-height: 100px;
+  }
+  .form-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--brand-green);
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    padding-top: 20px;
+  }
+  .btn-cancel {
+    background: none;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: background 0.15s ease;
+    text-decoration: none;
+  }
+  .btn-cancel:hover {
+    background: var(--color-background-secondary);
+  }
+  .errorlist {
+    list-style: none;
+    color: #A32D2D;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .helptext {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    display: block;
+  }
+  .quill-wrapper {
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+  }
+  .ql-toolbar {
+    border-bottom: 0.5px solid var(--color-border-tertiary) !important;
+    background: #f9fafb;
+  }
+  .ql-container {
+    min-height: 300px;
+    font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .form-container { padding: 20px 16px; margin-top: 12px; }
+    .form-row { grid-template-columns: 1fr; }
+    .form-actions { flex-direction: column; gap: 8px; }
+    .form-actions .btn-cancel, .form-actions .btn-add { width: 100%; text-align: center; }
+  }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">Write and publish blog content</div>
+  </div>
+</div>
+
+<div class="form-container">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="{{ form.title.id_for_label }}">Title</label>
+        {{ form.title }}
+        {% if form.title.errors %}{{ form.title.errors }}{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.slug.id_for_label }}">Slug</label>
+        {{ form.slug }}
+        {% if form.slug.errors %}{{ form.slug.errors }}{% endif %}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.content.id_for_label }}">Content</label>
+      <textarea name="{{ form.content.name }}" id="{{ form.content.id_for_label }}" class="form-input rich-text-editor" rows="15" placeholder="Write your post content here..." style="display:none !important;">{% if form.content.value %}{{ form.content.value }}{% endif %}</textarea>
+      {% if form.content.errors %}{{ form.content.errors }}{% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.excerpt.id_for_label }}">Excerpt</label>
+      {{ form.excerpt }}
+      {% if form.excerpt.help_text %}<span class="helptext">{{ form.excerpt.help_text }}</span>{% endif %}
+      {% if form.excerpt.errors %}{{ form.excerpt.errors }}{% endif %}
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="{{ form.category.id_for_label }}">Category</label>
+        {{ form.category }}
+        {% if form.category.errors %}{{ form.category.errors }}{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.tags.id_for_label }}">Tags</label>
+        {{ form.tags }}
+        <span class="helptext">Hold Ctrl/Cmd to select multiple</span>
+        {% if form.tags.errors %}{{ form.tags.errors }}{% endif %}
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="{{ form.post_type.id_for_label }}">Post Type</label>
+        {{ form.post_type }}
+        {% if form.post_type.errors %}{{ form.post_type.errors }}{% endif %}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.status.id_for_label }}">Status</label>
+        {{ form.status }}
+        {% if form.status.errors %}{{ form.status.errors }}{% endif %}
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="{{ form.thumbnail.id_for_label }}">Thumbnail</label>
+        {{ form.thumbnail }}
+        {% if form.thumbnail.errors %}{{ form.thumbnail.errors }}{% endif %}
+      </div>
+      <div class="form-group" style="display:flex; align-items:flex-end; gap:8px; padding-bottom:20px;">
+        <label for="{{ form.is_featured.id_for_label }}" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          {{ form.is_featured }}
+          <span>Featured post</span>
+        </label>
+        {% if form.is_featured.errors %}{{ form.is_featured.errors }}{% endif %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'dashboard_posts' %}" class="btn-cancel">Cancel</a>
+      <button type="submit" class="btn-add">Save Post</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('textarea.rich-text-editor').forEach(function(textarea) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'quill-wrapper';
+    textarea.parentNode.insertBefore(wrapper, textarea);
+    const editorDiv = document.createElement('div');
+    editorDiv.style.minHeight = '300px';
+    wrapper.appendChild(editorDiv);
+    const quill = new Quill(editorDiv, {
+      theme: 'snow',
+      placeholder: textarea.placeholder || 'Type here...',
+      modules: {
+        toolbar: [
+          [{ 'header': [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          [{ 'indent': '-1' }, { 'indent': '+1' }],
+          ['link', 'blockquote', 'code-block'],
+          ['clean']
+        ]
+      }
+    });
+    if (textarea.value) {
+      quill.root.innerHTML = textarea.value;
+    }
+    const form = textarea.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        textarea.value = quill.root.innerHTML;
+      });
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,426 @@
+{% extends "dashboard/base.html" %}
+{% block title %}MCQ Bank{% endblock %}
+{% block content %}
+
+<style>
+  .excel-panel{background:#f8fffe;border:1.5px solid #b2dfdb;border-radius:10px;padding:18px 22px;margin-bottom:20px}
+  .excel-panel h3{font-size:14px;font-weight:600;color:#0C3638;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  .excel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .excel-box{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px}
+  .excel-box label{display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+  .excel-box select,.excel-box input[type=number]{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;background:#fafafa;margin-bottom:8px}
+  .excel-box select:focus,.excel-box input[type=number]:focus{outline:none;border-color:var(--brand-green)}
+  .excel-row{display:flex;gap:8px}
+  .excel-row input{flex:1}
+  .btn-excel{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:background .15s}
+  .btn-download{background:#0C3638;color:#fff}
+  .btn-download:hover{background:#0a2e2f}
+  .btn-upload{background:var(--brand-green);color:#fff}
+  .btn-upload:hover{background:var(--brand-green-dark)}
+  .upload-area{border:2px dashed #b2dfdb;border-radius:6px;padding:12px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:8px}
+  .upload-area:hover,.upload-area.drag-over{border-color:var(--brand-green);background:#f0fdf9}
+  .upload-area input{display:none}
+  .upload-area p{font-size:12px;color:#6b7280;margin:4px 0 0}
+  .upload-area span{font-size:13px;font-weight:500;color:#0C3638}
+  .file-chosen{font-size:12px;color:var(--brand-green);margin-top:4px;display:none}
+  .subject-count{font-size:11px;color:#9ca3af;margin-left:4px}
+  @media(max-width:700px){.excel-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">MCQ Bank</div>
+    <div class="page-subtitle">{{ total_count }} questions in the database</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+    <a href="{% url 'dashboard_current_affairs_categories' %}" class="btn-add" style="background:#0C3638"><i class="ti ti-category"></i> Manage Categories</a>
+    <a href="{% url 'dashboard_mcq_bulk_upload' %}" class="btn-add" style="background:#0EA5E9"><i class="ti ti-file-text"></i> Text Import</a>
+    <a href="{% url 'dashboard_mcq_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add MCQ</a>
+  </div>
+</div>
+
+<!-- ── Excel Export / Import Panel ── -->
+<div class="excel-panel">
+  <h3><i class="ti ti-table-export" style="color:var(--brand-green)"></i> Excel Export &amp; Import</h3>
+  <div class="excel-grid">
+
+    <!-- Download -->
+    <div class="excel-box">
+      <div style="font-size:12px;font-weight:600;color:#0C3638;margin-bottom:10px;display:flex;align-items:center;gap:5px">
+        <i class="ti ti-download"></i> Download MCQs to Excel
+      </div>
+      <form method="GET" action="{% url 'dashboard_mcq_export' %}" id="exportForm">
+        <label>Filter by Subject</label>
+        <select name="subject" id="exp_subject" onchange="updateSubjectCount()">
+          <option value="">All Subjects</option>
+          {% for s in subjects %}<option value="{{ s.slug }}" data-count="{{ s.mcq_count }}">{{ s.name }} <span class="subject-count">({{ s.mcq_count }})</span></option>{% endfor %}
+        </select>
+
+        <label>Filter by Exam</label>
+        <select name="exam">
+          <option value="">All Exams</option>
+          {% for e in exams %}<option value="{{ e.slug }}">{{ e.name }}</option>{% endfor %}
+        </select>
+
+        <label>Row Range <span style="font-weight:400;color:#9ca3af">(leave blank for all)</span></label>
+        <div class="excel-row">
+          <input type="number" name="from_row" placeholder="From (e.g. 1)" min="1" id="from_row">
+          <input type="number" name="to_row"   placeholder="To (e.g. 500)"  min="1" id="to_row">
+        </div>
+
+        <button type="submit" class="btn-excel btn-download" style="width:100%;justify-content:center;margin-top:4px">
+          <i class="ti ti-file-spreadsheet"></i> Download Excel
+        </button>
+      </form>
+    </div>
+
+    <!-- Upload -->
+    <div class="excel-box">
+      <div style="font-size:12px;font-weight:600;color:#0C3638;margin-bottom:10px;display:flex;align-items:center;gap:5px">
+        <i class="ti ti-upload"></i> Upload &amp; Bulk Update MCQs
+      </div>
+      <form method="POST" action="{% url 'dashboard_mcq_import' %}" enctype="multipart/form-data" id="importForm">
+        {% csrf_token %}
+        <div class="upload-area" onclick="document.getElementById('excel_file').click()" id="dropZone">
+          <i class="ti ti-file-upload" style="font-size:24px;color:#b2dfdb"></i>
+          <br><span>Click to browse or drag &amp; drop</span>
+          <p>Accepts .xlsx files exported from this page only</p>
+          <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" onchange="fileChosen(this)">
+        </div>
+        <div class="file-chosen" id="fileChosen"><i class="ti ti-check"></i> <span id="fileName"></span></div>
+
+        <div style="background:#fffbf0;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;font-size:11px;color:#92400e;margin:8px 0;line-height:1.5">
+          <strong>Important:</strong> Only edit columns B–H and K (question, options, correct answer, explanation, status). Do not change ID, exam slug, or subject slug columns.
+        </div>
+
+        <button type="submit" class="btn-excel btn-upload" style="width:100%;justify-content:center" id="uploadBtn">
+          <i class="ti ti-database-import"></i> Upload &amp; Update MCQs
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Filter Bar ── -->
+<div class="filter-bar">
+  <select onchange="location.href='?exam='+this.value">
+    <option value="">All Exams</option>
+    {% for exam in exams %}<option value="{{ exam.slug }}" {% if request.GET.exam == exam.slug %}selected{% endif %}>{{ exam.name }}</option>{% endfor %}
+  </select>
+  <select onchange="location.href='?subject='+this.value">
+    <option value="">All Subjects</option>
+    {% for s in subjects %}<option value="{{ s.slug }}" {% if request.GET.subject == s.slug %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+  <select onchange="location.href='?subject=current-affairs&current_affairs_category='+this.value">
+    <option value="">All Current Affairs Categories</option>
+    {% for cat in current_affairs_categories %}
+      <option value="{{ cat.slug }}" {% if request.GET.current_affairs_category == cat.slug %}selected{% endif %}>
+        {{ cat.get_region_display }} - {{ cat.name }} ({{ cat.mcq_count }})
+      </option>
+    {% endfor %}
+  </select>
+  <select onchange="location.href='?status='+this.value">
+    <option value="">All Status</option>
+    <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Published</option>
+    <option value="draft"     {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+    <option value="flagged"   {% if request.GET.status == 'flagged' %}selected{% endif %}>Flagged</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Question</th><th>Exam</th><th>Subject</th><th>Category</th><th>Correct</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for mcq in mcqs %}
+      <tr>
+        <td class="truncate">{{ mcq.question_text|truncatechars:55 }}</td>
+        <td><span class="badge badge-{{ mcq.exam.badge_color }}">{{ mcq.exam.name }}</span></td>
+        <td>{{ mcq.subject.name }}</td>
+        <td>
+          {% if mcq.current_affairs_category %}
+            <a href="?subject=current-affairs&current_affairs_category={{ mcq.current_affairs_category.slug }}" class="badge badge-amber" style="text-decoration:none">
+              {{ mcq.current_affairs_category.name }}
+            </a>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="badge badge-green">{{ mcq.correct_option }}</span></td>
+        <td>
+          {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
+          {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--color-text-tertiary)">{{ mcq.created_at|date:"d M Y" }}</td>
+        <td><button class="action-btn" onclick="openMCQEditModal({{ mcq.id }})">Edit</button><button class="action-btn danger" onclick="apiDelete('/api/mcqs/{{ mcq.id }}/')">Delete</button></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="empty-state"><i class="ti ti-database-off"></i>No MCQs found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=mcqs %}
+
+<!-- MCQ Edit Modal -->
+<div id="mcqEditModal" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(11,42,60,.55)">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:0;width:100%;max-width:600px;margin:16px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:modalIn .18s ease">
+    <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-radius:14px 14px 0 0;z-index:1">
+      <h2 style="margin:0;font-size:16px;font-weight:600;color:#1a1a2e">Edit MCQ</h2>
+      <button onclick="closeMCQEditModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="padding:24px">
+      <form id="mcqEditForm">
+        {% csrf_token %}
+        
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Question Text</label>
+          <textarea id="question_text" name="question_text" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa;resize:vertical;min-height:80px" required></textarea>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option A</label>
+          <input type="text" id="option_a" name="option_a" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option B</label>
+          <input type="text" id="option_b" name="option_b" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option C</label>
+          <input type="text" id="option_c" name="option_c" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Option D</label>
+          <input type="text" id="option_d" name="option_d" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Correct Option</label>
+            <select id="correct_option" name="correct_option" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Status</label>
+            <select id="status" name="status" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="flagged">Flagged</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Explanation</label>
+          <textarea id="explanation" name="explanation" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa;resize:vertical;min-height:60px"></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Exam</label>
+            <select id="exam" name="exam" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required></select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Subject</label>
+            <select id="subject" name="subject" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa" required></select>
+          </div>
+        </div>
+
+        <div id="current_affairs_category_wrap" style="display:none;margin-bottom:18px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Current Affairs Category</label>
+          <select id="current_affairs_category" name="current_affairs_category" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fafafa">
+            <option value="">No category</option>
+            {% for cat in current_affairs_categories %}
+              <option value="{{ cat.id }}">{{ cat.get_region_display }} - {{ cat.name }}{% if not cat.is_active %} (Inactive){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #e5e7eb;padding-top:18px;margin-top:18px">
+          <button type="button" onclick="closeMCQEditModal()" style="padding:8px 18px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-weight:500;color:#374151;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">
+            Cancel
+          </button>
+          <button type="submit" style="padding:8px 20px;border-radius:8px;border:none;background:var(--brand-green);font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='var(--brand-green-dark)'" onmouseout="this.style.background='var(--brand-green)'">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function fileChosen(input) {
+  const el = document.getElementById('fileChosen');
+  const fn = document.getElementById('fileName');
+  if (input.files.length) {
+    fn.textContent = input.files[0].name;
+    el.style.display = 'block';
+    document.getElementById('dropZone').style.borderColor = 'var(--brand-green)';
+  }
+}
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const input = document.getElementById('excel_file');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    fileChosen(input);
+  }
+});
+
+// Prevent double-submit on upload
+document.getElementById('importForm').addEventListener('submit', function() {
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Uploading…';
+});
+
+// MCQ Edit Modal Functions
+let currentMCQId = null;
+let subjectSlugById = {};
+
+function selectedModalSubjectIsCurrentAffairs() {
+  const subjectSelect = document.getElementById('subject');
+  return subjectSlugById[String(subjectSelect.value)] === 'current-affairs';
+}
+
+function toggleModalCurrentAffairsCategory() {
+  const wrap = document.getElementById('current_affairs_category_wrap');
+  if (!wrap) return;
+  wrap.style.display = selectedModalSubjectIsCurrentAffairs() ? 'block' : 'none';
+}
+
+async function openMCQEditModal(mcqId) {
+  currentMCQId = mcqId;
+  const modal = document.getElementById('mcqEditModal');
+  
+  try {
+    // Fetch MCQ data and form options
+    const response = await fetch(`/api/mcqs/${mcqId}/`);
+    if (!response.ok) throw new Error('Failed to fetch MCQ');
+    
+    const mcq = await response.json();
+    
+    // Populate form fields
+    document.getElementById('question_text').value = mcq.question_text;
+    document.getElementById('option_a').value = mcq.option_a;
+    document.getElementById('option_b').value = mcq.option_b;
+    document.getElementById('option_c').value = mcq.option_c;
+    document.getElementById('option_d').value = mcq.option_d;
+    document.getElementById('correct_option').value = mcq.correct_option;
+    document.getElementById('status').value = mcq.status;
+    document.getElementById('explanation').value = mcq.explanation || '';
+    document.getElementById('exam').value = mcq.exam;
+    document.getElementById('subject').value = mcq.subject;
+    document.getElementById('current_affairs_category').value = mcq.current_affairs_category || '';
+    toggleModalCurrentAffairsCategory();
+    
+    modal.style.display = 'flex';
+  } catch (error) {
+    showAlertModal('Failed to load MCQ data. Please try again.');
+  }
+}
+
+function closeMCQEditModal() {
+  document.getElementById('mcqEditModal').style.display = 'none';
+  currentMCQId = null;
+}
+
+document.getElementById('mcqEditForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  if (!currentMCQId) return;
+  
+  const formData = new FormData(document.getElementById('mcqEditForm'));
+  const data = {
+    question_text: formData.get('question_text'),
+    option_a: formData.get('option_a'),
+    option_b: formData.get('option_b'),
+    option_c: formData.get('option_c'),
+    option_d: formData.get('option_d'),
+    correct_option: formData.get('correct_option'),
+    status: formData.get('status'),
+    explanation: formData.get('explanation'),
+    exam: formData.get('exam'),
+    subject: formData.get('subject'),
+  };
+  data.current_affairs_category = selectedModalSubjectIsCurrentAffairs()
+    ? (formData.get('current_affairs_category') || null)
+    : null;
+  
+  try {
+    const response = await fetch(`/api/mcqs/${currentMCQId}/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': window.CSRF_TOKEN
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      closeMCQEditModal();
+      window.location.reload();
+    } else {
+      const error = await response.json();
+      showAlertModal('Failed to update MCQ: ' + JSON.stringify(error));
+    }
+  } catch (error) {
+    showAlertModal('A network error occurred. Please try again.');
+  }
+});
+
+// Close modal on escape or backdrop click
+document.getElementById('mcqEditModal').addEventListener('click', (e) => {
+  if (e.target.id === 'mcqEditModal') closeMCQEditModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('mcqEditModal').style.display !== 'none') {
+    closeMCQEditModal();
+  }
+});
+
+// Populate exam and subject dropdowns on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const examsResponse = await fetch('/api/exams/');
+    const exams = await examsResponse.json();
+    const examSelect = document.getElementById('exam');
+    examSelect.innerHTML = exams.results.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    
+    const subjectsResponse = await fetch('/api/subjects/');
+    const subjects = await subjectsResponse.json();
+    const subjectSelect = document.getElementById('subject');
+    subjectSelect.innerHTML = subjects.results.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    subjectSlugById = Object.fromEntries(subjects.results.map(s => [String(s.id), s.slug]));
+    subjectSelect.addEventListener('change', toggleModalCurrentAffairsCategory);
+  } catch (error) {
+    console.error('Failed to load exams/subjects:', error);
+  }
+});
+</script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width: 640px) {
+  #mcqEditModal > div { margin: 8px; max-height: 95vh; }
+  #mcqEditModal [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+</style>
+
+{% endblock %}

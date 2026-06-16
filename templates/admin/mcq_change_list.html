@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% load admin_urls %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  <li>
+    <a href="{% url 'admin:core_mcq_bulk_upload' %}" class="addlink">Bulk Upload MCQs</a>
+  </li>
+{% endblock %}

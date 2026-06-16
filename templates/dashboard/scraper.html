@@ -1,0 +1,452 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Scraper Control{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Scraper Control Panel</div>
+    <div class="page-subtitle">Playwright browser · Scrapy spiders · curl fallback — auto-creates Past Papers &amp; MCQs</div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="margin-top:20px;">
+  <div class="stat-card">
+    <div class="stat-num">{{ mcq_count }}</div>
+    <div class="stat-label">Total MCQs</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ paper_count }}</div>
+    <div class="stat-label">Past Papers</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ job_count }}</div>
+    <div class="stat-label">Job Listings</div>
+  </div>
+</div>
+
+<!-- Running indicator -->
+<div id="runningIndicator" style="margin-top:20px; background:#ECFDF5; border:1px solid #10B981; border-radius:8px; padding:16px; {% if not scraper_running %}display:none;{% endif %}">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+    <i class="ti ti-loader" style="font-size:24px; color:#059669; animation:spin 2s linear infinite;"></i>
+    <div>
+      <div style="font-weight:700; color:#065F46;">Scraping in progress…</div>
+      <div style="font-size:13px; color:#047857; margin-top:3px;">Running in background — live output below.</div>
+    </div>
+    <form method="post" class="scraper-stop-form" style="{% if not scraper_running %}display:none;{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="stop">
+      <button type="submit" class="sc-stop-btn" {% if stop_requested %}disabled{% endif %}>
+        <i class="ti ti-player-stop-filled"></i>
+        {% if stop_requested %}Stopping...{% else %}Stop &amp; Save{% endif %}
+      </button>
+    </form>
+  </div>
+</div>
+<style>@keyframes spin{100%{transform:rotate(360deg);}}</style>
+
+<!-- Tab bar -->
+<div class="sc-tab-bar" style="margin-top:24px; display:flex; gap:4px; border-bottom:2px solid #E5E7EB;">
+  <button class="sc-tab active" onclick="switchTab(this,'t1')">PakMCQs Suite</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t2')">TestPointPK</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t3')">GoTest.pk</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t4')">PastPapersPDF</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t5')">Scrapy CLI</button>
+</div>
+
+<!-- ── Tab 1: scrape_data ─────────────────────────────────────────────────── -->
+<div id="t1" class="sc-panel card-box" style="border-radius:0 8px 8px 8px;">
+  <p class="sc-desc">Scrapes <strong>PakMCQs.com</strong>, current affairs &amp; government jobs via the built-in AI scraper suite.</p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="scraper_cmd" value="scrape_data">
+    <div class="sc-row">
+      <div class="sc-field" style="flex:3;">
+        <label class="sc-label">Pipeline</label>
+        <select name="scrape_type" class="sc-input">
+          <option value="all">Full Suite (MCQs + Affairs + Jobs)</option>
+          <option value="mcqs">MCQs Only</option>
+          <option value="current-affairs">Current Affairs Only</option>
+          <option value="jobs">Job Listings Only</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Start Page</label>
+        <input type="number" name="start_page" value="1" min="1" class="sc-input">
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Max Pages <em>(0=all)</em></label>
+        <input type="number" name="max_pages" value="0" min="0" class="sc-input">
+      </div>
+    </div>
+    <button type="submit" class="sc-btn" {% if scraper_running %}disabled{% endif %}>
+      <i class="ti ti-player-play-filled"></i>
+      {% if scraper_running %}Running…{% else %}Start PakMCQs Scraper{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- ── Tab 2: scrape_testpoint ───────────────────────────────────────────── -->
+<div id="t2" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+  <p class="sc-desc" id="tp-desc-past">
+    Subject-wise past paper MCQs from <strong>testpointpk.com</strong> (PPSC / FPSC).
+    <strong>Playwright</strong> or <strong>curl</strong> engine. Auto-creates <strong>PastPaper</strong> records and links MCQs.
+  </p>
+  <p class="sc-desc" id="tp-desc-impt" style="display:none;">
+    Important MCQs by category from <strong>testpointpk.com</strong>.
+    Direct MCQ scraping (no PastPaper). Select a subject below or leave empty to scrape all.
+  </p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="scraper_cmd" value="scrape_testpoint">
+    <div class="sc-row">
+      <div class="sc-field">
+        <label class="sc-label">Mode</label>
+        <select name="tp_mode" id="tp-mode" class="sc-input" onchange="toggleTpMode(this.value)">
+          <option value="past-papers">Past Papers</option>
+          <option value="important-mcqs">Important MCQs</option>
+        </select>
+      </div>
+      <div class="sc-field" id="tp-exam-wrap">
+        <label class="sc-label">Exam</label>
+        <select name="tp_exam" class="sc-input">
+          <option value="all">All (PPSC + FPSC)</option>
+          <option value="ppsc">PPSC</option>
+          <option value="fpsc">FPSC</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Engine</label>
+        <select name="tp_engine" class="sc-input">
+          <option value="curl">curl (fast)</option>
+          <option value="playwright">Playwright (browser)</option>
+        </select>
+      </div>
+      <div class="sc-field" id="tp-max-papers-wrap">
+        <label class="sc-label">Max Papers <em>(0=all)</em></label>
+        <input type="number" name="tp_max_papers" value="0" min="0" class="sc-input">
+      </div>
+      <div class="sc-field" id="tp-max-pages-wrap" style="display:none;">
+        <label class="sc-label">Max Pages <em>(0=all)</em></label>
+        <input type="number" name="tp_max_pages" value="0" min="0" class="sc-input">
+      </div>
+      <div class="sc-field" style="flex:2;" id="tp-subject-wrap">
+        <label class="sc-label">Subject <em>(optional)</em></label>
+        <select name="tp_subject" class="sc-input" id="tp-subject-select">
+          <option value="">All subjects</option>
+          <option value="islamiat">Islamiat</option>
+          <option value="pakistan-studies">Pakistan Studies</option>
+          <option value="computer-science">Computer Science</option>
+          <option value="english">English</option>
+          <option value="general-knowledge">General Knowledge</option>
+          <option value="everyday-science">Everyday Science</option>
+          <option value="general-science">General Science</option>
+          <option value="pedagogy">Pedagogy</option>
+          <option value="mathematics">Mathematics</option>
+          <option value="urdu">Urdu</option>
+          <option value="current-affairs">Current Affairs</option>
+          <option value="law">Law</option>
+          <option value="accounting">Accounting</option>
+          <option value="first-aid">First Aid</option>
+          <option value="intelligence-test">Intelligence Test</option>
+          <option value="guess-paper">Guess Paper</option>
+          <option value="airport-security">Airport Security</option>
+          <option value="election-act">Election Act</option>
+          <option value="ctd-law">CTD Law</option>
+          <option value="nab-ordinance">NAB Ordinance</option>
+        </select>
+      </div>
+    </div>
+    <label class="sc-check"><input type="checkbox" name="tp_debug" value="1"> Enable debug output</label>
+    <button type="submit" class="sc-btn" {% if scraper_running %}disabled{% endif %}>
+      <i class="ti ti-player-play-filled"></i>
+      {% if scraper_running %}Running…{% else %}Start TestPointPK Scraper{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- ── Tab 3: scrape_gotest ───────────────────────────────────────────── -->
+<div id="t3" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+  <p class="sc-desc">
+    Subject-wise online tests from <strong>gotest.com.pk</strong> (10 subjects configured).
+    Extracts WatuPro quiz MCQs with 4 options. Uses <strong>requests + curl</strong> fallback with optional <strong>Playwright</strong> for JS-rendered quizzes.
+  </p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="scraper_cmd" value="scrape_gotest">
+    <div class="sc-row">
+      <div class="sc-field" style="flex:2;">
+        <label class="sc-label">Subject <em>(optional)</em></label>
+        <select name="gt_subject" class="sc-input">
+          <option value="">All Subjects (10)</option>
+          <option value="english">English Quiz</option>
+          <option value="urdu">Urdu Quiz</option>
+          <option value="mathematics">Math Quiz</option>
+          <option value="islamiat">Islamic Studies</option>
+          <option value="biology">Biology Quiz</option>
+          <option value="chemistry">Chemistry Quiz</option>
+          <option value="physics">Physics Quiz</option>
+          <option value="computer-science">Computer Quiz</option>
+          <option value="everyday-science">Everyday Science</option>
+          <option value="pakistan-studies">Pak Studies</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Max Tests/Subj <em>(0=all)</em></label>
+        <input type="number" name="gt_max_tests" value="0" min="0" class="sc-input">
+      </div>
+    </div>
+    <div style="display:flex; gap:20px; margin-bottom:16px;">
+      <label class="sc-check" style="margin:0;"><input type="checkbox" name="gt_debug" value="1"> Debug output</label>
+      <label class="sc-check" style="margin:0;"><input type="checkbox" name="gt_dry_run" value="1"> Dry run (extract only, don't save)</label>
+    </div>
+    <button type="submit" class="sc-btn" {% if scraper_running %}disabled{% endif %}>
+      <i class="ti ti-player-play-filled"></i>
+      {% if scraper_running %}Running…{% else %}Start GoTest Scraper{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- ── Tab 4: scrape_pastpapers ──────────────────────────────────────────── -->
+<div id="t4" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+  <p class="sc-desc">
+    Discovers posts via <strong>WordPress REST API</strong> on <strong>pastpaperspdf.com</strong> (PPSC / FPSC / PMS / Motorway Police).
+    Parses Q./Answer: one-liner MCQs. <strong>Playwright</strong> bypasses Cloudflare. Auto-creates <strong>PastPaper</strong> records.
+  </p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="scraper_cmd" value="scrape_pastpapers">
+    <div class="sc-row">
+      <div class="sc-field">
+        <label class="sc-label">Exam</label>
+        <select name="pp_exam" class="sc-input">
+          <option value="all">All</option>
+          <option value="ppsc">PPSC</option>
+          <option value="fpsc">FPSC</option>
+          <option value="pms">PMS</option>
+          <option value="motorway">Motorway Police</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Engine</label>
+        <select name="pp_engine" class="sc-input">
+          <option value="curl">curl (fast)</option>
+          <option value="playwright">Playwright (browser)</option>
+        </select>
+      </div>
+      <div class="sc-field">
+        <label class="sc-label">Max Posts <em>(0=all)</em></label>
+        <input type="number" name="pp_max_posts" value="0" min="0" class="sc-input">
+      </div>
+      <div class="sc-field" style="flex:2;">
+        <label class="sc-label">Subject Filter <em>(optional)</em></label>
+        <input type="text" name="pp_subject" placeholder="e.g. gk, english, science" class="sc-input">
+      </div>
+    </div>
+    <label class="sc-check"><input type="checkbox" name="pp_debug" value="1"> Enable debug output</label>
+    <button type="submit" class="sc-btn" {% if scraper_running %}disabled{% endif %}>
+      <i class="ti ti-player-play-filled"></i>
+      {% if scraper_running %}Running…{% else %}Start PastPapersPDF Scraper{% endif %}
+    </button>
+  </form>
+</div>
+
+<!-- ── Tab 5: Scrapy CLI ──────────────────────────────────────────────────── -->
+<div id="t5" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
+  <p class="sc-desc">
+    Run <strong>Scrapy</strong> spiders from a terminal. The <code>DjangoPipeline</code> saves items directly into Django models
+    (MCQ + PastPaper). No browser required — Scrapy handles concurrency and retries.
+  </p>
+  <div style="background:#1F2937; color:#E5E7EB; border-radius:8px; padding:20px; font-family:'Courier New',monospace; font-size:13px; line-height:2.2;">
+    <div style="color:#6EE7B7; margin-bottom:6px;"># Run from: c:\laragon\www\imtihanBackend\</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># TestPointPK — PPSC, first 10 papers</div>
+    <div>scrapy crawl testpoint -s EXAM=ppsc -s MAX_PAPERS=10 --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># TestPointPK — FPSC English only</div>
+    <div>scrapy crawl testpoint -s EXAM=fpsc -s SUBJECT_KW=english --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — All subjects</div>
+    <div>scrapy crawl gotest --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — English only, max 10 tests</div>
+    <div>scrapy crawl gotest -s SUBJECT_KW=english -s MAX_TESTS=10 --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — PMS, max 20 posts</div>
+    <div>scrapy crawl pastpapers -s EXAM=pms -s MAX_POSTS=20 --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — PPSC GK subject filter</div>
+    <div>scrapy crawl pastpapers -s EXAM=ppsc -s SUBJECT_KW=gk --project scraper</div>
+
+    <div style="color:#93C5FD; margin-top:12px;"># All exams, all posts</div>
+    <div>scrapy crawl pastpapers --project scraper</div>
+  </div>
+  <div style="margin-top:14px; padding:12px 16px; background:#FEF3C7; border-radius:6px; border-left:4px solid #F59E0B; font-size:13px; color:#78350F;">
+    <strong>Tip:</strong> Set <code>DJANGO_SETTINGS_MODULE=imtihanBackend.settings</code> in your environment before running Scrapy
+    so the pipeline can access Django models.
+  </div>
+</div>
+
+<!-- Live log -->
+<div class="card-box" style="margin-top:24px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <span class="section-label" style="margin:0;">Live Output Log</span>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span id="logStatusBadge" style="font-size:12px; font-weight:600; padding:4px 10px; border-radius:12px;
+        background:{% if scraper_running %}#FEF3C7{% else %}#E5E7EB{% endif %};
+        color:{% if scraper_running %}#92400E{% else %}#4B5563{% endif %};">
+        {% if scraper_running %}● Running{% else %}● Idle{% endif %}
+      </span>
+      <button onclick="document.getElementById('logContainer').textContent=''" style="font-size:12px; padding:4px 12px; background:#F3F4F6; border:1px solid #D1D5DB; border-radius:4px; cursor:pointer; color:#374151;">Clear</button>
+    </div>
+  </div>
+  <div id="logContainer" style="background:#0D1117; color:#34D399; padding:16px; border-radius:8px;
+    font-family:'Courier New',monospace; font-size:13px; height:440px; overflow-y:auto;
+    white-space:pre-wrap; line-height:1.6; border:1px solid #30363D;">{% for line in scraper_log %}{{ line }}
+{% endfor %}</div>
+</div>
+
+<style>
+.sc-tab {
+  padding:10px 20px; background:#F9FAFB; border:1px solid #E5E7EB; border-bottom:none;
+  cursor:pointer; font-size:13px; font-weight:600; color:#6B7280;
+  border-radius:6px 6px 0 0; transition:all .15s;
+}
+.sc-tab.active { background:#fff; color:#111827; position:relative; top:2px; z-index:1; }
+.sc-tab:hover:not(.active) { background:#F3F4F6; color:#374151; }
+.sc-panel { margin-top:0 !important; padding-top:20px; }
+.sc-desc { color:#6B7280; font-size:13px; margin:0 0 18px 0; line-height:1.6; }
+.sc-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.sc-field { flex:1; min-width:130px; }
+.sc-label { display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px; }
+.sc-label em { font-style:normal; font-weight:400; color:#9CA3AF; }
+.sc-input { width:100%; padding:10px 12px; border:1px solid #D1D5DB; border-radius:6px; font-size:13px; color:#111827; box-sizing:border-box; }
+.sc-input:focus { outline:none; border-color:#6366F1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+.sc-check { display:flex; align-items:center; gap:8px; font-size:13px; color:#374151; margin-bottom:16px; cursor:pointer; }
+.sc-check input { width:15px; height:15px; cursor:pointer; }
+.sc-btn {
+  padding:11px 24px; background:#10B981; color:#fff; border:none; border-radius:6px;
+  cursor:pointer; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px;
+  transition:background .15s;
+}
+.sc-btn:hover:not([disabled]) { background:#059669; }
+.sc-btn[disabled] { background:#9CA3AF; cursor:not-allowed; }
+.sc-stop-btn {
+  padding:10px 18px; background:#DC2626; color:#fff; border:none; border-radius:6px;
+  cursor:pointer; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:8px;
+}
+.sc-stop-btn:hover:not([disabled]) { background:#B91C1C; }
+.sc-stop-btn[disabled] { background:#FCA5A5; cursor:not-allowed; }
+
+.sc-tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 900px) {
+  .sc-row { flex-direction: column; gap: 10px; }
+  .sc-field { width: 100%; }
+  .sc-tab { padding: 8px 12px; font-size: 12px; white-space: nowrap; }
+}
+@media (max-width: 640px) {
+  .sc-tab { padding: 7px 10px; font-size: 11px; }
+  .sc-desc { font-size: 12px; }
+  .sc-input { padding: 8px 10px; font-size: 12px; }
+  .sc-btn { padding: 9px 16px; font-size: 13px; }
+  #logContainer { height: 280px; font-size: 12px; padding: 12px; }
+}
+</style>
+
+<script>
+function switchTab(btn, id) {
+  document.querySelectorAll('.sc-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sc-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById(id).style.display = 'block';
+  // Persist active tab in URL hash
+  window.location.hash = id;
+}
+
+function toggleTpMode(mode) {
+  const isPast = mode === 'past-papers';
+  document.getElementById('tp-desc-past').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-desc-impt').style.display = isPast ? 'none' : 'block';
+  document.getElementById('tp-exam-wrap').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-max-papers-wrap').style.display = isPast ? 'block' : 'none';
+  document.getElementById('tp-max-pages-wrap').style.display = isPast ? 'none' : 'block';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const log   = document.getElementById('logContainer');
+  const badge = document.getElementById('logStatusBadge');
+  const ind   = document.getElementById('runningIndicator');
+  const btns  = document.querySelectorAll('.sc-btn[type="submit"]');
+  const stopForms = document.querySelectorAll('.scraper-stop-form');
+  const stopBtns = document.querySelectorAll('.sc-stop-btn');
+
+  // Restore active tab from URL hash
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    document.querySelectorAll('.sc-tab').forEach((t, i) => {
+      t.classList.remove('active');
+      const panelId = 't' + (i + 1);
+      document.getElementById(panelId).style.display = 'none';
+      if (panelId === hash) {
+        t.classList.add('active');
+        document.getElementById(panelId).style.display = 'block';
+      }
+    });
+  }
+
+  // Set tab hash on form submit so redirect preserves it
+  document.querySelectorAll('.sc-panel form').forEach(form => {
+    form.addEventListener('submit', function () {
+      const panel = form.closest('.sc-panel');
+      if (panel && panel.id) {
+        const action = form.getAttribute('action') || '';
+        form.setAttribute('action', action.split('#')[0] + '#' + panel.id);
+      }
+    });
+  });
+
+  log.scrollTop = log.scrollHeight;
+
+  setInterval(function () {
+    fetch('{% url "dashboard_scraper_status" %}')
+      .then(r => r.json())
+      .then(data => {
+        if (data.logs && data.logs.length) {
+          const txt = data.logs.join('\n');
+          if (log.textContent.trim() !== txt.trim()) {
+            log.textContent = txt;
+            log.scrollTop = log.scrollHeight;
+          }
+        }
+        if (data.running) {
+          ind.style.display   = 'flex';
+          stopForms.forEach(f => f.style.display = 'block');
+          if (data.stop_requested) {
+            stopBtns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="ti ti-loader"></i> Stopping...'; });
+          } else {
+            stopBtns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="ti ti-player-stop-filled"></i> Stop & Save'; });
+          }
+          badge.textContent   = '● Running';
+          badge.style.background = '#FEF3C7';
+          badge.style.color      = '#92400E';
+          if (data.stop_requested) {
+            badge.textContent = 'Stopping';
+            badge.style.background = '#FEE2E2';
+            badge.style.color = '#991B1B';
+          }
+          btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="ti ti-loader"></i> Running\u2026'; });
+        } else {
+          ind.style.display   = 'none';
+          stopForms.forEach(f => f.style.display = 'none');
+          badge.textContent   = '● Idle';
+          badge.style.background = '#E5E7EB';
+          badge.style.color      = '#4B5563';
+          btns.forEach(b => {
+            if (b.disabled) {
+              b.disabled = false;
+              b.innerHTML = '<i class="ti ti-player-play-filled"></i> Start';
+            }
+          });
+        }
+      })
+      .catch(() => {});
+  }, 2000);
+});
+</script>
+{% endblock %}

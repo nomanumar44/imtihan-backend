@@ -1,0 +1,49 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Chat Sessions{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Chat Sessions</div>
+    <div class="page-subtitle">AI assistant conversation sessions</div>
+  </div>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_sessions }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ active_sessions }}</div>
+    <div class="stat-label">Active</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Session ID</th><th>User</th><th>MCQ</th><th>Active</th><th>Created</th></tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td style="font-family:monospace; font-size:12px;">{{ s.session_id|truncatechars:20 }}</td>
+        <td>{{ s.user.username|default:"—" }}</td>
+        <td>{{ s.mcq.question_text|truncatechars:40|default:"—" }}</td>
+        <td>
+          {% if s.is_active %}<span class="badge badge-green">Yes</span>
+          {% else %}<span class="badge badge-slate">No</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ s.created_at|date:"d M Y H:i" }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="empty-state"><i class="ti ti-messages-off"></i>No chat sessions yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if sessions.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=sessions %}</div>
+{% endif %}
+{% endblock %}

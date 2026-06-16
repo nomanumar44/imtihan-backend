@@ -1,0 +1,177 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Exam Boards{% endblock %}
+{% block content %}
+
+<style>
+  .exam-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  .exam-form {
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 18px;
+    background: #fff;
+  }
+  .exam-form h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--color-text-primary);
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #fff;
+    outline: none;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  .helptext {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 5px; }
+  .muted { font-size: 12px; color: var(--color-text-tertiary); }
+  .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inline-delete { display: inline; }
+  .color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @media(max-width: 980px) { .exam-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">Exam Boards</div>
+    <div class="page-subtitle">{{ total_count }} board{{ total_count|pluralize }} shown in the "Browse by exam board" section</div>
+  </div>
+</div>
+
+<div class="exam-grid">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Logo</th>
+          <th>Icon</th>
+          <th>Color</th>
+          <th>MCQs</th>
+          <th>Papers</th>
+          <th>Syllabi</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exam in exams %}
+          <tr>
+            <td>
+              <strong>{{ exam.name }}</strong>
+              <div class="muted">{{ exam.slug }}</div>
+            </td>
+            <td class="truncate" title="{{ exam.description }}">{{ exam.description|default:"—" }}</td>
+            <td>
+              {% if exam.logo_url %}
+                <img src="{{ exam.logo_url }}" alt="{{ exam.name }}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;">
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ exam.get_icon_display }}</td>
+            <td><span class="badge badge-green">{{ exam.get_badge_color_display }}</span></td>
+            <td>{{ exam.mcq_count }}</td>
+            <td>{{ exam.paper_count }}</td>
+            <td>{{ exam.syllabus_count }}</td>
+            <td>
+              <div class="actions-cell">
+                <a href="{% url 'dashboard_exam_edit' exam.pk %}" class="action-btn">Edit</a>
+                <form method="post" action="{% url 'dashboard_exam_delete' exam.pk %}" id="del-exam-{{ exam.pk }}" class="inline-delete">
+                  {% csrf_token %}
+                  <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete {{ exam.name|escapejs }}? This also removes its MCQs, papers and syllabi.',function(){document.getElementById('del-exam-{{ exam.pk }}').submit();},'Delete exam board','This action cannot be undone.');return false;">Delete</a>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="empty-state"><i class="ti ti-building-bank"></i>No exam boards yet</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="exam-form">
+    <h3><i class="ti ti-plus"></i> Add Exam Board</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.name.id_for_label }}">Name</label>
+        {{ form.name }}
+        {{ form.name.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.slug.id_for_label }}">Slug</label>
+        {{ form.slug }}
+        <span class="helptext">Leave blank to auto-generate from the name.</span>
+        {{ form.slug.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.description.id_for_label }}">Description</label>
+        {{ form.description }}
+        <span class="helptext">Full commission name shown under the badge.</span>
+        {{ form.description.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.icon.id_for_label }}">Icon</label>
+        {{ form.icon }}
+        {{ form.icon.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.logo_url.id_for_label }}">Logo URL</label>
+        {{ form.logo_url }}
+        <span class="helptext">Direct image URL (PNG/JPG/SVG). Leave blank to use the icon instead.</span>
+        {{ form.logo_url.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.badge_color.id_for_label }}">Accent Color</label>
+        {{ form.badge_color }}
+        {{ form.badge_color.errors }}
+      </div>
+      <button type="submit" class="btn-add" style="width:100%;justify-content:center">
+        <i class="ti ti-device-floppy"></i> Save Exam Board
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Request #{{ req.id }}{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Request #REQ-{{ req.id|stringformat:"04d" }}</div>
+    <div class="page-subtitle">{{ req.job.title|truncatechars:60 }}</div>
+  </div>
+  <a href="{% url 'dashboard_service_requests' %}" class="btn-add" style="background:#6b7280;">
+    <i class="ti ti-arrow-left"></i> Back to list
+  </a>
+</div>
+
+<div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+  <!-- Left Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- Status Card -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Request Status</div>
+          <div style="font-size:20px; font-weight:600;">
+            {% if req.request_status == 'payment_pending' %}<span style="color:#f59e0b">Payment Pending</span>
+            {% elif req.request_status == 'payment_verification' %}<span style="color:#f97316">Payment Verification</span>
+            {% elif req.request_status == 'queued' %}<span style="color:#3b82f6">Queued</span>
+            {% elif req.request_status == 'in_progress' %}<span style="color:#8b5cf6">In Progress</span>
+            {% elif req.request_status == 'submitted' %}<span style="color:#10b981">Submitted</span>
+            {% elif req.request_status == 'failed' %}<span style="color:#ef4444">Failed</span>
+            {% elif req.request_status == 'refunded' %}<span style="color:#6b7280">Refunded</span>
+            {% else %}{{ req.request_status }}{% endif %}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Payment</div>
+          <div>
+            {% if req.payment_status == 'paid' %}<span class="badge badge-green">Paid</span>
+            {% elif req.payment_status == 'refunded' %}<span class="badge badge-slate">Refunded</span>
+            {% else %}<span class="badge badge-amber">Pending</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; padding-top:16px; border-top:1px solid #f3f4f6;">
+        <div>
+          <div style="font-size:11px; color:#6b7280;">Amount</div>
+          <div style="font-size:16px; font-weight:600; color:#0C3638;">Rs. {{ req.payment_amount|default:"0" }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#6b7280;">Method</div>
+          <div style="font-size:14px; font-weight:500;">{{ req.get_payment_method_display|default:"—" }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#6b7280;">Reference</div>
+          <div style="font-size:14px; font-weight:500; font-family:monospace;">{{ req.payment_reference|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Snapshot -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Profile Snapshot</div>
+      {% if req.profile_snapshot %}
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px;">
+        <div><span style="color:#6b7280; font-size:12px;">Full Name:</span> <span style="font-weight:500;">{{ req.profile_snapshot.full_name|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Father's Name:</span> <span style="font-weight:500;">{{ req.profile_snapshot.father_name|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">CNIC:</span> <span style="font-weight:500; font-family:monospace;">{{ req.profile_snapshot.cnic|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Date of Birth:</span> <span style="font-weight:500;">{{ req.profile_snapshot.dob|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Gender:</span> <span style="font-weight:500;">{{ req.profile_snapshot.gender|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Religion:</span> <span style="font-weight:500;">{{ req.profile_snapshot.religion|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Domicile:</span> <span style="font-weight:500;">{{ req.profile_snapshot.domicile|default:"—" }}</span></div>
+        <div><span style="color:#6b7280; font-size:12px;">Phone:</span> <span style="font-weight:500;">{{ req.profile_snapshot.phone|default:"—" }}</span></div>
+        <div style="grid-column:1 / -1;"><span style="color:#6b7280; font-size:12px;">Address:</span> <span style="font-weight:500;">{{ req.profile_snapshot.permanent_address|default:"—" }}</span></div>
+      </div>
+      {% else %}
+      <div style="color:#6b7280; font-size:13px;">No profile snapshot available.</div>
+      {% endif %}
+    </div>
+
+    <!-- Admin Notes -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:16px;">Admin Notes ({{ req.admin_notes.count }})</div>
+      {% for note in req.admin_notes.all %}
+      <div style="padding:12px; background:#f9fafb; border-radius:8px; margin-bottom:8px;">
+        <div style="font-size:13px; color:#374151; line-height:1.5;">{{ note.note }}</div>
+        <div style="font-size:11px; color:#6b7280; margin-top:6px;">By {{ note.added_by.username }} on {{ note.created_at|date:"d M Y H:i" }}</div>
+      </div>
+      {% empty %}
+      <div style="color:#6b7280; font-size:13px;">No admin notes yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <!-- User Card -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Applicant</div>
+      <div style="font-size:16px; font-weight:600;">{{ req.user.username }}</div>
+      <div style="font-size:13px; color:#6b7280;">{{ req.user.email }}</div>
+      <div style="font-size:13px; color:#6b7280; margin-top:4px;">{{ req.user.get_full_name|default:"" }}</div>
+    </div>
+
+    <!-- Job Card -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Job Details</div>
+      <div style="font-size:15px; font-weight:600; margin-bottom:8px;">{{ req.job.title }}</div>
+      <div style="font-size:13px; color:#6b7280; margin-bottom:4px;">{{ req.job.department|default:"—" }}</div>
+      <div style="font-size:13px; color:#6b7280; margin-bottom:4px;">{{ req.job.location|default:"—" }}</div>
+      <div style="font-size:12px; color:#ef4444; margin-top:8px;">Last Date: {{ req.job.last_date|date:"d M Y"|default:"—" }}</div>
+    </div>
+
+    <!-- Plan Card -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Service Plan</div>
+      <div style="font-size:15px; font-weight:600;">{{ req.plan.name|default:"Custom" }}</div>
+      <div style="font-size:13px; color:#6b7280; margin-top:4px;">Rs. {{ req.plan.price|default:"—" }}</div>
+      {% if req.plan %}
+      <div style="font-size:12px; color:#6b7280; margin-top:4px;">{{ req.plan.applications_included }} application{{ req.plan.applications_included|pluralize }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Actions</div>
+      <a href="/admin/core/applicationrequest/{{ req.id }}/change/" target="_blank" class="btn-add" style="width:100%; justify-content:center; margin-bottom:8px;">
+        <i class="ti ti-edit"></i> Edit in Admin
+      </a>
+      {% if req.payment_screenshot %}
+      <a href="{{ req.payment_screenshot.url }}" target="_blank" class="btn-add" style="width:100%; justify-content:center; background:#0EA5E9; margin-bottom:8px;">
+        <i class="ti ti-photo"></i> View Payment Screenshot
+      </a>
+      {% endif %}
+      {% if req.submission_screenshot %}
+      <a href="{{ req.submission_screenshot.url }}" target="_blank" class="btn-add" style="width:100%; justify-content:center; background:#10b981; margin-bottom:8px;">
+        <i class="ti ti-check"></i> View Submission Proof
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

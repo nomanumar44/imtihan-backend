@@ -1,0 +1,32 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Test Results{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div><div class="page-title">Test Results</div><div class="page-subtitle">{{ total_count }} tests taken</div></div>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Student</th><th>Exam</th><th>Subject</th><th>Score</th><th>Correct/Total</th><th>Time</th><th>Date</th></tr></thead>
+    <tbody>
+      {% for r in results %}
+      <tr>
+        <td>{{ r.student.username }}</td>
+        <td>{% if r.exam %}<span class="badge badge-{{ r.exam.badge_color }}">{{ r.exam.name }}</span>{% else %}—{% endif %}</td>
+        <td>{{ r.subject.name|default:"—" }}</td>
+        <td>
+          {% if r.score_percent >= 80 %}<span class="badge badge-green">{{ r.score_percent }}%</span>
+          {% elif r.score_percent >= 50 %}<span class="badge badge-amber">{{ r.score_percent }}%</span>
+          {% else %}<span class="badge badge-red">{{ r.score_percent }}%</span>{% endif %}
+        </td>
+        <td>{{ r.correct_answers }}/{{ r.total_questions }}</td>
+        <td style="font-size:12px">{{ r.time_taken_seconds }}s</td>
+        <td style="font-size:12px;color:var(--color-text-tertiary)">{{ r.created_at|date:"d M Y" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty-state"><i class="ti ti-chart-bar-off"></i>No test results yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=results %}
+{% endblock %}

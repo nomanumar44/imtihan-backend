@@ -1,0 +1,64 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Comments{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Comments</div>
+    <div class="page-subtitle">Blog post comments awaiting moderation</div>
+  </div>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_comments }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ approved_comments }}</div>
+    <div class="stat-label">Approved</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#ef4444">{{ pending_comments }}</div>
+    <div class="stat-label">Pending</div>
+  </div>
+</div>
+
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+  <span style="font-size:12px; color:#6b7280; font-weight:500;">Filter:</span>
+  <a href="?" class="badge {% if not status_filter %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">All</a>
+  <a href="?status=approved" class="badge {% if status_filter == 'approved' %}badge-green{% else %}badge-slate{% endif %}" style="text-decoration:none;">Approved</a>
+  <a href="?status=pending" class="badge {% if status_filter == 'pending' %}badge-red{% else %}badge-slate{% endif %}" style="text-decoration:none;">Pending</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Post</th><th>Content</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for comment in comments %}
+      <tr>
+        <td style="font-weight:500;">{{ comment.name }}</td>
+        <td style="font-size:12px; color:#6b7280;">{{ comment.email }}</td>
+        <td>{{ comment.post.title|truncatechars:30 }}</td>
+        <td style="font-size:13px;">{{ comment.content|truncatechars:60 }}</td>
+        <td>
+          {% if comment.is_approved %}<span class="badge badge-green">Approved</span>
+          {% else %}<span class="badge badge-red">Pending</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ comment.created_at|date:"d M Y" }}</span></td>
+        <td>
+          <a href="/admin/core/comment/{{ comment.id }}/change/" target="_blank" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="empty-state"><i class="ti ti-message-off"></i>No comments yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if comments.has_other_pages %}
+<div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=comments %}</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,2626 @@
+<!DOCTYPE html>
+<html lang="en-US" class="" data-skin="light" prefix="og: https://ogp.me/ns#">
+<head><meta charset="UTF-8" /><script>if(navigator.userAgent.match(/MSIE|Internet Explorer/i)||navigator.userAgent.match(/Trident\/7\..*?rv:11/i)){var href=document.location.href;if(!href.match(/[?&]nowprocket/)){if(href.indexOf("?")==-1){if(href.indexOf("#")==-1){document.location.href=href+"?nowprocket=1"}else{document.location.href=href.replace("#","?nowprocket=1#")}}else{if(href.indexOf("#")==-1){document.location.href=href+"&nowprocket=1"}else{document.location.href=href.replace("#","&nowprocket=1#")}}}}</script><script>(()=>{class RocketLazyLoadScripts{constructor(){this.v="2.0.4",this.userEvents=["keydown","keyup","mousedown","mouseup","mousemove","mouseover","mouseout","touchmove","touchstart","touchend","touchcancel","wheel","click","dblclick","input"],this.attributeEvents=["onblur","onclick","oncontextmenu","ondblclick","onfocus","onmousedown","onmouseenter","onmouseleave","onmousemove","onmouseout","onmouseover","onmouseup","onmousewheel","onscroll","onsubmit"]}async t(){this.i(),this.o(),/iP(ad|hone)/.test(navigator.userAgent)&&this.h(),this.u(),this.l(this),this.m(),this.k(this),this.p(this),this._(),await Promise.all([this.R(),this.L()]),this.lastBreath=Date.now(),this.S(this),this.P(),this.D(),this.O(),this.M(),await this.C(this.delayedScripts.normal),await this.C(this.delayedScripts.defer),await this.C(this.delayedScripts.async),await this.T(),await this.F(),await this.j(),await this.A(),window.dispatchEvent(new Event("rocket-allScriptsLoaded")),this.everythingLoaded=!0,this.lastTouchEnd&&await new Promise(t=>setTimeout(t,500-Date.now()+this.lastTouchEnd)),this.I(),this.H(),this.U(),this.W()}i(){this.CSPIssue=sessionStorage.getItem("rocketCSPIssue"),document.addEventListener("securitypolicyviolation",t=>{this.CSPIssue||"script-src-elem"!==t.violatedDirective||"data"!==t.blockedURI||(this.CSPIssue=!0,sessionStorage.setItem("rocketCSPIssue",!0))},{isRocket:!0})}o(){window.addEventListener("pageshow",t=>{this.persisted=t.persisted,this.realWindowLoadedFired=!0},{isRocket:!0}),window.addEventListener("pagehide",()=>{this.onFirstUserAction=null},{isRocket:!0})}h(){let t;function e(e){t=e}window.addEventListener("touchstart",e,{isRocket:!0}),window.addEventListener("touchend",function i(o){o.changedTouches[0]&&t.changedTouches[0]&&Math.abs(o.changedTouches[0].pageX-t.changedTouches[0].pageX)<10&&Math.abs(o.changedTouches[0].pageY-t.changedTouches[0].pageY)<10&&o.timeStamp-t.timeStamp<200&&(window.removeEventListener("touchstart",e,{isRocket:!0}),window.removeEventListener("touchend",i,{isRocket:!0}),"INPUT"===o.target.tagName&&"text"===o.target.type||(o.target.dispatchEvent(new TouchEvent("touchend",{target:o.target,bubbles:!0})),o.target.dispatchEvent(new MouseEvent("mouseover",{target:o.target,bubbles:!0})),o.target.dispatchEvent(new PointerEvent("click",{target:o.target,bubbles:!0,cancelable:!0,detail:1,clientX:o.changedTouches[0].clientX,clientY:o.changedTouches[0].clientY})),event.preventDefault()))},{isRocket:!0})}q(t){this.userActionTriggered||("mousemove"!==t.type||this.firstMousemoveIgnored?"keyup"===t.type||"mouseover"===t.type||"mouseout"===t.type||(this.userActionTriggered=!0,this.onFirstUserAction&&this.onFirstUserAction()):this.firstMousemoveIgnored=!0),"click"===t.type&&t.preventDefault(),t.stopPropagation(),t.stopImmediatePropagation(),"touchstart"===this.lastEvent&&"touchend"===t.type&&(this.lastTouchEnd=Date.now()),"click"===t.type&&(this.lastTouchEnd=0),this.lastEvent=t.type,t.composedPath&&t.composedPath()[0].getRootNode()instanceof ShadowRoot&&(t.rocketTarget=t.composedPath()[0]),this.savedUserEvents.push(t)}u(){this.savedUserEvents=[],this.userEventHandler=this.q.bind(this),this.userEvents.forEach(t=>window.addEventListener(t,this.userEventHandler,{passive:!1,isRocket:!0})),document.addEventListener("visibilitychange",this.userEventHandler,{isRocket:!0})}U(){this.userEvents.forEach(t=>window.removeEventListener(t,this.userEventHandler,{passive:!1,isRocket:!0})),document.removeEventListener("visibilitychange",this.userEventHandler,{isRocket:!0}),this.savedUserEvents.forEach(t=>{(t.rocketTarget||t.target).dispatchEvent(new window[t.constructor.name](t.type,t))})}m(){const t="return false",e=Array.from(this.attributeEvents,t=>"data-rocket-"+t),i="["+this.attributeEvents.join("],[")+"]",o="[data-rocket-"+this.attributeEvents.join("],[data-rocket-")+"]",s=(e,i,o)=>{o&&o!==t&&(e.setAttribute("data-rocket-"+i,o),e["rocket"+i]=new Function("event",o),e.setAttribute(i,t))};new MutationObserver(t=>{for(const n of t)"attributes"===n.type&&(n.attributeName.startsWith("data-rocket-")||this.everythingLoaded?n.attributeName.startsWith("data-rocket-")&&this.everythingLoaded&&this.N(n.target,n.attributeName.substring(12)):s(n.target,n.attributeName,n.target.getAttribute(n.attributeName))),"childList"===n.type&&n.addedNodes.forEach(t=>{if(t.nodeType===Node.ELEMENT_NODE)if(this.everythingLoaded)for(const i of[t,...t.querySelectorAll(o)])for(const t of i.getAttributeNames())e.includes(t)&&this.N(i,t.substring(12));else for(const e of[t,...t.querySelectorAll(i)])for(const t of e.getAttributeNames())this.attributeEvents.includes(t)&&s(e,t,e.getAttribute(t))})}).observe(document,{subtree:!0,childList:!0,attributeFilter:[...this.attributeEvents,...e]})}I(){this.attributeEvents.forEach(t=>{document.querySelectorAll("[data-rocket-"+t+"]").forEach(e=>{this.N(e,t)})})}N(t,e){const i=t.getAttribute("data-rocket-"+e);i&&(t.setAttribute(e,i),t.removeAttribute("data-rocket-"+e))}k(t){Object.defineProperty(HTMLElement.prototype,"onclick",{get(){return this.rocketonclick||null},set(e){this.rocketonclick=e,this.setAttribute(t.everythingLoaded?"onclick":"data-rocket-onclick","this.rocketonclick(event)")}})}S(t){function e(e,i){let o=e[i];e[i]=null,Object.defineProperty(e,i,{get:()=>o,set(s){t.everythingLoaded?o=s:e["rocket"+i]=o=s}})}e(document,"onreadystatechange"),e(window,"onload"),e(window,"onpageshow");try{Object.defineProperty(document,"readyState",{get:()=>t.rocketReadyState,set(e){t.rocketReadyState=e},configurable:!0}),document.readyState="loading"}catch(t){console.log("WPRocket DJE readyState conflict, bypassing")}}l(t){this.originalAddEventListener=EventTarget.prototype.addEventListener,this.originalRemoveEventListener=EventTarget.prototype.removeEventListener,this.savedEventListeners=[],EventTarget.prototype.addEventListener=function(e,i,o){o&&o.isRocket||!t.B(e,this)&&!t.userEvents.includes(e)||t.B(e,this)&&!t.userActionTriggered||e.startsWith("rocket-")||t.everythingLoaded?t.originalAddEventListener.call(this,e,i,o):(t.savedEventListeners.push({target:this,remove:!1,type:e,func:i,options:o}),"mouseenter"!==e&&"mouseleave"!==e||t.originalAddEventListener.call(this,e,t.savedUserEvents.push,o))},EventTarget.prototype.removeEventListener=function(e,i,o){o&&o.isRocket||!t.B(e,this)&&!t.userEvents.includes(e)||t.B(e,this)&&!t.userActionTriggered||e.startsWith("rocket-")||t.everythingLoaded?t.originalRemoveEventListener.call(this,e,i,o):t.savedEventListeners.push({target:this,remove:!0,type:e,func:i,options:o})}}J(t,e){this.savedEventListeners=this.savedEventListeners.filter(i=>{let o=i.type,s=i.target||window;return e!==o||t!==s||(this.B(o,s)&&(i.type="rocket-"+o),this.$(i),!1)})}H(){EventTarget.prototype.addEventListener=this.originalAddEventListener,EventTarget.prototype.removeEventListener=this.originalRemoveEventListener,this.savedEventListeners.forEach(t=>this.$(t))}$(t){t.remove?this.originalRemoveEventListener.call(t.target,t.type,t.func,t.options):this.originalAddEventListener.call(t.target,t.type,t.func,t.options)}p(t){let e;function i(e){return t.everythingLoaded?e:e.split(" ").map(t=>"load"===t||t.startsWith("load.")?"rocket-jquery-load":t).join(" ")}function o(o){function s(e){const s=o.fn[e];o.fn[e]=o.fn.init.prototype[e]=function(){return this[0]===window&&t.userActionTriggered&&("string"==typeof arguments[0]||arguments[0]instanceof String?arguments[0]=i(arguments[0]):"object"==typeof arguments[0]&&Object.keys(arguments[0]).forEach(t=>{const e=arguments[0][t];delete arguments[0][t],arguments[0][i(t)]=e})),s.apply(this,arguments),this}}if(o&&o.fn&&!t.allJQueries.includes(o)){const e={DOMContentLoaded:[],"rocket-DOMContentLoaded":[]};for(const t in e)document.addEventListener(t,()=>{e[t].forEach(t=>t())},{isRocket:!0});o.fn.ready=o.fn.init.prototype.ready=function(i){function s(){parseInt(o.fn.jquery)>2?setTimeout(()=>i.bind(document)(o)):i.bind(document)(o)}return"function"==typeof i&&(t.realDomReadyFired?!t.userActionTriggered||t.fauxDomReadyFired?s():e["rocket-DOMContentLoaded"].push(s):e.DOMContentLoaded.push(s)),o([])},s("on"),s("one"),s("off"),t.allJQueries.push(o)}e=o}t.allJQueries=[],o(window.jQuery),Object.defineProperty(window,"jQuery",{get:()=>e,set(t){o(t)}})}P(){const t=new Map;document.write=document.writeln=function(e){const i=document.currentScript,o=document.createRange(),s=i.parentElement;let n=t.get(i);void 0===n&&(n=i.nextSibling,t.set(i,n));const c=document.createDocumentFragment();o.setStart(c,0),c.appendChild(o.createContextualFragment(e)),s.insertBefore(c,n)}}async R(){return new Promise(t=>{this.userActionTriggered?t():this.onFirstUserAction=t})}async L(){return new Promise(t=>{document.addEventListener("DOMContentLoaded",()=>{this.realDomReadyFired=!0,t()},{isRocket:!0})})}async j(){return this.realWindowLoadedFired?Promise.resolve():new Promise(t=>{window.addEventListener("load",t,{isRocket:!0})})}M(){this.pendingScripts=[];this.scriptsMutationObserver=new MutationObserver(t=>{for(const e of t)e.addedNodes.forEach(t=>{"SCRIPT"!==t.tagName||t.noModule||t.isWPRocket||this.pendingScripts.push({script:t,promise:new Promise(e=>{const i=()=>{const i=this.pendingScripts.findIndex(e=>e.script===t);i>=0&&this.pendingScripts.splice(i,1),e()};t.addEventListener("load",i,{isRocket:!0}),t.addEventListener("error",i,{isRocket:!0}),setTimeout(i,1e3)})})})}),this.scriptsMutationObserver.observe(document,{childList:!0,subtree:!0})}async F(){await this.X(),this.pendingScripts.length?(await this.pendingScripts[0].promise,await this.F()):this.scriptsMutationObserver.disconnect()}D(){this.delayedScripts={normal:[],async:[],defer:[]},document.querySelectorAll("script[type$=rocketlazyloadscript]").forEach(t=>{t.hasAttribute("data-rocket-src")?t.hasAttribute("async")&&!1!==t.async?this.delayedScripts.async.push(t):t.hasAttribute("defer")&&!1!==t.defer||"module"===t.getAttribute("data-rocket-type")?this.delayedScripts.defer.push(t):this.delayedScripts.normal.push(t):this.delayedScripts.normal.push(t)})}async _(){await this.L();let t=[];document.querySelectorAll("script[type$=rocketlazyloadscript][data-rocket-src]").forEach(e=>{let i=e.getAttribute("data-rocket-src");if(i&&!i.startsWith("data:")){i.startsWith("//")&&(i=location.protocol+i);try{const o=new URL(i).origin;o!==location.origin&&t.push({src:o,crossOrigin:e.crossOrigin||"module"===e.getAttribute("data-rocket-type")})}catch(t){}}}),t=[...new Map(t.map(t=>[JSON.stringify(t),t])).values()],this.Y(t,"preconnect")}async G(t){if(await this.K(),!0!==t.noModule||!("noModule"in HTMLScriptElement.prototype))return new Promise(e=>{let i;function o(){(i||t).setAttribute("data-rocket-status","executed"),e()}try{if(navigator.userAgent.includes("Firefox/")||""===navigator.vendor||this.CSPIssue)i=document.createElement("script"),[...t.attributes].forEach(t=>{let e=t.nodeName;"type"!==e&&("data-rocket-type"===e&&(e="type"),"data-rocket-src"===e&&(e="src"),i.setAttribute(e,t.nodeValue))}),t.text&&(i.text=t.text),t.nonce&&(i.nonce=t.nonce),i.hasAttribute("src")?(i.addEventListener("load",o,{isRocket:!0}),i.addEventListener("error",()=>{i.setAttribute("data-rocket-status","failed-network"),e()},{isRocket:!0}),setTimeout(()=>{i.isConnected||e()},1)):(i.text=t.text,o()),i.isWPRocket=!0,t.parentNode.replaceChild(i,t);else{const i=t.getAttribute("data-rocket-type"),s=t.getAttribute("data-rocket-src");i?(t.type=i,t.removeAttribute("data-rocket-type")):t.removeAttribute("type"),t.addEventListener("load",o,{isRocket:!0}),t.addEventListener("error",i=>{this.CSPIssue&&i.target.src.startsWith("data:")?(console.log("WPRocket: CSP fallback activated"),t.removeAttribute("src"),this.G(t).then(e)):(t.setAttribute("data-rocket-status","failed-network"),e())},{isRocket:!0}),s?(t.fetchPriority="high",t.removeAttribute("data-rocket-src"),t.src=s):t.src="data:text/javascript;base64,"+window.btoa(unescape(encodeURIComponent(t.text)))}}catch(i){t.setAttribute("data-rocket-status","failed-transform"),e()}});t.setAttribute("data-rocket-status","skipped")}async C(t){const e=t.shift();return e?(e.isConnected&&await this.G(e),this.C(t)):Promise.resolve()}O(){this.Y([...this.delayedScripts.normal,...this.delayedScripts.defer,...this.delayedScripts.async],"preload")}Y(t,e){this.trash=this.trash||[];let i=!0;var o=document.createDocumentFragment();t.forEach(t=>{const s=t.getAttribute&&t.getAttribute("data-rocket-src")||t.src;if(s&&!s.startsWith("data:")){const n=document.createElement("link");n.href=s,n.rel=e,"preconnect"!==e&&(n.as="script",n.fetchPriority=i?"high":"low"),t.getAttribute&&"module"===t.getAttribute("data-rocket-type")&&(n.crossOrigin=!0),t.crossOrigin&&(n.crossOrigin=t.crossOrigin),t.integrity&&(n.integrity=t.integrity),t.nonce&&(n.nonce=t.nonce),o.appendChild(n),this.trash.push(n),i=!1}}),document.head.appendChild(o)}W(){this.trash.forEach(t=>t.remove())}async T(){try{document.readyState="interactive"}catch(t){}this.fauxDomReadyFired=!0;try{await this.K(),this.J(document,"readystatechange"),document.dispatchEvent(new Event("rocket-readystatechange")),await this.K(),document.rocketonreadystatechange&&document.rocketonreadystatechange(),await this.K(),this.J(document,"DOMContentLoaded"),document.dispatchEvent(new Event("rocket-DOMContentLoaded")),await this.K(),this.J(window,"DOMContentLoaded"),window.dispatchEvent(new Event("rocket-DOMContentLoaded"))}catch(t){console.error(t)}}async A(){try{document.readyState="complete"}catch(t){}try{await this.K(),this.J(document,"readystatechange"),document.dispatchEvent(new Event("rocket-readystatechange")),await this.K(),document.rocketonreadystatechange&&document.rocketonreadystatechange(),await this.K(),this.J(window,"load"),window.dispatchEvent(new Event("rocket-load")),await this.K(),window.rocketonload&&window.rocketonload(),await this.K(),this.allJQueries.forEach(t=>t(window).trigger("rocket-jquery-load")),await this.K(),this.J(window,"pageshow");const t=new Event("rocket-pageshow");t.persisted=this.persisted,window.dispatchEvent(t),await this.K(),window.rocketonpageshow&&window.rocketonpageshow({persisted:this.persisted})}catch(t){console.error(t)}}async K(){Date.now()-this.lastBreath>45&&(await this.X(),this.lastBreath=Date.now())}async X(){return document.hidden?new Promise(t=>setTimeout(t)):new Promise(t=>requestAnimationFrame(t))}B(t,e){return e===document&&"readystatechange"===t||(e===document&&"DOMContentLoaded"===t||(e===window&&"DOMContentLoaded"===t||(e===window&&"load"===t||e===window&&"pageshow"===t)))}static run(){(new RocketLazyLoadScripts).t()}}RocketLazyLoadScripts.run()})();</script>
+	
+	<link rel="profile" href="https://gmpg.org/xfn/11" />
+	
+<!-- Search Engine Optimization by Rank Math - https://rankmath.com/ -->
+<title>Free Personality Quiz Online Test Of Love Fashion Color Anger Horoscope</title>
+<link data-rocket-prefetch href="https://pagead2.googlesyndication.com" rel="dns-prefetch">
+<link data-rocket-prefetch href="" rel="dns-prefetch">
+<link data-rocket-prefetch href="" rel="dns-prefetch">
+
+<link data-rocket-prefetch href="https://s10.histats.com" rel="dns-prefetch">
+<link data-rocket-prefetch href="https://googleads.g.doubleclick.net" rel="dns-prefetch">
+<link data-rocket-prefetch href="https://cdn.webpushr.com" rel="dns-prefetch">
+<link data-rocket-prefetch href="https://s4.histats.com" rel="dns-prefetch">
+<link data-rocket-preload as="style" href="https://fonts.googleapis.com/css2?family=Gulzar&#038;display=swap" rel="preload">
+<style type="text/css">@font-face {font-family:Gulzar;font-style:normal;font-weight:400;src:url(/cf-fonts/s/gulzar/5.0.18/arabic/400/normal.woff2);unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0898-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC;font-display:swap;}@font-face {font-family:Gulzar;font-style:normal;font-weight:400;src:url(/cf-fonts/s/gulzar/5.0.18/latin/400/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Gulzar;font-style:normal;font-weight:400;src:url(/cf-fonts/s/gulzar/5.0.18/latin-ext/400/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}</style>
+<noscript data-wpr-hosted-gf-parameters=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gulzar&#038;display=swap"></noscript><link rel="preload" data-rocket-preload as="image" href="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp" media="(max-width:991px)" fetchpriority="high"><link rel="preload" data-rocket-preload as="image" href="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp" fetchpriority="high">
+<meta name="description" content="Given here are Free Personality Quiz Online Test for Boys and Girls Love Fashion Color Anger Horoscope through which you can learn about the various aspects of your and others personality."/>
+<meta name="robots" content="follow, index, max-snippet:-1, max-video-preview:-1, max-image-preview:large"/>
+<link rel="canonical" href="https://gotest.com.pk/personality-quiz-online-test/" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Free Personality Quiz Online Test Of Love Fashion Color Anger Horoscope" />
+<meta property="og:description" content="Given here are Free Personality Quiz Online Test for Boys and Girls Love Fashion Color Anger Horoscope through which you can learn about the various aspects of your and others personality." />
+<meta property="og:url" content="https://gotest.com.pk/personality-quiz-online-test/" />
+<meta property="og:site_name" content="Gotest" />
+<meta property="og:updated_time" content="2025-10-10T10:45:48+05:00" />
+<meta property="og:image" content="https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner-1120x680.png" />
+<meta property="og:image:secure_url" content="https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner-1120x680.png" />
+<meta property="og:image:width" content="1120" />
+<meta property="og:image:height" content="680" />
+<meta property="og:image:alt" content="Gotest Banner" />
+<meta property="og:image:type" content="image/png" />
+<meta property="article:published_time" content="2015-01-23T18:48:35+05:00" />
+<meta property="article:modified_time" content="2017-10-16T11:11:26+05:00" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Free Personality Quiz Online Test Of Love Fashion Color Anger Horoscope" />
+<meta name="twitter:description" content="Given here are Free Personality Quiz Online Test for Boys and Girls Love Fashion Color Anger Horoscope through which you can learn about the various aspects of your and others personality." />
+<meta name="twitter:image" content="https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner-1120x680.png" />
+<meta name="twitter:label1" content="Time to read" />
+<meta name="twitter:data1" content="1 minute" />
+<script type="application/ld+json" class="rank-math-schema">{"@context":"https://schema.org","@graph":[{"@type":["EducationalOrganization","Organization"],"@id":"https://gotest.com.pk/#organization","name":"GoTest Pk","url":"https://gotest.com.pk","logo":{"@type":"ImageObject","@id":"https://gotest.com.pk/#logo","url":"https://gotest.com.pk/wp-content/uploads/2017/09/Gotest-logo-new.png","contentUrl":"https://gotest.com.pk/wp-content/uploads/2017/09/Gotest-logo-new.png","caption":"Gotest","inLanguage":"en-US","width":"175","height":"75"},"description":"Pakistan Online Test Service for All Education Boards class 5th,8th,9th,10th,11th,12th Chapter Wise.CSS Exams,Forces Join Pak Army,Navy,PAF,Police NTS Aptitude Entry Test Gk Current Affairs Entry Test Preparation Online Here."},{"@type":"WebSite","@id":"https://gotest.com.pk/#website","url":"https://gotest.com.pk","name":"Gotest","alternateName":"GoTest Pk","publisher":{"@id":"https://gotest.com.pk/#organization"},"inLanguage":"en-US"},{"@type":"ImageObject","@id":"https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner.png","url":"https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner.png","width":"2048","height":"1152","caption":"Gotest Banner","inLanguage":"en-US"},{"@type":"BreadcrumbList","@id":"https://gotest.com.pk/personality-quiz-online-test/#breadcrumb","itemListElement":[{"@type":"ListItem","position":"1","item":{"@id":"https://gotest.com.pk","name":"Home"}},{"@type":"ListItem","position":"2","item":{"@id":"https://gotest.com.pk/personality-quiz-online-test/","name":"Personality Quiz Online Test"}}]},{"@type":"WebPage","@id":"https://gotest.com.pk/personality-quiz-online-test/#webpage","url":"https://gotest.com.pk/personality-quiz-online-test/","name":"Free Personality Quiz Online Test Of Love Fashion Color Anger Horoscope","datePublished":"2025-10-10T10:44:35+05:00","dateModified":"2025-10-10T10:45:48+05:00","isPartOf":{"@id":"https://gotest.com.pk/#website"},"primaryImageOfPage":{"@id":"https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner.png"},"inLanguage":"en-US","breadcrumb":{"@id":"https://gotest.com.pk/personality-quiz-online-test/#breadcrumb"}},{"@type":"Article","datePublished":"2015-01-23T18:48:35+05:00","dateModified":"2017-10-16T11:11:26+05:00","author":{"@type":"Person","name":"Zubair Asghar"},"description":"Given here are Free Personality Quiz Online Test for Boys and Girls Love Fashion Color Anger Horoscope through which you can learn about the various aspects of your and others personality.","@id":"https://gotest.com.pk/personality-quiz-online-test/#schema-29200119","isPartOf":{"@id":"https://gotest.com.pk/personality-quiz-online-test/#webpage"},"publisher":{"@id":"https://gotest.com.pk/#organization"},"image":{"@id":"https://gotest.com.pk/wp-content/uploads/2025/10/gotest-banner.png"},"inLanguage":"en-US"}]}</script>
+<!-- /Rank Math WordPress SEO plugin -->
+
+
+<link rel="alternate" type="application/rss+xml" title="Gotest &raquo; Feed" href="https://gotest.com.pk/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Gotest &raquo; Comments Feed" href="https://gotest.com.pk/comments/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Gotest &raquo; Personality Quiz Online Test Comments Feed" href="https://gotest.com.pk/personality-quiz-online-test/feed/" />
+
+		<style type="text/css">
+			:root{				
+			--tie-preset-gradient-1: linear-gradient(135deg, rgba(6, 147, 227, 1) 0%, rgb(155, 81, 224) 100%);
+			--tie-preset-gradient-2: linear-gradient(135deg, rgb(122, 220, 180) 0%, rgb(0, 208, 130) 100%);
+			--tie-preset-gradient-3: linear-gradient(135deg, rgba(252, 185, 0, 1) 0%, rgba(255, 105, 0, 1) 100%);
+			--tie-preset-gradient-4: linear-gradient(135deg, rgba(255, 105, 0, 1) 0%, rgb(207, 46, 46) 100%);
+			--tie-preset-gradient-5: linear-gradient(135deg, rgb(238, 238, 238) 0%, rgb(169, 184, 195) 100%);
+			--tie-preset-gradient-6: linear-gradient(135deg, rgb(74, 234, 220) 0%, rgb(151, 120, 209) 20%, rgb(207, 42, 186) 40%, rgb(238, 44, 130) 60%, rgb(251, 105, 98) 80%, rgb(254, 248, 76) 100%);
+			--tie-preset-gradient-7: linear-gradient(135deg, rgb(255, 206, 236) 0%, rgb(152, 150, 240) 100%);
+			--tie-preset-gradient-8: linear-gradient(135deg, rgb(254, 205, 165) 0%, rgb(254, 45, 45) 50%, rgb(107, 0, 62) 100%);
+			--tie-preset-gradient-9: linear-gradient(135deg, rgb(255, 203, 112) 0%, rgb(199, 81, 192) 50%, rgb(65, 88, 208) 100%);
+			--tie-preset-gradient-10: linear-gradient(135deg, rgb(255, 245, 203) 0%, rgb(182, 227, 212) 50%, rgb(51, 167, 181) 100%);
+			--tie-preset-gradient-11: linear-gradient(135deg, rgb(202, 248, 128) 0%, rgb(113, 206, 126) 100%);
+			--tie-preset-gradient-12: linear-gradient(135deg, rgb(2, 3, 129) 0%, rgb(40, 116, 252) 100%);
+			--tie-preset-gradient-13: linear-gradient(135deg, #4D34FA, #ad34fa);
+			--tie-preset-gradient-14: linear-gradient(135deg, #0057FF, #31B5FF);
+			--tie-preset-gradient-15: linear-gradient(135deg, #FF007A, #FF81BD);
+			--tie-preset-gradient-16: linear-gradient(135deg, #14111E, #4B4462);
+			--tie-preset-gradient-17: linear-gradient(135deg, #F32758, #FFC581);
+
+			
+					--main-nav-background: #FFFFFF;
+					--main-nav-secondry-background: rgba(0,0,0,0.03);
+					--main-nav-primary-color: #0088ff;
+					--main-nav-contrast-primary-color: #FFFFFF;
+					--main-nav-text-color: #2c2f34;
+					--main-nav-secondry-text-color: rgba(0,0,0,0.5);
+					--main-nav-main-border-color: rgba(0,0,0,0.1);
+					--main-nav-secondry-border-color: rgba(0,0,0,0.08);
+				
+			}
+		</style>
+	<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://gotest.com.pk/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fgotest.com.pk%2Fpersonality-quiz-online-test%2F" />
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://gotest.com.pk/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fgotest.com.pk%2Fpersonality-quiz-online-test%2F&#038;format=xml" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" /><style id='wp-img-auto-sizes-contain-inline-css' type='text/css'>
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<link data-minify="1" rel='stylesheet' id='embed-pdf-viewer-css' href='https://gotest.com.pk/wp-content/cache/min/1/wp-content/plugins/embed-pdf-viewer/css/embed-pdf-viewer.css?ver=1778657219' type='text/css' media='screen' />
+<style id='wp-emoji-styles-inline-css' type='text/css'>
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+/*# sourceURL=wp-emoji-styles-inline-css */
+</style>
+<style id='wp-block-library-inline-css' type='text/css'>
+:root{--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223;--wp-bound-block-color:var(--wp-block-synced-color);--wp-editor-canvas-background:#ddd;--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,160.5;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px}@media (min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}.has-text-align-center{text-align:center}.has-text-align-left{text-align:left}.has-text-align-right{text-align:right}.has-fit-text{white-space:nowrap!important}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-wrap:normal!important}.screen-reader-text:focus{background-color:#ddd;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style*=border-top-color]){border-top-style:solid}html :where([style*=border-right-color]){border-right-style:solid}html :where([style*=border-bottom-color]){border-bottom-style:solid}html :where([style*=border-left-color]){border-left-style:solid}html :where([style*=border-width]){border-style:solid}html :where([style*=border-top-width]){border-top-style:solid}html :where([style*=border-right-width]){border-right-style:solid}html :where([style*=border-bottom-width]){border-bottom-style:solid}html :where([style*=border-left-width]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+
+/*# sourceURL=wp-block-library-inline-css */
+</style>
+<style id='classic-theme-styles-inline-css' type='text/css'>
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+/*# sourceURL=/wp-includes/css/classic-themes.min.css */
+</style>
+<style id='global-styles-inline-css' type='text/css'>
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--color--global-color: #008000;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+
+<link rel='stylesheet' id='tie-css-base-css' href='https://gotest.com.pk/wp-content/themes/jannah/assets/css/base.min.css?ver=7.5.0' type='text/css' media='all' />
+<link rel='stylesheet' id='tie-css-styles-css' href='https://gotest.com.pk/wp-content/themes/jannah/assets/css/style.min.css?ver=7.5.0' type='text/css' media='all' />
+<link rel='stylesheet' id='tie-css-widgets-css' href='https://gotest.com.pk/wp-content/themes/jannah/assets/css/widgets.min.css?ver=7.5.0' type='text/css' media='all' />
+<link data-minify="1" rel='stylesheet' id='tie-css-helpers-css' href='https://gotest.com.pk/wp-content/cache/min/1/wp-content/themes/jannah/assets/css/helpers.min.css?ver=1778657219' type='text/css' media='all' />
+<link data-minify="1" rel='stylesheet' id='tie-fontawesome5-css' href='https://gotest.com.pk/wp-content/cache/min/1/wp-content/themes/jannah/assets/css/fontawesome.css?ver=1778657219' type='text/css' media='all' />
+<link rel='stylesheet' id='tie-css-single-css' href='https://gotest.com.pk/wp-content/themes/jannah/assets/css/single.min.css?ver=7.5.0' type='text/css' media='all' />
+<link rel='stylesheet' id='tie-css-print-css' href='https://gotest.com.pk/wp-content/themes/jannah/assets/css/print.css?ver=7.5.0' type='text/css' media='print' />
+<style id='tie-css-print-inline-css' type='text/css'>
+#mobile-menu li a{font-weight: 700;}#tie-wrapper .copyright-text{font-weight: 700;}:root:root{--brand-color: #008000;--dark-brand-color: #004e00;--bright-color: #FFFFFF;--base-color: #2c2f34;}#reading-position-indicator{box-shadow: 0 0 10px rgba( 0,128,0,0.7);}:root:root{--brand-color: #008000;--dark-brand-color: #004e00;--bright-color: #FFFFFF;--base-color: #2c2f34;}#reading-position-indicator{box-shadow: 0 0 10px rgba( 0,128,0,0.7);}a:hover,body .entry a:hover,.dark-skin body .entry a:hover,.comment-list .comment-content a:hover{color: #008000;}#header-notification-bar{background: var( --tie-preset-gradient-13 );}#header-notification-bar{--tie-buttons-color: #FFFFFF;--tie-buttons-border-color: #FFFFFF;--tie-buttons-hover-color: #e1e1e1;--tie-buttons-hover-text: #000000;}#header-notification-bar{--tie-buttons-text: #000000;}#top-nav,#top-nav .sub-menu,#top-nav .comp-sub-menu,#top-nav .ticker-content,#top-nav .ticker-swipe,.top-nav-boxed #top-nav .topbar-wrapper,.top-nav-dark .top-menu ul,#autocomplete-suggestions.search-in-top-nav{background-color : #0544b2;}#top-nav *,#autocomplete-suggestions.search-in-top-nav{border-color: rgba( #FFFFFF,0.08);}#top-nav .icon-basecloud-bg:after{color: #0544b2;}#top-nav a:not(:hover),#top-nav input,#top-nav #search-submit,#top-nav .fa-spinner,#top-nav .dropdown-social-icons li a span,#top-nav .components > li .social-link:not(:hover) span,#autocomplete-suggestions.search-in-top-nav a{color: #ffffff;}#top-nav input::-moz-placeholder{color: #ffffff;}#top-nav input:-moz-placeholder{color: #ffffff;}#top-nav input:-ms-input-placeholder{color: #ffffff;}#top-nav input::-webkit-input-placeholder{color: #ffffff;}#top-nav,.search-in-top-nav{--tie-buttons-color: #f4ec00;--tie-buttons-border-color: #f4ec00;--tie-buttons-text: #000000;--tie-buttons-hover-color: #d6ce00;}#top-nav a:hover,#top-nav .menu li:hover > a,#top-nav .menu > .tie-current-menu > a,#top-nav .components > li:hover > a,#top-nav .components #search-submit:hover,#autocomplete-suggestions.search-in-top-nav .post-title a:hover{color: #f4ec00;}#top-nav,#top-nav .comp-sub-menu,#top-nav .tie-weather-widget{color: #0c0c0c;}#autocomplete-suggestions.search-in-top-nav .post-meta,#autocomplete-suggestions.search-in-top-nav .post-meta a:not(:hover){color: rgba( 12,12,12,0.7 );}#top-nav .weather-icon .icon-cloud,#top-nav .weather-icon .icon-basecloud-bg,#top-nav .weather-icon .icon-cloud-behind{color: #0c0c0c !important;}.main-nav-boxed .main-nav.fixed-nav,#main-nav{background: #008000;background: -webkit-linear-gradient(90deg,#1ecb51,#008000 );background: -moz-linear-gradient(90deg,#1ecb51,#008000 );background: -o-linear-gradient(90deg,#1ecb51,#008000 );background: linear-gradient(90deg,#008000,#1ecb51 );}#main-nav .icon-basecloud-bg:after{color: inherit !important;}#main-nav,#main-nav .menu-sub-content,#main-nav .comp-sub-menu,#main-nav ul.cats-vertical li a.is-active,#main-nav ul.cats-vertical li a:hover,#autocomplete-suggestions.search-in-main-nav{background-color: rgb(15,166,41);}#main-nav{border-width: 0;}#theme-header #main-nav:not(.fixed-nav){bottom: 0;}#main-nav .icon-basecloud-bg:after{color: rgb(15,166,41);}#autocomplete-suggestions.search-in-main-nav{border-color: rgba(255,255,255,0.07);}.main-nav-boxed #main-nav .main-menu-wrapper{border-width: 0;}#main-nav a:not(:hover),#main-nav a.social-link:not(:hover) span,#main-nav .dropdown-social-icons li a span,#autocomplete-suggestions.search-in-main-nav a{color: #ffffff;}#theme-header:not(.main-nav-boxed) #main-nav,.main-nav-boxed .main-menu-wrapper{border-right: 0 none !important;border-left : 0 none !important;border-top : 0 none !important;}#theme-header:not(.main-nav-boxed) #main-nav,.main-nav-boxed .main-menu-wrapper{border-right: 0 none !important;border-left : 0 none !important;border-bottom : 0 none !important;}.main-nav,.search-in-main-nav{--main-nav-primary-color: #ede500;--tie-buttons-color: #ede500;--tie-buttons-border-color: #ede500;--tie-buttons-text: #000000;--tie-buttons-hover-color: #cfc700;}#main-nav .mega-links-head:after,#main-nav .cats-horizontal a.is-active,#main-nav .cats-horizontal a:hover,#main-nav .spinner > div{background-color: #ede500;}#main-nav .menu ul li:hover > a,#main-nav .menu ul li.current-menu-item:not(.mega-link-column) > a,#main-nav .components a:hover,#main-nav .components > li:hover > a,#main-nav #search-submit:hover,#main-nav .cats-vertical a.is-active,#main-nav .cats-vertical a:hover,#main-nav .mega-menu .post-meta a:hover,#main-nav .mega-menu .post-box-title a:hover,#autocomplete-suggestions.search-in-main-nav a:hover,#main-nav .spinner-circle:after{color: #ede500;}#main-nav .menu > li.tie-current-menu > a,#main-nav .menu > li:hover > a,.theme-header #main-nav .mega-menu .cats-horizontal a.is-active,.theme-header #main-nav .mega-menu .cats-horizontal a:hover{color: #000000;}#main-nav .menu > li.tie-current-menu > a:before,#main-nav .menu > li:hover > a:before{border-top-color: #000000;}#main-nav,#main-nav input,#main-nav #search-submit,#main-nav .fa-spinner,#main-nav .comp-sub-menu,#main-nav .tie-weather-widget{color: #ffffff;}#main-nav input::-moz-placeholder{color: #ffffff;}#main-nav input:-moz-placeholder{color: #ffffff;}#main-nav input:-ms-input-placeholder{color: #ffffff;}#main-nav input::-webkit-input-placeholder{color: #ffffff;}#main-nav .mega-menu .post-meta,#main-nav .mega-menu .post-meta a,#autocomplete-suggestions.search-in-main-nav .post-meta{color: rgba(255,255,255,0.6);}#main-nav .weather-icon .icon-cloud,#main-nav .weather-icon .icon-basecloud-bg,#main-nav .weather-icon .icon-cloud-behind{color: #ffffff !important;}#the-post .entry-content a:not(.shortc-button){color: #0056ea !important;}#the-post .entry-content a:not(.shortc-button):hover{color: #020000 !important;}#site-info{background-color: #000000;}.site-footer.dark-skin a:not(:hover){color: #008000;}#site-info,#site-info ul.social-icons li a:not(:hover) span{color: #f9f9f9;}#footer .site-info a:not(:hover){color: #f2ea00;}a#go-to-top{background-color: #ef7f00;}@media (max-width: 991px){.side-aside #mobile-menu .menu > li{border-color: rgba(255,255,255,0.05);}}@media (max-width: 991px){.side-aside.normal-side{background-color: #0d7200;}}.mobile-header-components li.custom-menu-link > a,#mobile-menu-icon .menu-text{color: #f40000!important;}#mobile-menu-icon .nav-icon,#mobile-menu-icon .nav-icon:before,#mobile-menu-icon .nav-icon:after{background-color: #f40000!important;}.table-container { overflow-x: auto;}@media (max-width: 768px) { .table-container { width: 100%; overflow-x: auto; } table { width: 100%; } th,td { font-size: 14px; padding: 5px; }}
+/*# sourceURL=tie-css-print-inline-css */
+</style>
+<link data-minify="1" rel='stylesheet' id='chld_thm_cfg_child-css' href='https://gotest.com.pk/wp-content/cache/min/1/wp-content/themes/jannah-child/style.css?ver=1778657219' type='text/css' media='all' />
+<style id='rocket-lazyload-inline-css' type='text/css'>
+.rll-youtube-player{position:relative;padding-bottom:56.23%;height:0;overflow:hidden;max-width:100%;}.rll-youtube-player:focus-within{outline: 2px solid currentColor;outline-offset: 5px;}.rll-youtube-player iframe{position:absolute;top:0;left:0;width:100%;height:100%;z-index:100;background:0 0}.rll-youtube-player img{bottom:0;display:block;left:0;margin:auto;max-width:100%;width:100%;position:absolute;right:0;top:0;border:none;height:auto;-webkit-transition:.4s all;-moz-transition:.4s all;transition:.4s all}.rll-youtube-player img:hover{-webkit-filter:brightness(75%)}.rll-youtube-player .play{height:100%;width:100%;left:0;top:0;position:absolute;background:url(https://gotest.com.pk/wp-content/plugins/wp-rocket/assets/img/youtube.png) no-repeat center;background-color: transparent !important;cursor:pointer;border:none;}
+/*# sourceURL=rocket-lazyload-inline-css */
+</style>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" id="jquery-js-after">window.addEventListener('DOMContentLoaded', function() {
+/* <![CDATA[ */
+jQuery(document).ready(function() {
+	jQuery(".f9473f99b50edb3c4112bf2dd813ab97").click(function() {
+		jQuery.post(
+			"https://gotest.com.pk/wp-admin/admin-ajax.php", {
+				"action": "quick_adsense_onpost_ad_click",
+				"quick_adsense_onpost_ad_index": jQuery(this).attr("data-index"),
+				"quick_adsense_nonce": "195597bf8b",
+			}, function(response) { }
+		);
+	});
+});
+
+//# sourceURL=jquery-js-after
+/* ]]> */
+});</script>
+<link rel="https://api.w.org/" href="https://gotest.com.pk/wp-json/" /><link rel="alternate" title="JSON" type="application/json" href="https://gotest.com.pk/wp-json/wp/v2/pages/14009" /><script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086" crossorigin="anonymous"></script><meta http-equiv="X-UA-Compatible" content="IE=edge"><script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086"
+     crossorigin="anonymous"></script>
+
+
+<link rel="icon" href="https://gotest.com.pk/wp-content/uploads/2018/03/cropped-gotest-amp-32x32.png" sizes="32x32" />
+<link rel="icon" href="https://gotest.com.pk/wp-content/uploads/2018/03/cropped-gotest-amp-192x192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://gotest.com.pk/wp-content/uploads/2018/03/cropped-gotest-amp-180x180.png" />
+<meta name="msapplication-TileImage" content="https://gotest.com.pk/wp-content/uploads/2018/03/cropped-gotest-amp-270x270.png" />
+		<style type="text/css" id="wp-custom-css">
+			/* --- FINAL "BIG Q" BADGE STYLE --- */
+
+/* 1. The Container */
+details.go-toggle-box {
+    display: block !important;
+    margin-bottom: 15px !important;
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    transition: all 0.3s ease !important;
+    width: 100% !important;
+}
+
+details.go-toggle-box:hover {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* 2. The Header (Question) */
+summary.go-toggle-title {
+    display: block !important;
+    background-color: #4caf50 !important;
+    /* Main Green */
+    color: #ffffff !important;
+    /* LEFT PADDING INCREASED to 90px to fit the Big Q Badge */
+    padding: 16px 50px 16px 90px !important;
+    font-size: 19px !important; /* Slightly larger title */
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    position: relative !important;
+    list-style: none !important;
+    outline: none !important;
+}
+
+/* 3. THE "BIG Q" BADGE (Left Side) */
+summary.go-toggle-title::before {
+    content: '▼ Q' !important;
+    /* No Colon, Just Q */
+    position: absolute !important;
+    left: 15px !important;
+    top: 13px !important;
+    /* Adjusted for alignment */
+    
+    /* BADGE STYLING */
+    background: #2e7d32 !important;
+    /* Dark Green */
+    color: #fff !important;
+    
+    /* BIGGER SIZE */
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    padding: 4px 12px !important; /* Larger Box */
+    border-radius: 6px !important;
+    
+    display: inline-block !important;
+    transition: background 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    /* Slight 3D effect */
+}
+
+/* Change Badge Color when Open */
+details.go-toggle-box[open] summary.go-toggle-title::before {
+    background: #1b5e20 !important;
+    transform: translateY(1px); /* Little click effect */
+}
+
+/* 4. THE WATERMARK "Q" (Right Side) */
+summary.go-toggle-title::after {
+    content: 'Q' !important;
+    position: absolute !important;
+    right: 20px !important;
+    top: 15px !important;
+    font-family: serif !important;
+    font-weight: 800 !important;
+    font-size: 24px !important;
+    opacity: 0.2 !important; 
+    line-height: 1 !important;
+}
+
+/* 5. The Answer Box */
+.go-toggle-content {
+    display: block !important;
+    background-color: #f1f8e9 !important; 
+    color: #2c3e50 !important;
+    padding: 25px !important;
+    font-size: 17px !important;
+    line-height: 1.8 !important;
+    border-top: 1px solid #c8e6c9 !important;
+}
+
+/* 6. THE "Ans:" BADGE */
+.go-toggle-content::before {
+    content: 'Ans:' !important;
+    display: inline-block !important;
+    background: #2e7d32 !important;
+    color: #fff !important;
+    padding: 3px 10px !important; /* Slightly bigger Ans badge too */
+    border-radius: 4px !important;
+    font-size: 15px !important;
+    font-weight: bold !important;
+    margin-right: 12px !important;
+    vertical-align: middle !important;
+}
+
+/* Hide default browser markers */
+summary.go-toggle-title::-webkit-details-marker {
+    display: none !important;
+}
+
+/* --- 1. MASTER FONT MAPPING (Top of File) --- */
+@font-face {
+    font-family: 'Nafees Nastaleeq';
+    src: url('https://gotest.com.pk/wp-content/uploads/2025/12/Gulzar-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyUrdu';
+    src: url('https://gotest.com.pk/wp-content/uploads/2025/12/Gulzar-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* --- 2. APPLY STYLES (Adjusted Size) --- */
+body #content .urdu,
+body #content .urdu *,
+body .entry-content p[style*="Nafees"],
+body .entry-content span[style*="Nafees"] {
+    font-family: 'Nafees Nastaleeq', 'MyUrdu', serif !important;
+    /* DESKTOP SIZE (Reduced from 28px) */
+    font-size: 22px !important;       
+    line-height: 2.0 !important;      
+    
+    direction: rtl !important;
+    text-align: right !important;
+    color: #000000 !important;
+    padding: 5px 0 !important;
+}
+
+/* --- 3. MOBILE SIZE (Adjusted) --- */
+@media only screen and (max-width: 600px) {
+    body #content .urdu,
+    body .entry-content p[style*="Nafees"],
+    body .entry-content span[style*="Nafees"] {
+        
+        /* MOBILE SIZE (Reduced from 22px) */
+        font-size: 19px !important;
+        line-height: 1.8 !important;
+    }
+}
+
+/* ============================================================
+   Toggle Style
+   =========================================================== */
+.toggle {
+    display: block;
+    position: relative;
+    margin: 0 0 20px 0;
+}
+
+/* Style for the toggle question (title) with forest green to light green gradient */
+.toggle .wps_togglet, .toggle .toggleta {
+    display: block;
+    position: relative;
+    min-height: 50px; /* Increase height for better readability */
+    padding: 0 20px;
+    /* Add padding for spacing */
+    background: linear-gradient(135deg, #008000, #66cc66) !important;
+    /* Gradient from dark green to light green */
+    border: 2px solid #003300 !important;
+    /* Darker green border */
+    cursor: pointer;
+    margin: 0;
+    border-radius: 8px;
+    /* Rounded corners */
+    font-size: 16px !important;
+    /* Adjust font size to 16px for better readability */
+    font-weight: 600 !important;
+    /* Make font weight bolder */
+    text-transform: none !important;
+    /* Ensure text is not uppercase */
+    line-height: 50px;
+    /* Adjust line height to center text vertically */
+    font-family: Arial, sans-serif !important;
+    /* Set a clean, sans-serif font */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* Add shadow for depth */
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    /* Smooth transition for hover effect */
+    -webkit-font-smoothing: antialiased;
+    /* Smooth the font rendering */
+    -moz-osx-font-smoothing: grayscale;
+    /* Improve font rendering on Firefox and Safari */
+}
+
+/* FontAwesome question mark icon for the question */
+.toggle .wps_togglet span, .toggle .toggleta span {
+    display: block;
+    min-height: 50px;
+    line-height: 50px; /* Align text vertically */
+    color: white !important;
+    /* White text */
+    padding-left: 40px; /* Add space between text and icon */
+    font-family: FontAwesome;
+    /* Use FontAwesome for icons */
+    content: "\f128";
+    /* Unicode for question mark icon */
+    font-size: 25px;
+    /* Adjust icon size */
+    text-shadow: none !important;
+    /* Remove text shadow */
+}
+
+/* Change the background when expanded (active state) */
+.toggle .toggleta span {
+    content: "\f0d8";
+    /* Unicode for arrow-up icon */
+}
+
+/* Hover effect for the toggle title */
+.toggle .wps_togglet:hover, .toggle .toggleta:hover {
+    background: linear-gradient(135deg, #1c6e1b, #66c14f) !important;
+    /* Darker gradient on hover */
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+    /* Enhanced shadow on hover */
+}
+
+/* Style for the toggle content (answer) */
+.toggle .togglec {
+    display: block;
+    position: relative;
+    padding: 15px;
+    background: #e1f5fe !important; /* Light blue background */
+    border: 2px solid #81d4fa !important;
+    /* Light border for content */
+    border-top: none;
+    border-radius: 8px;
+    /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* Add shadow for depth */
+}
+
+/* Content text style */
+.toggle .togglec p {
+    color: #333 !important;
+    /* Dark text for better readability */
+    font-size: 16px;
+    /* Set font size for the content */
+    line-height: 1.6;
+    /* Improve line spacing */
+}
+
+/* FontAwesome icon for the answer section */
+.toggle .togglec:before {
+    content: "\f0ae";
+    /* Unicode for answer icon */
+    font-family: FontAwesome;
+    font-size: 18px;
+    /* Adjust the icon size */
+    margin-right: 10px;
+    color: #0288d1;
+    /* Blue icon */
+}
+
+/* ============================================================
+   list css 
+   =========================================================== */
+/* Base Styles */
+.list-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    display: block; /* Make sure the list is aligned properly */
+}
+
+/* Make it full width on small screens */
+@media (max-width: 768px) {
+    .list-container {
+        width: 100%;
+        margin: 20px 0;
+        border-radius: 0;
+        display: block; /* Ensures full-width alignment */
+        padding-left: 20px;
+        /* Align to the left */
+        padding-right: 20px;
+        /* Keep space on the right */
+    }
+}
+
+/* Apply styles only when ol is inside .fancy-list */
+.fancy-list ol {
+    list-style: none;
+    padding-left: 0;
+}
+
+/* List item styles */
+.fancy-list ol li {
+    display: flex;
+    align-items: center;
+    margin: 25px 0;
+    font-size: 18px;
+    line-height: 1.6;
+    position: relative;
+    padding-left: 50px;
+    border-bottom: 1px solid #ddd;
+    /* Line between items */
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+/* Remove transitions */
+.fancy-list ol li::before,
+.fancy-list ol li a {
+    transition: none !important;
+}
+
+/* Default List item number styling */
+.fancy-list ol li::before {
+    content: attr(data-num);
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: green !important;
+    /* Default text color */
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Hover effect */
+.fancy-list ol li:hover {
+    background-color: #ecf0f1;
+}
+
+/* Color variations for list item numbers */
+.fancy-list.color-green ol li::before { background-color: #008000; color: #fff !important;
+}
+.fancy-list.color-orange ol li::before { background-color: #FFA500; color: #fff !important; }
+.fancy-list.color-blue ol li::before { background-color: #0000FF; color: #fff !important;
+}
+.fancy-list.color-red ol li::before { background-color: #FF0000; color: #fff !important; }
+.fancy-list.color-purple ol li::before { background-color: #800080; color: #fff !important;
+}
+.fancy-list.color-olive ol li::before { background-color: #808000; color: #fff !important; }
+
+/* Links */
+.fancy-list ol li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+}
+
+.fancy-list ol li a:hover {
+    color: inherit;
+}
+
+/* ====== FINAL MASTER CSS: UPDATED DEC 21 - LIGHT HOVER FIX ====== */
+
+/* --- 1. RESET & PROTECTION (For Data Tables & MDCAT) --- */
+.entry-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 20px 0;
+    display: table !important;
+    border: 1px solid #eee;
+}
+.entry-content table tbody,
+.entry-content table thead {
+    display: table-row-group !important;
+}
+.entry-content table tr {
+    display: table-row !important;
+}
+.entry-content table td, 
+.entry-content table th {
+    display: table-cell !important;
+    border: 1px solid #eee;
+    padding: 12px;
+    color: #333 !important;
+    vertical-align: middle;
+    background: transparent;
+}
+.entry-content table thead th {
+    background-color: #f9f9f9;
+    font-weight: 700;
+    color: #000 !important;
+}
+
+/* ====== 2. SPECIAL DESIGN: "IMPORTANT INFO" TABLE ====== */
+table.test-details-separate {
+    border: none !important;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 30px;
+    background: #fff;
+    width: 100% !important;
+}
+table.test-details-separate td {
+    border: none !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+    padding: 15px 15px !important;
+}
+table.test-details-separate td:first-child {
+    background-color: #f8fdf8;
+    color: #006400 !important;
+    font-weight: 700;
+    width: 35% !important; 
+    vertical-align: top !important;
+}
+table.test-details-separate td:last-child {
+    color: #444 !important;
+    vertical-align: top !important;
+}
+h2.test-name {
+    background: linear-gradient(90deg, #006400 0%, #054f52 100%) !important;
+    color: #ffffff !important;
+    text-align: center;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    font-size: 20px;
+    text-transform: uppercase;
+}
+
+/* --- 3. WATUPRO FIX --- */
+.watupro-quiz table, .watupro-quiz td, .watupro-quiz tr {
+    display: table !important;
+    background: none !important; border: none !important; box-shadow: none !important; padding: 5px !important;
+}
+.watupro-quiz input[type="radio"], .watupro-quiz input[type="checkbox"] {
+    appearance: auto !important; -webkit-appearance: auto !important; margin-right: 5px !important;
+}
+.watupro-quiz li::before, .watupro-quiz li::after, .watupro-quiz label::after {
+    content: none !important; display: none !important;
+}
+
+/* ====== 4. THE "MENU" GRID SYSTEM (UPDATED HOVER) ====== */
+.entry-content table:has(div[class*="table_test_style_"]),
+.entry-content table:has(h3 a),
+.entry-content table:has(td[style*="padding: 40px"]),
+.entry-content table.link-table,
+.gotest-panel + table {
+    border: none !important;
+    display: block !important;
+}
+.entry-content table:has(div[class*="table_test_style_"]) tr,
+.entry-content table:has(h3 a) tr,
+.entry-content table:has(td[style*="padding: 40px"]) tr,
+.entry-content table.link-table tr,
+.gotest-panel + table tr {
+    display: block !important;
+    margin-bottom: 8px !important;
+    border: none !important;
+}
+.entry-content table:has(div[class*="table_test_style_"]) td,
+.entry-content table:has(h3 a) td,
+.entry-content table:has(td[style*="padding: 40px"]) td,
+.entry-content table.link-table td,
+.gotest-panel + table td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 20px !important; 
+    background: #ffffff !important; 
+    border: none !important;
+    border-left: 5px solid #FF6600 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08) !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+}
+.entry-content table:has(div[class*="table_test_style_"]) td *,
+.entry-content table:has(h3 a) td *,
+.entry-content table:has(td[style*="padding: 40px"]) td *,
+.entry-content table.link-table td * {
+    color: #333333 !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+    font-size: 18px !important;
+}
+
+/* --- UPDATED: LIGHT GREEN BACKGROUND ON HOVER --- */
+.entry-content table:has(div[class*="table_test_style_"]) td:not(:has(h2)):hover,
+.entry-content table:has(h3 a) td:not(:has(h2)):hover,
+.entry-content table:has(td[style*="padding: 40px"]) td:not(:has(h2)):hover,
+.entry-content table.link-table td:not(:has(h2)):hover {
+    background: #d4edda !important;
+    /* Light Green Color */
+    cursor: pointer;
+    transform: translateX(5px);
+    transition: 0.2s;
+}
+
+/* --- UPDATED: BLACK TEXT ON HOVER (For Clarity) --- */
+.entry-content table:has(div[class*="table_test_style_"]) td:not(:has(h2)):hover *,
+.entry-content table:has(h3 a) td:not(:has(h2)):hover *,
+.entry-content table:has(h3 a) td:not(:has(h2)):hover h3 a,
+.entry-content table:has(td[style*="padding: 40px"]) td:not(:has(h2)):hover *,
+.entry-content table.link-table td:not(:has(h2)):hover * {
+    color: #000000 !important;
+    /* Force Black Text */
+}
+
+/* ====== 5. HEADER ROWS (GREEN BAR FIX) ====== */
+.entry-content table td:has(h2),
+.entry-content table td:has(h3):not(:has(a)) {
+    background: linear-gradient(90deg, #006400 0%, #054f52 100%) !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    padding: 15px !important;
+    border-radius: 6px !important;
+    margin-bottom: 20px !important;
+    display: block !important;
+    border: none !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15) !important;
+}
+.entry-content table:has(h3 a) tr:first-child td:only-child:not(:has(a)),
+.entry-content table:has(div[class*="table_test_style_"]) tr:first-child td:only-child:not(:has(a)) {
+    background: linear-gradient(90deg, #006400 0%, #054f52 100%) !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    padding: 15px !important;
+    border-radius: 6px !important;
+    margin-bottom: 20px !important;
+    display: block !important;
+    border: none !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15) !important;
+    pointer-events: none;
+}
+.entry-content table td:has(h2) *,
+.entry-content table td:has(h3):not(:has(a)) *,
+.entry-content table:has(h3 a) tr:first-child td:only-child:not(:has(a)) * {
+    color: #ffffff !important;
+    font-size: 20px !important;
+    text-transform: uppercase;
+}
+
+/* ====== 6. DESKTOP GRID (3-Column Layout) ====== */
+@media (min-width: 768px) {
+    .entry-content table:has(div[class*="table_test_style_"]),
+    .entry-content table:has(h3 a),
+    .entry-content table:has(td[style*="padding: 40px"]),
+    .entry-content table.link-table {
+        display: table !important;
+        border-spacing: 15px 15px !important;
+        border-collapse: separate !important;
+        width: 100% !important;
+    }
+    .entry-content table:has(div[class*="table_test_style_"]) tr,
+    .entry-content table:has(h3 a) tr,
+    .entry-content table:has(td[style*="padding: 40px"]) tr,
+    .entry-content table.link-table tr {
+        display: table-row !important;
+    }
+    .entry-content table:has(div[class*="table_test_style_"]) td,
+    .entry-content table:has(h3 a) td,
+    .entry-content table:has(td[style*="padding: 40px"]) td,
+    .entry-content table.link-table td {
+        display: table-cell !important;
+        width: 33.33% !important;
+        vertical-align: top !important;
+        height: 100% !important;
+    }
+    .entry-content table.link-table td:has(h2),
+    .entry-content table:has(h3 a) tr:first-child td:only-child,
+    .entry-content table td:has(h2) {
+        display: table-cell !important;
+        width: 100% !important;
+        grid-column: 1 / -1; 
+    }
+    .entry-content table.link-table tr:has(h2) {
+         display: table-row !important;
+        width: 100% !important;
+    }
+    .entry-content table:not(:has(div[class*="table_test_style_"])):not(:has(h3 a)):not(:has(td[style*="padding: 40px"])):not(.test-details-separate):not(.link-table) td {
+        display: table-cell !important;
+        width: auto !important;
+        background: transparent !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+    }
+}
+
+/* ====== 7. NUCLEAR OPTION: SPECIFIC FIX FOR GREEN TABLE ====== */
+table#pak-army-green-table tr:first-child td {
+    background-color: #44bf06 !important;
+    background: #44bf06 !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    padding: 15px !important;
+    border: none !important;
+}
+table#pak-army-green-table h2, 
+table#pak-army-green-table h2 strong {
+    color: #ffffff !important;
+    margin: 0 !important;
+    font-size: 24px !important;
+}
+table#pak-army-green-table td {
+    border-bottom: 1px solid #eee !important;
+    background-color: #ffffff !important;
+}
+/* ============================================================
+   GOTEST MASTER BUTTON KIT (Pastel Hover Edition)
+   =========================================================== */
+
+/* 1. Container & Layout */
+.button-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    padding: 20px 0;
+    width: 100%;
+}
+
+/* 2. Base Button Shape */
+body .entry-content a.custom-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 30px;
+    font-size: 18px; /* Standard Size */
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none !important;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+    background-color: #ffffff; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+    min-width: 200px;
+}
+
+/* 3. Icon Styling */
+body .entry-content a.custom-button i {
+    margin-right: 10px;
+    font-size: 1.1em;
+    transition: transform 0.3s ease;
+}
+/* Icon Animation */
+body .entry-content a.custom-button:hover i {
+    transform: scale(1.2) rotate(-10deg);
+}
+
+/* ================= COLOR VARIANTS ================= */
+
+/* A. ARMY / SUCCESS (Green) */
+body .entry-content a.custom-button.button-green {
+    border: 3px solid #28a745;
+    color: #28a745 !important;
+}
+body .entry-content a.custom-button.button-green:hover {
+    background-color: #d4edda !important;
+    color: #155724 !important;
+    border-color: #28a745 !important;
+}
+
+/* B. PAF / GENERAL LINKS (Blue) */
+body .entry-content a.custom-button.button-blue {
+    border: 3px solid #007BFF;
+    color: #007BFF !important;
+}
+body .entry-content a.custom-button.button-blue:hover {
+    background-color: #cce5ff !important;
+    color: #004085 !important;
+    border-color: #007BFF !important;
+}
+
+/* C. NAVY / OFFICIAL (Navy Blue) */
+body .entry-content a.custom-button.button-navy {
+    border: 3px solid #003366;
+    color: #003366 !important;
+}
+body .entry-content a.custom-button.button-navy:hover {
+    background-color: #e2e6ea !important;
+    color: #000000 !important;
+    border-color: #003366 !important;
+}
+
+/* D. PDF DOWNLOADS / ALERTS (Red) */
+body .entry-content a.custom-button.button-red {
+    border: 3px solid #dc3545;
+    color: #dc3545 !important;
+}
+body .entry-content a.custom-button.button-red:hover {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+    border-color: #dc3545 !important;
+}
+
+/* E. DATE SHEETS / NOTICES (Orange) */
+body .entry-content a.custom-button.button-orange {
+    border: 3px solid #fd7e14;
+    color: #fd7e14 !important;
+}
+body .entry-content a.custom-button.button-orange:hover {
+    background-color: #ffe8cc !important;
+    color: #856404 !important;
+    border-color: #fd7e14 !important;
+}
+
+/* F. TWITTER / SOCIAL (Sky Blue) */
+body .entry-content a.custom-button.button-sky {
+    border: 3px solid #17a2b8;
+    color: #17a2b8 !important;
+}
+body .entry-content a.custom-button.button-sky:hover {
+    background-color: #d1ecf1 !important;
+    color: #0c5460 !important;
+    border-color: #17a2b8 !important;
+}
+
+/* G. GENERIC / GREY (Neutral) */
+body .entry-content a.custom-button.button-grey {
+    border: 3px solid #6c757d;
+    color: #6c757d !important;
+}
+body .entry-content a.custom-button.button-grey:hover {
+    background-color: #e2e3e5 !important;
+    color: #383d41 !important;
+    border-color: #6c757d !important;
+}
+
+/* Mobile Fix */
+@media (max-width: 768px) {
+    .entry-content a.custom-button { width: 100%;
+    }
+}
+/* ============================================================
+   ICON STYLING (Add this below your button CSS)
+   =========================================================== */
+
+/* Spacing between Icon and Text */
+.entry-content a.custom-button i {
+    margin-right: 12px;
+    /* Space between icon and text */
+    font-size: 1.1em;
+    /* Make icon slightly larger */
+    transition: transform 0.3s ease;
+}
+
+/* Icon Animation on Hover */
+.entry-content a.custom-button:hover i {
+    transform: scale(1.2) rotate(-10deg);
+    /* Icon pops and tilts */
+}
+/* ============================================================
+   Modern Professional Table for Links
+   =========================================================== */
+
+.link-table-container {
+    width: 90%;
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+    background: linear-gradient(to right, #ffffff, #f8f9fa);
+    /* Soft gradient */
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.1);
+    /* Soft shadow */
+    border-radius: 12px;
+}
+
+/* Table Styling */
+.link-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 18px;
+    font-family: 'Poppins', Arial, sans-serif;
+}
+
+/* Alternating Row Colors */
+.link-table tr:nth-child(odd) {
+    background-color: #f2f7fc;
+    /* Light blue */
+}
+
+.link-table tr:nth-child(even) {
+    background-color: #ffffff;
+    /* White */
+}
+
+/* Hover Effect (Only for Desktop) */
+@media (min-width: 769px) {
+    .link-table tr:hover {
+        background-color: #e1ecf7 !important;
+        /* Soft blue hover */
+        transform: scale(1.02);
+        /* Slight pop effect */
+        transition: all 0.3s ease-in-out;
+    }
+}
+
+/* Table Cells */
+.link-table td {
+    padding: 18px;
+    text-align: center;
+    font-weight: bold;
+    border-radius: 8px;
+}
+
+/* Links Inside Table */
+.link-table a {
+    text-decoration: none;
+    color: #007BFF;
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+/* Link Hover (Only for Desktop) */
+@media (min-width: 769px) {
+    .link-table a:hover {
+        color: #0056b3;
+    }
+}
+
+/* Mobile-Friendly */
+@media (max-width: 768px) {
+    .link-table-container {
+        width: 100%;
+        padding: 10px;
+    }
+    .link-table td {
+        padding: 14px;
+        font-size: 16px;
+    }
+}
+
+/* ============================================================
+ gk oneliner expandable
+   =========================================================== */
+.gk-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+    font-family: Arial, sans-serif;
+}
+.gk-title {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border-radius: 8px;
+}
+.gk-box {
+    margin: 10px 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.gk-header {
+    background: #f8f9fa;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+.gk-header:hover {
+    background: #e9ecef;
+}
+.gk-content {
+    display: none;
+    padding: 15px;
+    background: #ffffff;
+    border: 1px solid #ddd;
+    border-top: none;
+}
+.gk-content p {
+    margin: 5px 0;
+}
+
+/* ============================================================
+ Bullets new
+   =========================================================== */
+	ul.custom-bullets {
+  list-style: none;
+  padding-left: 0;
+}
+
+ul.custom-bullets li {
+  background: url('https://gotest.com.pk/wp-content/uploads/2025/10/Gotest-Bullet.png') no-repeat left center;
+  background-size: 16px 16px; /* Adjust size */
+  padding-left: 25px;
+  /* Add space for image */
+  margin-bottom: 8px;
+}
+
+/* FORCE AdSense Container Height to Stop Jumping (CLS Fix) */
+.adsbygoogle {
+    display: block !important;
+    min-height: 280px; /* Keeps the space open for the ad */
+    /* background color removed so it stays white/invisible */
+}
+
+/* Mobile Specific Height */
+@media screen and (max-width: 768px) {
+    .adsbygoogle {
+        min-height: 250px;
+    }
+}
+
+/* Fix specific Ad Containers if they have IDs */
+#div-gpt-ad, .ad-slot {
+    min-height: 250px;
+}
+
+/* Fix AdSense CLS (Layout Shift) */
+ins.adsbygoogle {
+    min-height: 280px;
+    /* Reserves space for a standard rectangle ad */
+    display: block !important;
+    background: #f4f4f4;
+    /* Shows a grey box while ad loads (optional) */
+}
+
+/* Fix Mobile Menu Shift */
+@media screen and (max-width: 768px) {
+    ins.adsbygoogle {
+        min-height: 250px;
+        /* Smaller height for mobile ads */
+    }
+}
+/* --- FIX ACCESSIBILITY ERRORS --- */
+
+/* 1. Fix Mobile Menu Text Contrast */
+/* The red color (#f40000) was too bright against white.
+We change it to a darker red that passes the 4.5:1 contrast ratio.
+*/
+span.menu-text {
+    color: #c00000 !important; 
+    font-weight: 700;
+}
+/* --- MODERN TEST HEADER (Hero Card) --- */
+.go-test-hero {
+    background: linear-gradient(135deg, #008000 0%, #005500 100%);
+    /* Your Brand Green */
+    border-radius: 12px;
+    padding: 30px 20px;
+    color: #fff;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 128, 0, 0.15);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.go-hero-title {
+    font-size: 26px !important;
+    color: #fff !important;
+    margin: 0 0 25px 0 !important;
+    font-weight: 800 !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Stats Grid */
+.go-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.go-stat-box {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 15px 10px;
+    backdrop-filter: blur(5px);
+}
+
+.go-stat-label {
+    display: block;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.go-stat-value {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Footer Context Bar */
+.go-hero-footer {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 50px;
+    display: inline-block;
+    font-size: 14px;
+}
+
+.go-footer-label {
+    color: #ffc107; /* Gold color for label */
+    font-weight: bold;
+    margin-right: 8px;
+    text-transform: uppercase;
+}
+
+/* --- MODERN TEST BOTTOM (Tag Style) --- */
+.go-bottom-card {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 40px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.03);
+}
+
+.go-tax-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.go-tax-head {
+    font-weight: 800;
+    color: #333;
+    font-size: 16px;
+    width: 140px; /* Fixed width for label */
+    flex-shrink: 0;
+}
+
+.go-tax-list a {
+    display: inline-block;
+    background: #f4f6f8;
+    color: #555 !important;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 5px;
+    text-decoration: none !important;
+    transition: all 0.2s;
+    border: 1px solid #e1e4e8;
+}
+
+.go-tax-list a:hover {
+    background: #008000;
+    color: #fff !important;
+    border-color: #008000;
+    transform: translateY(-2px);
+}
+
+.go-tax-divider {
+    height: 1px;
+    background: #eee;
+    margin: 15px 0;
+}
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 768px) {
+    .go-stats-grid {
+        grid-template-columns: 1fr;
+        /* Stack stats on mobile */
+    }
+    .go-hero-title {
+        font-size: 20px !important;
+    }
+    .go-tax-row {
+        display: block;
+    }
+    .go-tax-head {
+        margin-bottom: 10px;
+        display: block;
+        color: #008000;
+    }
+}
+/* 2. Fix Footer Link Visibility */
+/* Google requires links to be distinguishable by more than just color.
+We make it White (High Contrast) and add an Underline. */
+.copyright-text a {
+    color: #ffffff !important;
+    text-decoration: underline !important;
+    font-weight: bold;
+}
+
+/* 3. Fix "Gotest" Logo Text Contrast (if text-based) */
+.logo-container h1, .logo-container a {
+    color: #000000 !important;
+    /* Ensures logo text is dark enough */
+}
+/* =========================================
+   FINAL ID-BASED FIX: FORCE BLUE TABLE
+   ========================================= */
+
+/* 1. MAIN CARD (Blue Gradient) */
+#go-blue-hero-id {
+    background: linear-gradient(135deg, #0056b3 0%, #004494 100%) !important;
+    border-radius: 12px !important;
+    padding: 25px !important;
+    margin-bottom: 25px !important;
+    box-shadow: 0 8px 20px rgba(0, 86, 179, 0.3) !important;
+    border: 1px solid #004494 !important;
+    color: #ffffff !important;
+}
+
+/* 2. TITLE */
+#go-blue-hero-id .go-qa-title {
+    color: #ffffff !important;
+    text-align: center !important;
+    font-size: 24px !important;
+    font-weight: 900 !important;
+    margin-bottom: 20px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.3) !important;
+    padding-bottom: 15px !important;
+}
+
+/* 3. TABLE RESET (Using ID to kill theme styles) */
+table#go-blue-table-id,
+table#go-blue-table-id tbody,
+table#go-blue-table-id tr {
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+}
+
+/* 4. CELLS (Labels & Values) */
+table#go-blue-table-id td {
+    padding: 12px 15px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    font-size: 15px !important;
+    background: transparent !important;
+    vertical-align: middle !important;
+}
+
+/* 5. LABELS SPECIFIC */
+table#go-blue-table-id td.go-qa-label {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    font-weight: 900 !important;
+    width: 25% !important;
+    text-transform: uppercase !important;
+    font-size: 14px !important;
+    letter-spacing: 1px !important;
+}
+
+/* 6. VALUES SPECIFIC */
+table#go-blue-table-id td.go-qa-value {
+    font-weight: 500 !important;
+}
+
+/* 7. BUTTONS (Force White) */
+body .go-qa-buttons a {
+    color: #ffffff !important;
+    background-color: #0056b3 !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+    border: 2px solid #004494 !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+body .go-qa-buttons a:hover {
+    background-color: #004494 !important;
+    color: #ffffff !important;
+}
+
+/* Mobile Fix */
+@media (max-width: 600px) {
+    table#go-blue-table-id td { 
+        display: block !important;
+        width: 100% !important; 
+        border: none !important;
+    }
+    table#go-blue-table-id td.go-qa-label { 
+        color: #ffdd00 !important;
+        padding-top: 15px !important; 
+        padding-bottom: 5px !important;
+        border: none !important;
+        background: none !important;
+    }
+    table#go-blue-table-id td.go-qa-value { 
+        padding-top: 0 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+    }
+}
+/* --- FORCE BOTTOM LINKS INTO BUTTONS --- */
+
+/* 1. The Button Container */
+body .go-qa-buttons {
+    display: flex !important;
+    gap: 15px !important;
+    flex-wrap: wrap !important;
+    margin-top: 15px !important;
+}
+
+/* 2. The Button Itself (Shape & Color) */
+body .go-qa-footer .go-qa-buttons a {
+    display: inline-block !important;
+    /* Forces box shape */
+    background-color: #0056b3 !important;
+    /* Blue Background */
+    color: #ffffff !important;
+    /* White Text */
+    padding: 14px 25px !important;
+    /* Big Padding for Shape */
+    border-radius: 50px !important;
+    /* Pill Shape */
+    font-weight: 700 !important;            /* Bold */
+    text-decoration: none !important;
+    /* No Underline */
+    border: 2px solid #004494 !important;
+    /* Dark Blue Border */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+    /* 3D Shadow */
+    line-height: 1 !important;
+    /* Fix vertical alignment */
+    width: auto !important;
+    /* Let text decide width */
+}
+
+/* 3. Hover Effect */
+body .go-qa-footer .go-qa-buttons a:hover {
+    background-color: #004494 !important;
+    /* Darker Blue on Hover */
+    transform: translateY(-3px) !important;
+    /* Moves up */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3) !important;
+    color: #ffffff !important;
+}
+
+/* 4. Mobile Fix (Stack them) */
+@media (max-width: 600px) {
+    body .go-qa-footer .go-qa-buttons {
+        flex-direction: column !important;
+    }
+    body .go-qa-footer .go-qa-buttons a {
+        display: block !important;
+        /* Full Width */
+        width: 100% !important;
+        text-align: center !important;
+        margin-bottom: 10px !important;
+    }
+}
+/* Mobile Layout for Green Test Card */
+@media (max-width: 600px) {
+    .go-stats-grid {
+        /* Force 1 column on mobile */
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .go-hero-title {
+        font-size: 20px !important;
+        /* Smaller Title */
+    }
+}
+/* --- WATUPRO "SEE ANSWER" BUTTON STYLING --- */
+
+/* 1. The Button Itself */
+input.watupro-show-answer-button, 
+button.watupro-show-answer-button,
+.watupro_buttons input[type="button"] {
+    background: linear-gradient(135deg, #008000 0%, #005500 100%) !important;
+    /* Green Gradient */
+    color: #ffffff !important;          /* White Text */
+    border: none !important;
+    padding: 12px 25px !important;      /* Bigger Click Area */
+    font-size: 16px !important;
+    /* Readable Font */
+    font-weight: 700 !important;        /* Bold Text */
+    border-radius: 50px !important;
+    /* Pill Shape */
+    cursor: pointer !important;
+    box-shadow: 0 4px 10px rgba(0, 128, 0, 0.3) !important;
+    /* Soft Green Shadow */
+    transition: all 0.3s ease !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    margin-top: 15px !important;
+}
+
+/* 2. Hover Effect (Mouse Over) */
+input.watupro-show-answer-button:hover, 
+button.watupro-show-answer-button:hover,
+.watupro_buttons input[type="button"]:hover {
+    transform: translateY(-3px) !important;
+    /* Moves Up */
+    box-shadow: 0 6px 15px rgba(0, 128, 0, 0.4) !important;
+    /* Stronger Shadow */
+    background: linear-gradient(135deg, #005500 0%, #003300 100%) !important;
+    /* Darker Green */
+}
+
+/* 3. Focus/Active (Clicking) */
+input.watupro-show-answer-button:active, 
+button.watupro-show-answer-button:active {
+    transform: translateY(1px) !important;
+    /* Press Effect */
+    box-shadow: 0 2px 5px rgba(0, 128, 0, 0.3) !important;
+}
+/* --- FORCE STYLE ON "SEE ANSWER" BUTTONS --- */
+
+/* Target by Value (The Text on the Button) */
+input[type="button"][value="See Answer"],
+input[type="button"][value="Show Answer"],
+input.watupro-show-answer-button {
+    background: linear-gradient(135deg, #008000 0%, #005500 100%) !important;
+    /* Green Gradient */
+    color: #ffffff !important;
+    /* White Text */
+    border: 1px solid #004400 !important;
+    padding: 8px 20px !important;
+    /* Good Click Area */
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    /* Bold */
+    border-radius: 50px !important;     /* Rounded Pill */
+    cursor: pointer !important;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.2) !important;
+    margin-top: 10px !important;
+    transition: all 0.2s ease !important;
+    text-transform: uppercase !important;
+}
+
+/* Hover Effect */
+input[type="button"][value="See Answer"]:hover,
+input[type="button"][value="Show Answer"]:hover,
+input.watupro-show-answer-button:hover {
+    background: linear-gradient(135deg, #006600 0%, #003300 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.3) !important;
+}
+/* =========================================
+   MODERN HOMEPAGE STYLES (Light Hover Edition)
+   ========================================= */
+
+/* 1. SECTION HEADINGS (Visible & Centered) */
+.go-section-head {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: #333;
+    margin: 40px 0 20px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+}
+.go-section-head:after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 3px;
+    background: #008000;
+    margin: 10px auto 0;
+}
+
+/* HIDE Old Internal Headings */
+.big-test h3, .small-test h3 {
+    display: none !important;
+}
+
+/* 2. GRID LAYOUT FOR CARDS */
+ul.go-card-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    /* 2 Columns Default */
+    gap: 20px !important;
+    /* Good spacing */
+    padding: 5px !important;
+    margin: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* 4-Column Grid for Desktop (Entry Tests & GK) */
+@media (min-width: 992px) {
+    ul.go-card-grid.four-cols {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+}
+
+/* 3. CARD STYLING (Default State) */
+li.list-group-item {
+    background: #ffffff !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    padding: 0 !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    /* Smooth animation */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Link Text */
+li.list-group-item a {
+    display: block !important;
+    width: 100% !important;
+    padding: 15px 10px !important;
+    color: #444 !important;
+    /* Dark Text Default */
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    text-decoration: none !important;
+    text-align: center !important;
+    line-height: 1.4 !important;
+}
+
+/* --- 4. GREEN HOVER EFFECT (Light Green + Black Text) --- */
+li.list-group-item:hover {
+    background-color: #d4edda !important;
+    /* Pastel Green */
+    border-color: #28a745 !important;
+    transform: translateY(-5px);
+    /* Higher Lift */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+/* Force Text BLACK on Hover */
+li.list-group-item:hover a {
+    color: #000000 !important;
+}
+
+/* --- 5. BLUE THEME SUPPORT (Light Blue + Black Text) --- */
+/* Add class "blue-theme" to the ul in HTML to use this */
+ul.blue-theme li.list-group-item:hover {
+    background-color: #cce5ff !important;
+    /* Pastel Blue */
+    border-color: #007bff !important;
+}
+ul.blue-theme li.list-group-item:hover a {
+    color: #000000 !important;
+}
+
+/* 6. HERO SECTION TWEAKS */
+.go-home-hero input {
+    background: #ffffff !important;
+    /* Force white search box */
+    color: #333 !important;
+}
+/* Force Trending Links to be White */
+.go-home-hero a {
+    color: #ffffff !important;
+    text-decoration: underline !important;
+}
+
+/* 7. MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+    ul.go-card-grid, 
+    ul.go-card-grid.four-cols {
+        grid-template-columns: 1fr 1fr !important;
+        /* 2 Columns on Mobile */
+        gap: 10px !important;
+    }
+    li.list-group-item a {
+        font-size: 13px !important;
+        padding: 12px 5px !important;
+    }
+    .go-home-hero {
+        padding: 30px 15px !important;
+    }
+    .go-home-hero h1, .go-home-hero h2 {
+        font-size: 24px !important;
+    }
+    .go-home-hero input {
+        font-size: 14px !important;
+        padding: 15px !important;
+    }
+    /* Make Homepage Search Button Bigger */
+    .go-home-hero button {
+        padding: 0 30px !important;
+        /* Wider touch area */
+        font-size: 14px !important;
+    }
+    /* Stack Icons nicely */
+    li.list-group-item a {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* --- ICON STYLING (The "Moving Style" Update) --- */
+
+/* 1. Default Icon State (Green) */
+body .go-card-icon,
+body li.list-group-item i {
+    font-size: 24px !important;
+    display: block !important; 
+    margin-bottom: 10px !important; 
+    color: #008000 !important; /* Default Green */
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    /* Bouncy transition */
+}
+
+/* 2. Default Blue Icon State (For GK) */
+body ul.blue-theme .go-card-icon,
+body ul.blue-theme li.list-group-item i {
+    color: #0056b3 !important;
+    /* Blue Default */
+}
+
+/* 3. HOVER STATE: Black + Animated Pop */
+body li.list-group-item:hover .go-card-icon,
+body li.list-group-item:hover i {
+    color: #000000 !important;
+    /* Turn Black */
+    transform: scale(1.2) rotate(-10deg);
+    /* The "Moving Style" */
+}
+
+/* 4. Force Black for Blue Theme too */
+body ul.blue-theme li.list-group-item:hover .go-card-icon,
+body ul.blue-theme li.list-group-item:hover i {
+    color: #000000 !important;
+    transform: scale(1.2) rotate(10deg); /* Rotate opposite way for variety */
+}
+/* =========================================
+   FIX MOBILE AD & STICKY MENU
+   ========================================= */
+
+/* 1. Force Sticky Menu ON TOP of Ads */
+#main-nav.fixed-nav, 
+.header-layout-3.fixed-nav #main-nav, 
+.fixed-nav {
+    z-index: 999999 !important;
+    /* Higher than Google Ads (usually 9999) */
+    top: 0 !important;
+}
+
+/* 2. Remove White Space Gap Above Menu */
+body.admin-bar .fixed-nav {
+    top: 0 !important;
+    /* Fix for logged-in users */
+}
+html {
+    margin-top: 0 !important;
+    /* Prevent ad from pushing html down */
+}
+
+/* 3. Fix Google Anchor Ad Padding */
+/* This stops the ad from pushing your menu down */
+body {
+    padding-top: 0 !important;
+}
+
+/* 4. Ensure Mobile Menu doesn't get cut off */
+@media (max-width: 768px) {
+    .google-auto-placed {
+        z-index: 1000 !important;
+        /* Lower than our menu */
+    }
+    /* If ad overlaps content, add padding to body instead of header */
+    body.has-google-anchor-ad {
+        padding-bottom: 60px !important;
+        /* Move space to bottom */
+        padding-top: 0 !important;
+    }
+}
+/* --- COMPACT SEARCH BAR STYLING --- */
+.go-compact-search {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.go-search-label {
+    font-weight: 700;
+    color: #555;
+    margin-bottom: 15px !important;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.go-search-form {
+    display: flex;
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* Input Field */
+.go-search-input {
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 50px;
+    border: 2px solid #e0e0e0;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s;
+    background: #fff;
+    color: #333;
+}
+
+.go-search-input:focus {
+    border-color: #008000; /* Green focus */
+    box-shadow: 0 4px 10px rgba(0, 128, 0, 0.1);
+}
+
+/* Search Button */
+.go-search-btn {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    bottom: 5px;
+    background: #008000;
+    /* Green Brand Color */
+    color: #fff;
+    border: none;
+    padding: 0 25px;
+    border-radius: 50px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 14px;
+}
+
+.go-search-btn:hover {
+    background: #005500;
+    /* Darker Green */
+    transform: translateY(-1px);
+}
+
+/* Mobile Fix */
+@media (max-width: 600px) {
+    .go-search-btn {
+        padding: 0 15px;
+    }
+    .go-search-input {
+        font-size: 13px;
+    }
+}
+/* =========================================
+   MOBILE FIX: STACK SEARCH BUTTON BELOW INPUT
+   ========================================= */
+
+@media (max-width: 600px) {
+    
+    /* 1. Target Homepage & Compact Search Forms */
+    .go-home-hero form, 
+    .go-search-form {
+        display: flex !important;
+        flex-direction: column !important; /* Stacks items vertically */
+        position: static !important;
+    }
+
+    /* 2. Fix Input Field */
+    .go-home-hero input[type="search"], 
+    .go-search-input {
+        width: 100% !important;
+        padding: 15px !important; /* Standard padding */
+        margin-bottom: 10px !important;
+        /* Space between input and button */
+        padding-right: 15px !important;
+        /* Remove the safety gap we added earlier */
+    }
+
+    /* 3. Fix Button (Compact & Centered) */
+    .go-home-hero button[type="submit"], 
+    .go-search-btn {
+        position: static !important;
+        /* Stop floating */
+        width: 50% !important;
+        /* Half Width (Looks cleaner) */
+        min-width: 150px !important;
+        /* Minimum clickable size */
+        display: block !important;
+        margin: 0 auto !important;
+        /* Center it */
+        padding: 12px !important;
+        border-radius: 50px !important;
+        font-size: 14px !important;
+    }
+/* Fix Silo Box Hover Text */
+.go-silo-item:hover {
+    background-color: #f0f0f0 !important;
+    /* Light Grey Background */
+    color: #000 !important;
+    /* Force Black Text */
+    transform: translateX(5px);
+}
+
+/* Ensure Icons keep their color on hover */
+.go-silo-item:hover i {
+    opacity: 1 !important;
+}
+/* --- FORCE HOMEPAGE HERO LINKS WHITE --- */
+
+/* 1. Target links specifically inside the Green Hero Section */
+body .go-home-hero a:hover {
+    color: #ffffff !important;
+    /* Pure White */
+    text-decoration: underline !important;
+    opacity: 1 !important;
+}
+
+/* 2. Target the specific "Test:" links at the bottom of the hero */
+body .go-home-hero div a:hover {
+    color: #ffffff !important;
+}
+
+/* 3. Ensure the Search Button text stays white */
+body .go-home-hero button:hover {
+    color: #ffffff !important;
+}
+	/* --- FIX: Blue Box Mobile Text (Stop Cutting Letters) --- */
+@media only screen and (max-width: 768px) {
+    
+    /* 1. Reset Table Layout */
+    #go-blue-table-id, 
+    #go-blue-table-id tbody, 
+    #go-blue-table-id tr {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* 2. Fix the Table Cell (The Container) */
+    #go-blue-table-id td {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;        /* Let it grow vertically */
+        overflow: visible !important;
+        /* NEVER hide content */
+        padding: 5px 0 !important;
+        border: none !important;
+    }
+
+    /* 3. Fix the Label (SUBJECT, CHAPTER) */
+    #go-blue-table-id .go-qa-label {
+        display: inline-block !important;
+        /* Allow width to fit text */
+        width: auto !important;
+        /* Grow to fit the word */
+        min-width: 100px !important;
+        /* Minimum safe width */
+        max-width: 100% !important;
+        /* Maximum screen width */
+        
+        white-space: nowrap !important;
+        /* Keep word together */
+        overflow: visible !important;     /* Show the last letter!
+*/
+        text-overflow: clip !important;
+        /* No "..." dots */
+        
+        color: #ffeb3b !important;
+        /* Yellow */
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        text-transform: uppercase !important;
+        margin-top: 15px !important;
+        text-align: left !important;    /* Center the label */
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* 4. Fix the Value (English, Chapter 14) */
+    #go-blue-table-id .go-qa-value {
+        display: block !important;
+        width: 100% !important;
+        text-align: center !important;
+        color: #ffffff !important;
+        font-size: 18px !important;
+        font-weight: 700 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+    }
+}
+	/* --- HOMEPAGE FIX: Force Links Black on Box Hover --- */
+
+/* 1. Green Box: When mouse is anywhere inside, turn links Pitch Black */
+.green-box:hover .go-news-list li a,
+.green-box:hover h2 a {
+    color: #000000 !important;
+}
+
+/* 2. Blue Box: When mouse is anywhere inside, turn links Pitch Black */
+.blue-box:hover .go-test-list li a,
+.blue-box:hover h2 a {
+    color: #000000 !important;
+}
+
+/* 3. Safety: Ensure the specific link being clicked stays Black */
+.green-box a:hover,
+.blue-box a:hover {
+    color: #000000 !important;
+    text-decoration: underline !important;
+}
+	
+/* --- PHYSICS/CHEMISTRY GRID ENFORCER (Force 3 Columns) --- */
+
+/* 1. Target the Table specifically by finding the colored divs inside */
+.entry-content table:has(div[class*="table_test_style_"]),
+.entry-content table:has(div[class*="table_test_style_"]) tbody,
+.entry-content table:has(div[class*="table_test_style_"]) tr {
+    display: table-row !important;
+    /* Forces row behavior (Side-by-Side) */
+    width: 100% !important;
+    height: auto !important;
+    /* Unlocks the 28px height limit */
+    clear: none !important;
+    float: none !important;
+}
+
+/* 2. Target the Cells (Lesson 1, 2, 3) to sit side-by-side */
+.entry-content table:has(div[class*="table_test_style_"]) td {
+    display: table-cell !important;
+    /* CRITICAL: This restores columns */
+    width: 33.33% !important;
+    /* Force 3 Equal Columns */
+    float: none !important;
+    /* Card Style */
+    background: #ffffff !important;
+    border: none !important;
+    border-left: 5px solid #FF6600 !important;
+    border-radius: 6px !important;
+    
+    /* Spacing */
+    padding: 20px 10px !important;
+    margin: 0 !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    
+    /* Fake Gaps using white borders */
+    border-right: 10px solid #fff !important;
+    border-bottom: 10px solid #fff !important;
+    vertical-align: top !important;
+}
+
+/* 3. Reset the Inner Divs (Red/Blue/Green boxes) */
+.entry-content table:has(div[class*="table_test_style_"]) div[class*="table_test_style_"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    text-align: center !important;
+}
+
+/* 4. Fix Text Alignment */
+.entry-content table:has(div[class*="table_test_style_"]) a,
+.entry-content table:has(div[class*="table_test_style_"]) span {
+    color: #333 !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+    display: block !important;
+}
+
+/* 5. Hover Effect (Green Pop-up) */
+.entry-content table:has(div[class*="table_test_style_"]) td:hover {
+    background: #4caf50 !important;
+    transform: translateY(-5px) !important;
+    box-shadow: 0 10px 15px rgba(0,0,0,0.1) !important;
+}
+.entry-content table:has(div[class*="table_test_style_"]) td:hover * {
+    color: #ffffff !important;
+}
+		</style>
+		<noscript><style id="rocket-lazyload-nojs-css">.rll-youtube-player, [data-lazy-src]{display:none !important;}</style></noscript><style id="rocket-lazyrender-inline-css">[data-wpr-lazyrender] {content-visibility: auto;}</style><meta name="generator" content="WP Rocket 3.20.3" data-wpr-features="wpr_delay_js wpr_defer_js wpr_minify_js wpr_lazyload_images wpr_lazyload_iframes wpr_preconnect_external_domains wpr_automatic_lazy_rendering wpr_oci wpr_minify_css wpr_desktop" /></head>
+
+<body data-rsssl=1 id="tie-body" class="wp-singular page-template-default page page-id-14009 wp-theme-jannah wp-child-theme-jannah-child boxed-layout wrapper-has-shadow block-head-1 magazine2 is-thumb-overlay-disabled is-desktop is-header-layout-3 full-width post-layout-1 hide_banner_header hide_banner_top hide_banner_below_header hide_banner_bottom hide_banner_above hide_banner_above_content hide_banner_below_content hide_banner_below hide_banner_comments hide_breaking_news hide_footer_tiktok hide_footer_instagram hide_share_post_top hide_post_newsletter hide_read_next hide_post_nav hide_inline_related_posts hide_sidebars">
+
+
+
+<div  class="background-overlay">
+
+	<div  id="tie-container" class="site tie-container">
+
+		
+		<div  id="tie-wrapper">
+
+			
+<header id="theme-header" class="theme-header header-layout-3 main-nav-light main-nav-default-light main-nav-below no-stream-item top-nav-active top-nav-light top-nav-default-light top-nav-above has-shadow has-normal-width-logo mobile-header-default">
+	
+<nav id="top-nav"  class="has-menu top-nav header-nav" aria-label="Secondary Navigation">
+	<div class="container">
+		<div class="topbar-wrapper">
+
+			
+			<div class="tie-alignleft">
+				<div class="top-menu header-menu"><ul id="menu-new" class="menu"><li id="menu-item-14025" class="menu-item menu-item-type-custom menu-item-object-custom current-menu-item menu-item-14025 tie-current-menu"><a href="https://gotest.com.pk/personality-quiz-online-test/" aria-current="page">Personality Test</a></li>
+<li id="menu-item-14026" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-14026"><a href="https://gotest.com.pk/interview-preparation-question-answers/">Interviews</a></li>
+<li id="menu-item-14030" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-14030"><a href="https://gotest.com.pk/check-iq-level-test-online/">IQ Test</a></li>
+<li id="menu-item-14236" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-14236"><a href="https://gotest.com.pk/pakistan-gk-current-affairs/">Pak GK Current Affairs</a></li>
+</ul></div>			</div><!-- .tie-alignleft /-->
+
+			<div class="tie-alignright">
+							</div><!-- .tie-alignright /-->
+
+		</div><!-- .topbar-wrapper /-->
+	</div><!-- .container /-->
+</nav><!-- #top-nav /-->
+
+<div class="container header-container">
+	<div class="tie-row logo-row">
+
+		
+		<div class="logo-wrapper">
+			<div class="tie-col-md-4 logo-container clearfix">
+				
+		<div id="logo" class="image-logo" >
+
+			
+			<a title="Gotest" href="https://gotest.com.pk/">
+				
+				<picture class="tie-logo-default tie-logo-picture">
+					<source class="tie-logo-source-default tie-logo-source" srcset="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp" media="(max-width:991px)">
+					<source class="tie-logo-source-default tie-logo-source" srcset="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp">
+					<img fetchpriority="high" class="tie-logo-img-default tie-logo-img" src="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp" alt="Gotest" width="175" height="75" style="max-height:75px; width: auto;" />
+				</picture>
+						</a>
+
+			
+		</div><!-- #logo /-->
+
+		<div id="mobile-header-components-area_2" class="mobile-header-components"><ul class="components"><li class="mobile-component_menu custom-menu-link"><a href="#" id="mobile-menu-icon" class="menu-text-wrapper"><span class="tie-mobile-menu-icon nav-icon is-layout-1"></span><span class="menu-text">Menu</span></a></li></ul></div>			</div><!-- .tie-col /-->
+		</div><!-- .logo-wrapper /-->
+
+		
+	</div><!-- .tie-row /-->
+</div><!-- .container /-->
+
+<div class="main-nav-wrapper">
+	<nav id="main-nav"  class="main-nav header-nav menu-style-default menu-style-solid-bg"  aria-label="Primary Navigation">
+		<div class="container">
+
+			<div class="main-menu-wrapper">
+
+				
+				<div id="menu-components-wrap">
+
+					
+		<div id="sticky-logo" class="image-logo">
+
+			
+			<a title="Gotest" href="https://gotest.com.pk/">
+				
+				<picture class="tie-logo-default tie-logo-picture">
+					<source class="tie-logo-source-default tie-logo-source" srcset="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp">
+					<img class="tie-logo-img-default tie-logo-img" src="https://gotest.com.pk/wp-content/uploads/2025/12/gotest-new-logo.webp" alt="Gotest"  />
+				</picture>
+						</a>
+
+			
+		</div><!-- #Sticky-logo /-->
+
+		<div class="flex-placeholder"></div>
+		
+					<div class="main-menu main-menu-wrap">
+						<div id="main-nav-menu" class="main-menu header-menu"><ul id="menu-categories" class="menu"><li id="menu-item-72734" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-custom menu-item-object-custom menu-item-home menu-item-72734"><a href="https://gotest.com.pk">Home</a></li>
+<li id="menu-item-206" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-206"><a href="#">Classes</a>
+<ul class="sub-menu menu-sub-content">
+	<li id="menu-item-33100" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-33100"><a href="https://gotest.com.pk/punjab-class-wise-online-test/">Punjab</a></li>
+	<li id="menu-item-33114" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-33114"><a href="https://gotest.com.pk/federal-class-wise-online-test/">Federal</a></li>
+	<li id="menu-item-33123" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-33123"><a href="https://gotest.com.pk/sindh-class-wise-online-test-preparation/">Sindh</a></li>
+</ul>
+</li>
+<li id="menu-item-215" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-taxonomy menu-item-object-category menu-item-has-children menu-item-215"><a href="https://gotest.com.pk/entry-test/">Entry Test</a>
+<ul class="sub-menu menu-sub-content">
+	<li id="menu-item-7435" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-7435"><a href="https://gotest.com.pk/ecat-entry-test-preparation-online/">ECAT Test</a></li>
+	<li id="menu-item-7436" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-7436"><a href="https://gotest.com.pk/mdcat-entry-test-preparation-online/">MDCAT Test</a></li>
+</ul>
+</li>
+<li id="menu-item-218" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-taxonomy menu-item-object-category menu-item-has-children menu-item-218"><a href="https://gotest.com.pk/forces/">Forces</a>
+<ul class="sub-menu menu-sub-content">
+	<li id="menu-item-17494" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-17494"><a href="https://gotest.com.pk/join-pak-army-test/">Join Pak Army</a></li>
+	<li id="menu-item-17495" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-17495"><a href="https://gotest.com.pk/join-paf-tests/">Join PAF</a></li>
+	<li id="menu-item-17496" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-17496"><a href="https://gotest.com.pk/join-pak-navy-tests/">Join Navy</a></li>
+</ul>
+</li>
+<li id="menu-item-23597" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-custom menu-item-object-custom menu-item-23597"><a href="https://gotest.com.pk/general-knowledge-gk-test-online/">GK</a></li>
+<li id="menu-item-8870" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-custom menu-item-object-custom menu-item-8870"><a href="https://gotest.com.pk/online-aptitude-test/">Aptitude Test</a></li>
+<li id="menu-item-15092" class="menu-have-icon menu-icon-type-fontawesome menu-item menu-item-type-custom menu-item-object-custom menu-item-15092"><a href="https://gotest.com.pk/subjects-wise-test-online/">Subject Wise</a></li>
+</ul></div>					</div><!-- .main-menu /-->
+
+					<ul class="components"></ul><!-- Components -->
+				</div><!-- #menu-components-wrap /-->
+			</div><!-- .main-menu-wrapper /-->
+		</div><!-- .container /-->
+
+			</nav><!-- #main-nav /-->
+</div><!-- .main-nav-wrapper /-->
+
+</header>
+
+        <div class="container" style="margin-bottom: 15px;">
+            <div class="rank-math-breadcrumb-container" style="background: #fff; padding: 10px 15px; border-radius: 4px; font-size: 14px; border-bottom: 2px solid #eee;">
+                <nav aria-label="breadcrumbs" class="rank-math-breadcrumb"><p><a href="https://gotest.com.pk">Home</a><span class="separator"> &gt; </span><span class="last">Personality Quiz Online Test</span></p></nav>            </div>
+        </div>
+        <div id="content" class="site-content container"><div id="main-content-row" class="tie-row main-content-row">
+
+	<div class="main-content tie-col-md-12" role="main">
+
+	
+	<article id="the-post" class="container-wrapper post-content tie-standard">
+
+		
+	<header class="entry-header-outer">
+
+		
+		<div class="entry-header">
+			<h1 class="post-title entry-title">Personality Quiz Online Test</h1>
+		</div><!-- .entry-header /-->
+
+		
+	</header><!-- .entry-header-outer /-->
+
+	
+		<div class="entry-content entry clearfix">
+
+			
+			<div class="f9473f99b50edb3c4112bf2dd813ab97" data-index="1" style="float: none; margin:10px 0 10px 0; text-align:center;">
+<script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086"
+     crossorigin="anonymous"></script>
+<!-- gotest ads 5 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-4945057297407086"
+     data-ad-slot="2070463056"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script type="rocketlazyloadscript">
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+<p>Welcome to our Personality Quiz Online Test, where you can explore the fun side of who you really are! These exciting and interactive quizzes help you discover hidden traits and emotions that make you unique. Whether you’re wondering “Am I in love?”, curious about your personality type by color, or want to know if you’re a good friend or a lazy person, our quizzes make self-discovery enjoyable and easy. Each test is designed to give you a lighthearted yet meaningful look at your true personality.</p><div class="f9473f99b50edb3c4112bf2dd813ab97" data-index="1" style="float: none; margin:10px 0 10px 0; text-align:center;">
+<script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086"
+     crossorigin="anonymous"></script>
+<!-- gotest ads 5 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-4945057297407086"
+     data-ad-slot="2070463056"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script type="rocketlazyloadscript">
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+
+<p>Take a journey into your inner world with our online personality quizzes covering topics like anger level, honesty, fear, friendship, zodiac signs, and fashion sense. Find out what your color says about you, check if your crush feels the same, or simply see how active and positive your nature is. These quizzes are perfect for fun, self-reflection, or sharing results with friends. Start now and learn more about yourself one question at a time!</p><div class="f9473f99b50edb3c4112bf2dd813ab97" data-index="2" style="float: none; margin:10px 0 10px 0; text-align:center;">
+<script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086"
+     crossorigin="anonymous"></script>
+<!-- gotest ads 2 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-4945057297407086"
+     data-ad-slot="8844454908"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script type="rocketlazyloadscript">
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+
+<h2>Personality Quizz Online</h2>
+<ul>
+<li><strong><a href="https://gotest.com.pk/fun/are-you-in-love-online-test-quiz/" target="_blank" rel="noopener">Are You in Love ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/color-personality-test-online/" target="_blank" rel="noopener">What is Your Personality By Color ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/check-personality-type-quiz-online/" target="_blank" rel="noopener">What is Your Personality Type ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/zodiac-horoscope-sign-personality-test-online/" target="_blank" rel="noopener">Your Personality By Zodiac Horoscope Sign ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/anger-level-personality-test-online/" target="_blank" rel="noopener">Are you Angry Person ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/fashionable-personality-test-online/" target="_blank" rel="noopener">Do you Have a Fashionable Personality ?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/does-he-she-like-love-check-online-personality-test/" target="_blank" rel="noopener">Does He/She Like or Love You?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/check-you-good-bad-friend-quiz-online/" target="_blank" rel="noopener">Are You a Good or Bad Friend?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/test-fear-level-how-afraid-you-personality-quiz-online/" target="_blank" rel="noopener">Are You Afraid?Check Your Fear Level</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/how-honest-you-personality-quiz-online/" target="_blank" rel="noopener">How Honest Are You?</a></strong></li>
+<li><strong><a href="https://gotest.com.pk/fun/are-you-lazy-active-person-personality-test/" target="_blank" rel="noopener">Are You a Lazy or Active Person?</a></strong></li>
+</ul>
+<div class="f9473f99b50edb3c4112bf2dd813ab97" data-index="3" style="float: none; margin:10px 0 10px 0; text-align:center;">
+<script type="rocketlazyloadscript" async data-rocket-src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4945057297407086"
+     crossorigin="anonymous"></script>
+<!-- gotest ads 3 -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-4945057297407086"
+     data-ad-slot="1243634502"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script type="rocketlazyloadscript">
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</div>
+
+<div style="font-size: 0px; height: 0px; line-height: 0px; margin: 0; padding: 0; clear: both;"></div><div class="go-silo-box" style="margin-top:25px; padding:20px; background:#fff; border-radius:8px; border:1px solid #eee; border-top: 4px solid #28a745; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"><h3 style="margin-top:0; color:#28a745; font-size:18px; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:15px;">More Related Resources</h3><div class="go-silo-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><a href="https://gotest.com.pk/fun/how-honest-you-personality-quiz-online/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Test How Honest Are You? Personalit...</a><a href="https://gotest.com.pk/fun/test-fear-level-how-afraid-you-personality-quiz-online/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Test your Fear level how Afraid are...</a><a href="https://gotest.com.pk/fun/check-personality-type-quiz-online/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Check Your Personality Type Quiz On...</a><a href="https://gotest.com.pk/pak-current-affairs/famous-personality-who-visited-pakistan/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Famous Personality Who Visited Paki...</a><a href="https://gotest.com.pk/pak-current-affairs/notable-personality-passed-away/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Notable Personality Passed Away Tes...</a><a href="https://gotest.com.pk/pak-current-affairs/anniversaries-notable-personality/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Anniversaries Notable Personality T...</a><a href="https://gotest.com.pk/latest-jobs/issb-initial-test-online-preparation-model-mcq-test-past-papers-quizzes/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> ISSB Initial Test Online Preparatio...</a><a href="https://gotest.com.pk/forces/pakistan-army-chemistry-initial-test-mcqs-online-practice-quiz/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Pakistan Army Chemistry Initial Tes...</a><a href="https://gotest.com.pk/general-knowledge/pakistan/kasur-city-general-knowledge-online-info-mcqs-quiz/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Kasur City General Knowledge Online...</a><a href="https://gotest.com.pk/fun/are-you-jealous-person-quiz-online/" class="go-silo-item" style="display:flex; align-items:center; padding:10px; background:#f8f9fa; color:#444 !important; border-radius:5px; text-decoration:none; font-size:14px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><i class="fas fa-file-alt" style="margin-right:10px; width:20px; text-align:center; color:#444 !important;"></i> Check Are You a Jealous Person (Gir...</a></div></div><style>a.go-silo-item:hover { transform:translateX(5px); opacity:0.9; text-decoration:none !important; }</style>    <div class="go-compact-search">
+        <p class="go-search-label">Can't find what you're looking for? Search below:</p>
+        <form role="search" method="get" action="https://gotest.com.pk/" class="go-search-form">
+            <input type="search" class="go-search-input" placeholder="Search exams, results, or past papers..." value="" name="s">
+            <button type="submit" class="go-search-btn">
+                <i class="fas fa-search"></i> Search
+            </button>
+        </form>
+    </div>
+    <div class="go-related-posts" style="margin-top:30px; padding:20px; background:#fff; border:1px solid #eee; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05);"><h3 style="font-size:20px; border-bottom:2px solid #008000; padding-bottom:10px; margin-bottom:15px; color:#333;">Related Content</h3><ul style="list-style:none; padding:0; margin:0;"><li style="margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:5px;"><a href="https://gotest.com.pk/famous-personalities-quiz-online/" style="text-decoration:none; color:#0056b3; font-weight:600; display:flex; align-items:center;"><i class="fas fa-angle-right" style="color:#008000; margin-right:8px; font-size:12px;"></i> Famous Personalities Quiz Online With Answer</a></li><li style="margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:5px;"><a href="https://gotest.com.pk/fun-online-quizzes-tests/" style="text-decoration:none; color:#0056b3; font-weight:600; display:flex; align-items:center;"><i class="fas fa-angle-right" style="color:#008000; margin-right:8px; font-size:12px;"></i> Fun Online Quizzes and Tests</a></li><li style="margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:5px;"><a href="https://gotest.com.pk/check-personality-online-test/" style="text-decoration:none; color:#0056b3; font-weight:600; display:flex; align-items:center;"><i class="fas fa-angle-right" style="color:#008000; margin-right:8px; font-size:12px;"></i> Check Your Personality Online</a></li><li style="margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:5px;"><a href="https://gotest.com.pk/join-paf-test/" style="text-decoration:none; color:#0056b3; font-weight:600; display:flex; align-items:center;"><i class="fas fa-angle-right" style="color:#008000; margin-right:8px; font-size:12px;"></i> Join PAF Test Preparation 2026 (GDP, CAE &#038; Airman Syllabus)</a></li></ul></div>
+
+
+
+
+
+			
+		</div><!-- .entry-content /-->
+
+		
+
+	</article><!-- #the-post /-->
+
+	
+	<div class="post-components">
+
+		
+				<div class="compact-comments">
+					<a id="show-comments-section" href="#" class="button">Show 8 comments</a>
+				</div>
+				<style>#comments{display: none;}</style>
+				<div id="comments" class="comments-area">
+
+					<div id="comments-box" class="container-wrapper">
+
+				<div class="block-head">
+					<h3 id="comments-title" class="the-global-title">
+						8 Comments					</h3>
+				</div><!-- .block-head /-->
+
+				
+				<ol class="comment-list">
+							<li id="comment-178356" class="comment even thread-even depth-1">
+			<article id="div-comment-178356" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn"><a href="http://www.zortilonrel.com/" class="url" rel="ugc external nofollow">zortilo nrel</a></b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-178356"><time datetime="2021-09-11T20:09:25+05:00">September 11, 2021 at 8:09 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>Everything is very open and very clear explanation of issues. was truly information. Your website is very useful. Thanks for sharing.</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-178356" data-commentid="178356" data-postid="14009" data-belowelement="div-comment-178356" data-respondelement="respond" data-replyto="Reply to zortilo nrel" aria-label="Reply to zortilo nrel">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+		<li id="comment-165136" class="comment odd alt thread-odd thread-alt depth-1">
+			<article id="div-comment-165136" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn"><a href="https://youtu.be/zq5Pwud6j0s" class="url" rel="ugc external nofollow">Umar</a></b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-165136"><time datetime="2020-11-10T11:03:07+05:00">November 10, 2020 at 11:03 am</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>I got 87\90</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-165136" data-commentid="165136" data-postid="14009" data-belowelement="div-comment-165136" data-respondelement="respond" data-replyto="Reply to Umar" aria-label="Reply to Umar">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+		<li id="comment-84045" class="comment even thread-even depth-1 parent">
+			<article id="div-comment-84045" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn"><a href="http://28%20july%202017" class="url" rel="ugc external nofollow">Mrs,Aisha Amir</a></b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-84045"><time datetime="2017-07-28T22:06:50+05:00">July 28, 2017 at 10:06 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>Very Nice.</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-84045" data-commentid="84045" data-postid="14009" data-belowelement="div-comment-84045" data-respondelement="respond" data-replyto="Reply to Mrs,Aisha Amir" aria-label="Reply to Mrs,Aisha Amir">Reply</a></div>			</article><!-- .comment-body -->
+		<ol class="children">
+		<li id="comment-122177" class="comment odd alt depth-2">
+			<article id="div-comment-122177" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn">muhammad ayaan manzoor</b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-122177"><time datetime="2018-12-16T12:50:36+05:00">December 16, 2018 at 12:50 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>hi</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-122177" data-commentid="122177" data-postid="14009" data-belowelement="div-comment-122177" data-respondelement="respond" data-replyto="Reply to muhammad ayaan manzoor" aria-label="Reply to muhammad ayaan manzoor">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+		<li id="comment-122178" class="comment even depth-2">
+			<article id="div-comment-122178" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn">muhammad ayaan manzoor</b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-122178"><time datetime="2018-12-16T12:51:16+05:00">December 16, 2018 at 12:51 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>helo</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-122178" data-commentid="122178" data-postid="14009" data-belowelement="div-comment-122178" data-respondelement="respond" data-replyto="Reply to muhammad ayaan manzoor" aria-label="Reply to muhammad ayaan manzoor">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+		<li id="comment-192010" class="comment odd alt depth-2">
+			<article id="div-comment-192010" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn">Kashif Ali</b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-192010"><time datetime="2022-05-30T17:35:39+05:00">May 30, 2022 at 5:35 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>Hi kse ho</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-192010" data-commentid="192010" data-postid="14009" data-belowelement="div-comment-192010" data-respondelement="respond" data-replyto="Reply to Kashif Ali" aria-label="Reply to Kashif Ali">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+		<li id="comment-218120" class="comment even depth-2">
+			<article id="div-comment-218120" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn">ANJUM</b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-218120"><time datetime="2025-03-16T18:17:04+05:00">March 16, 2025 at 6:17 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>V.good</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-218120" data-commentid="218120" data-postid="14009" data-belowelement="div-comment-218120" data-respondelement="respond" data-replyto="Reply to ANJUM" aria-label="Reply to ANJUM">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+</ol><!-- .children -->
+</li><!-- #comment-## -->
+		<li id="comment-83850" class="comment odd alt thread-odd thread-alt depth-1">
+			<article id="div-comment-83850" class="comment-body">
+				<footer class="comment-meta">
+					<div class="comment-author vcard">
+												<b class="fn"><a href="http://gotest" class="url" rel="ugc external nofollow">anad ali</a></b> <span class="says">says:</span>					</div><!-- .comment-author -->
+
+					<div class="comment-metadata">
+						<a href="https://gotest.com.pk/personality-quiz-online-test/#comment-83850"><time datetime="2017-07-27T14:36:03+05:00">July 27, 2017 at 2:36 pm</time></a>					</div><!-- .comment-metadata -->
+
+									</footer><!-- .comment-meta -->
+
+				<div class="comment-content">
+					<p>Pleasr improve thr answer checking procedure</p>
+				</div><!-- .comment-content -->
+
+				<div class="reply"><a rel="nofollow" class="comment-reply-link" href="#comment-83850" data-commentid="83850" data-postid="14009" data-belowelement="div-comment-83850" data-respondelement="respond" data-replyto="Reply to anad ali" aria-label="Reply to anad ali">Reply</a></div>			</article><!-- .comment-body -->
+		</li><!-- #comment-## -->
+				</ol><!-- .comment-list -->
+
+				
+			</div><!-- #comments-box -->
+		
+
+		<div id="add-comment-block" class="container-wrapper">	<div id="respond" class="comment-respond">
+		<h3 id="reply-title" class="comment-reply-title the-global-title">Leave a Reply <small><a rel="nofollow" id="cancel-comment-reply-link" href="/personality-quiz-online-test/#respond" style="display:none;">Cancel reply</a></small></h3><form action="https://gotest.com.pk/wp-comments-post.php" method="post" id="commentform" class="comment-form"><p class="comment-notes"><span id="email-notes">Your email address will not be published.</span> <span class="required-field-message">Required fields are marked <span class="required">*</span></span></p><p class="comment-form-comment"><label for="comment">Comment <span class="required">*</span></label> <textarea id="comment" name="comment" cols="45" rows="8" maxlength="65525" required></textarea></p><p class="comment-form-author"><label for="author">Name <span class="required">*</span></label> <input id="author" name="author" type="text" value="" size="30" maxlength="245" autocomplete="name" required /></p>
+<p class="comment-form-email"><label for="email">Email <span class="required">*</span></label> <input id="email" name="email" type="email" value="" size="30" maxlength="100" aria-describedby="email-notes" autocomplete="email" required /></p>
+<p class="comment-form-url"><label for="url">Website</label> <input id="url" name="url" type="url" value="" size="30" maxlength="200" autocomplete="url" /></p>
+<p class="form-submit"><input name="submit" type="submit" id="submit" class="submit" value="Post Comment" /> <input type='hidden' name='comment_post_ID' value='14009' id='comment_post_ID' />
+<input type='hidden' name='comment_parent' id='comment_parent' value='0' />
+</p><p style="display: none;"><input type="hidden" id="akismet_comment_nonce" name="akismet_comment_nonce" value="5c70efdf2f" /></p><p style="display: none !important;" class="akismet-fields-container" data-prefix="ak_"><label>&#916;<textarea name="ak_hp_textarea" cols="45" rows="8" maxlength="100"></textarea></label><input type="hidden" id="ak_js_1" name="ak_js" value="27"/><script type="rocketlazyloadscript" data-rocket-type="text/javascript">
+/* <![CDATA[ */
+document.getElementById( "ak_js_1" ).setAttribute( "value", ( new Date() ).getTime() );
+/* ]]> */
+</script>
+</p></form>	</div><!-- #respond -->
+	</div><!-- #add-comment-block /-->
+	</div><!-- .comments-area -->
+
+
+	</div><!-- .post-components /-->
+
+	
+</div><!-- .main-content -->
+
+</div><!-- .main-content-row /--></div><!-- #content /-->
+<footer id="footer" class="site-footer dark-skin dark-widgetized-area">
+
+	
+			<div id="footer-widgets-container">
+				<div class="container">
+									</div><!-- .container /-->
+			</div><!-- #Footer-widgets-container /-->
+			
+			<div id="site-info" class="site-info site-info-layout-2">
+				<div class="container">
+					<div class="tie-row">
+						<div class="tie-col-md-12">
+
+							<div class="copyright-text copyright-text-first">&copy; Copyright 2026, All Rights Reserved &nbsp;|&nbsp; <span style="color:red;" class="tie-icon-heart"></span> <a href="https://gotest.com.pk/" target="_blank" rel="nofollow noopener">Gotest</a>
+
+</div>
+						</div><!-- .tie-col /-->
+					</div><!-- .tie-row /-->
+				</div><!-- .container /-->
+			</div><!-- #site-info /-->
+			
+</footer><!-- #footer /-->
+
+
+		<a id="go-to-top" class="go-to-top-button" href="#go-to-tie-body">
+			<span class="tie-icon-angle-up"></span>
+			<span class="screen-reader-text">Back to top button</span>
+		</a>
+	
+		</div><!-- #tie-wrapper /-->
+
+		
+	<aside class=" side-aside normal-side dark-skin dark-widgetized-area appear-from-right" aria-label="Secondary Sidebar" style="visibility: hidden;">
+		<div data-height="100%" class="side-aside-wrapper has-custom-scroll">
+
+			<a href="#" class="close-side-aside remove big-btn">
+				<span class="screen-reader-text">Close</span>
+			</a><!-- .close-side-aside /-->
+
+
+			
+				<div id="mobile-container">
+
+					
+					<div id="mobile-menu" class="hide-menu-icons">
+											</div><!-- #mobile-menu /-->
+
+					
+				</div><!-- #mobile-container /-->
+			
+
+			
+		</div><!-- .side-aside-wrapper /-->
+	</aside><!-- .side-aside /-->
+
+	
+	</div><!-- #tie-container /-->
+</div><!-- .background-overlay /-->
+
+<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/jannah-child/*","/wp-content/themes/jannah/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+ <!-- Histats.com  START  (aync)-->
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript">var _Hasync= _Hasync|| [];
+_Hasync.push(['Histats.start', '1,2509399,4,0,0,0,00010000']);
+_Hasync.push(['Histats.fasi', '1']);
+_Hasync.push(['Histats.track_hits', '']);
+(function() {
+var hs = document.createElement('script'); hs.type = 'text/javascript'; hs.async = true;
+hs.src = ('//s10.histats.com/js15_as.js');
+(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(hs);
+})();</script>
+<noscript><a href="/" target="_blank"><img  src="//sstatic1.histats.com/0.gif?2509399&101" alt="free web stats" border="0"></a></noscript>
+<!-- Histats.com  END  -->
+
+<script type="rocketlazyloadscript">
+document.addEventListener("DOMContentLoaded", function() {
+    /* --- SMART TABLE MANAGER --- */
+    
+    var contentArea = document.querySelector('.entry-content') || document.body;
+    var allCells = contentArea.querySelectorAll('td');
+
+    allCells.forEach(function(td) {
+        var html = td.innerHTML;
+        var style = td.getAttribute('style') || "";
+
+        // 1. IS THIS THE GRID TABLE? (Check for unique padding)
+        // If yes, skip it and let CSS handle the styling entirely.
+        if (style.includes("padding: 40px") || style.includes("padding:40px")) {
+            return; 
+        }
+
+        // 2. CLEAN UGLY CODES (For all other tables)
+        if (html.includes("&#x25b6;") || html.includes("▶")) {
+            td.innerHTML = html.replace(/&amp;#x25b6;/g, "").replace(/&#x25b6;/g, "").replace(/▶/g, "");
+        }
+
+        // 3. HEADER & EMPTY ROW DETECTION (For Lists only)
+        var text = td.innerText.trim();
+        var hasLink = td.querySelector('a');
+        var hasH2 = td.querySelector('h2');
+
+        // Check for Header
+        if (hasH2 || (!hasLink && text.length > 2)) {
+            td.classList.add('gotest-header-row');
+            td.removeAttribute('style'); 
+            td.style.backgroundColor = ""; 
+        } 
+        // Check for Empty Row
+        else if (text.length < 2 && !td.querySelector('img')) {
+            td.parentElement.style.display = "none";
+        }
+    });
+});
+</script>
+
+<link data-minify="1" rel="stylesheet" href="https://gotest.com.pk/wp-content/cache/min/1/ajax/libs/font-awesome/6.5.0/css/all.min.css?ver=1778657219"><div data-wpr-lazyrender="1" id="is-scroller-outer"><div  id="is-scroller"></div></div><div data-wpr-lazyrender="1" id="fb-root"></div><script type="rocketlazyloadscript" data-minify="1" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/cache/min/1/wp-content/plugins/watupro/modules/reports/js/event-tracker.js?ver=1778657219" id="watupro-tracker-js" data-rocket-defer defer></script>
+<script type="text/javascript" id="tie-scripts-js-extra">
+/* <![CDATA[ */
+var tie = {"is_rtl":"","ajaxurl":"https://gotest.com.pk/wp-admin/admin-ajax.php","is_side_aside_light":"","is_taqyeem_active":"","is_sticky_video":"","mobile_menu_top":"1","mobile_menu_active":"area_2","mobile_menu_parent":"","lightbox_all":"","lightbox_gallery":"true","lightbox_skin":"dark","lightbox_thumb":"horizontal","lightbox_arrows":"true","is_singular":"1","autoload_posts":"","reading_indicator":"true","lazyload":"","select_share":"","select_share_twitter":"","select_share_facebook":"","select_share_linkedin":"","select_share_email":"","facebook_app_id":"5303202981","twitter_username":"","responsive_tables":"true","ad_blocker_detector":"","sticky_behavior":"default","sticky_desktop":"","sticky_mobile":"true","sticky_mobile_behavior":"default","ajax_loader":"\u003Cdiv class=\"loader-overlay\"\u003E\u003Cdiv class=\"spinner-circle\"\u003E\u003C/div\u003E\u003C/div\u003E","type_to_search":"","lang_no_results":"Nothing Found","sticky_share_mobile":"","sticky_share_post":"","sticky_share_post_menu":""};
+//# sourceURL=tie-scripts-js-extra
+/* ]]> */
+</script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/themes/jannah/assets/js/scripts.min.js?ver=7.5.0" id="tie-scripts-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/themes/jannah/assets/js/desktop.min.js?ver=7.5.0" id="tie-js-desktop-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/themes/jannah/assets/js/single.min.js?ver=7.5.0" id="tie-js-single-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-includes/js/comment-reply.min.js?ver=455baedacbd0fdcb54f71c6798b96803" id="comment-reply-js" async="async" data-wp-strategy="async" fetchpriority="low"></script>
+<script type="rocketlazyloadscript" data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/plugins/wp-rocket/assets/js/heartbeat.js?ver=3.20.3" id="heartbeat-js" data-rocket-defer defer></script>
+<script type="rocketlazyloadscript" data-minify="1" defer data-rocket-type="text/javascript" data-rocket-src="https://gotest.com.pk/wp-content/cache/min/1/wp-content/plugins/akismet/_inc/akismet-frontend.js?ver=1778657219" id="akismet-frontend-js"></script>
+<script type="rocketlazyloadscript" id="webpushr-script">
+(function(w,d, s, id) {w.webpushr=w.webpushr||function(){(w.webpushr.q=w.webpushr.q||[]).push(arguments)};var js, fjs = d.getElementsByTagName(s)[0];js = d.createElement(s); js.async=1; js.id = id;js.src = "https://cdn.webpushr.com/app.min.js";
+d.body.appendChild(js);}(window,document, 'script', 'webpushr-jssdk'));
+	webpushr('setup',{'key':'BA-o-iHKmAq-eCxnXgCpqS0m6kPXscoMb7Whd8QXPUE6M5xivJ0oloRoeghPW7toxeS07I__ubPdsu7NRRO6Tf4','sw':'/wp-content/plugins/webpushr-web-push-notifications/sdk_files/webpushr-sw.js.php'});
+</script>
+	<script>window.lazyLoadOptions=[{elements_selector:"img[data-lazy-src],.rocket-lazyload,iframe[data-lazy-src]",data_src:"lazy-src",data_srcset:"lazy-srcset",data_sizes:"lazy-sizes",class_loading:"lazyloading",class_loaded:"lazyloaded",threshold:300,callback_loaded:function(element){if(element.tagName==="IFRAME"&&element.dataset.rocketLazyload=="fitvidscompatible"){if(element.classList.contains("lazyloaded")){if(typeof window.jQuery!="undefined"){if(jQuery.fn.fitVids){jQuery(element).parent().fitVids()}}}}}},{elements_selector:".rocket-lazyload",data_src:"lazy-src",data_srcset:"lazy-srcset",data_sizes:"lazy-sizes",class_loading:"lazyloading",class_loaded:"lazyloaded",threshold:300,}];window.addEventListener('LazyLoad::Initialized',function(e){var lazyLoadInstance=e.detail.instance;if(window.MutationObserver){var observer=new MutationObserver(function(mutations){var image_count=0;var iframe_count=0;var rocketlazy_count=0;mutations.forEach(function(mutation){for(var i=0;i<mutation.addedNodes.length;i++){if(typeof mutation.addedNodes[i].getElementsByTagName!=='function'){continue}
+if(typeof mutation.addedNodes[i].getElementsByClassName!=='function'){continue}
+images=mutation.addedNodes[i].getElementsByTagName('img');is_image=mutation.addedNodes[i].tagName=="IMG";iframes=mutation.addedNodes[i].getElementsByTagName('iframe');is_iframe=mutation.addedNodes[i].tagName=="IFRAME";rocket_lazy=mutation.addedNodes[i].getElementsByClassName('rocket-lazyload');image_count+=images.length;iframe_count+=iframes.length;rocketlazy_count+=rocket_lazy.length;if(is_image){image_count+=1}
+if(is_iframe){iframe_count+=1}}});if(image_count>0||iframe_count>0||rocketlazy_count>0){lazyLoadInstance.update()}});var b=document.getElementsByTagName("body")[0];var config={childList:!0,subtree:!0};observer.observe(b,config)}},!1)</script><script data-no-minify="1" async src="https://gotest.com.pk/wp-content/plugins/wp-rocket/assets/js/lazyload/17.8.3/lazyload.min.js"></script><script>function lazyLoadThumb(e,alt,l){var t='<img data-lazy-src="https://i.ytimg.com/vi/ID/hqdefault.jpg" alt="" width="480" height="360"><noscript><img src="https://i.ytimg.com/vi/ID/hqdefault.jpg" alt="" width="480" height="360"></noscript>',a='<button class="play" aria-label="Play Youtube video"></button>';if(l){t=t.replace('data-lazy-','');t=t.replace('loading="lazy"','');t=t.replace(/<noscript>.*?<\/noscript>/g,'');}t=t.replace('alt=""','alt="'+alt+'"');return t.replace("ID",e)+a}function lazyLoadYoutubeIframe(){var e=document.createElement("iframe"),t="ID?autoplay=1";t+=0===this.parentNode.dataset.query.length?"":"&"+this.parentNode.dataset.query;e.setAttribute("src",t.replace("ID",this.parentNode.dataset.src)),e.setAttribute("frameborder","0"),e.setAttribute("allowfullscreen","1"),e.setAttribute("allow","accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"),this.parentNode.parentNode.replaceChild(e,this.parentNode)}document.addEventListener("DOMContentLoaded",function(){var exclusions=["Gotest-final-Logo-with-Dark-Color.png","logo","header-logo","wp-post-image","attachment-post-thumbnail","tie-logo-img"];var e,t,p,u,l,a=document.getElementsByClassName("rll-youtube-player");for(t=0;t<a.length;t++)(e=document.createElement("div")),(u='https://i.ytimg.com/vi/ID/hqdefault.jpg'),(u=u.replace('ID',a[t].dataset.id)),(l=exclusions.some(exclusion=>u.includes(exclusion))),e.setAttribute("data-id",a[t].dataset.id),e.setAttribute("data-query",a[t].dataset.query),e.setAttribute("data-src",a[t].dataset.src),(e.innerHTML=lazyLoadThumb(a[t].dataset.id,a[t].dataset.alt,l)),a[t].appendChild(e),(p=e.querySelector(".play")),(p.onclick=lazyLoadYoutubeIframe)});</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9fed0573dae94097',t:'MTc3OTI5NzcyMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+
+<!-- This website is like a Rocket, isn't it? Performance optimized by WP Rocket. Learn more: https://wp-rocket.me - Debug: cached@1778859264 -->

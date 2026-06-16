@@ -1,0 +1,55 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Categories{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Categories</div>
+    <div class="page-subtitle">Blog and news post categories</div>
+  </div>
+  <a href="/admin/core/category/add/" target="_blank" class="btn-add">
+    <i class="ti ti-plus"></i> Add Category
+  </a>
+</div>
+
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_categories }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#0ea5e9">{{ blog_categories }}</div>
+    <div class="stat-label">Blog</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#8b5cf6">{{ news_categories }}</div>
+    <div class="stat-label">News</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Slug</th><th>Type</th><th>Color</th><th>Posts</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for cat in categories %}
+      <tr>
+        <td style="font-weight:500;">{{ cat.name }}</td>
+        <td style="font-size:12px; color:#6b7280;">{{ cat.slug }}</td>
+        <td><span class="badge badge-slate">{{ cat.get_type_display }}</span></td>
+        <td>
+          <span style="display:inline-block; width:20px; height:20px; border-radius:4px; background:{{ cat.color }}; border:1px solid #e5e7eb;"></span>
+          <span style="font-size:12px; color:#6b7280;">{{ cat.color }}</span>
+        </td>
+        <td style="text-align:center;">{{ cat.post_count }}</td>
+        <td>
+          <a href="/admin/core/category/{{ cat.id }}/change/" target="_blank" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty-state"><i class="ti ti-category-off"></i>No categories yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

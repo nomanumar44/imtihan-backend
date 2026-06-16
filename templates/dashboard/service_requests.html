@@ -1,0 +1,112 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Service Requests{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Service Requests</div>
+    <div class="page-subtitle">Paid application submissions — manage and track</div>
+  </div>
+  <a href="/admin/core/serviceplan/add/" target="_blank" class="btn-add" style="background:#0EA5E9;">
+    <i class="ti ti-plus"></i> Add Service Plan
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_requests }}</div>
+    <div class="stat-label">Total Requests</div>
+    <div class="stat-change">+{{ requests_this_week }} this week</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#f59e0b">{{ pending_payment }}</div>
+    <div class="stat-label">Payment Pending</div>
+    <div class="stat-change">Waiting for verification</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ submitted }}</div>
+    <div class="stat-label">Submitted</div>
+    <div class="stat-change">Successfully completed</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#0ea5e9">Rs. {{ total_revenue }}</div>
+    <div class="stat-label">Total Revenue</div>
+    <div class="stat-change">From paid requests</div>
+  </div>
+</div>
+
+<!-- Status Filter -->
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+  <span style="font-size:12px; color:#6b7280; font-weight:500;">Filter by status:</span>
+  <a href="?" class="badge {% if not status_filter %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">All</a>
+  <a href="?status=payment_pending" class="badge {% if status_filter == 'payment_pending' %}badge-amber{% else %}badge-slate{% endif %}" style="text-decoration:none;">Payment Pending</a>
+  <a href="?status=queued" class="badge {% if status_filter == 'queued' %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">Queued</a>
+  <a href="?status=in_progress" class="badge {% if status_filter == 'in_progress' %}badge-violet{% else %}badge-slate{% endif %}" style="text-decoration:none;">In Progress</a>
+  <a href="?status=submitted" class="badge {% if status_filter == 'submitted' %}badge-green{% else %}badge-slate{% endif %}" style="text-decoration:none;">Submitted</a>
+  <a href="?status=failed" class="badge {% if status_filter == 'failed' %}badge-red{% else %}badge-slate{% endif %}" style="text-decoration:none;">Failed</a>
+</div>
+
+<!-- Requests Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Job</th>
+        <th>Plan</th>
+        <th>Amount</th>
+        <th>Status</th>
+        <th>Payment</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in requests %}
+      <tr>
+        <td><span style="font-family:monospace; font-weight:600; font-size:12px;">#REQ-{{ req.id|stringformat:"04d" }}</span></td>
+        <td>
+          <div style="font-weight:500; font-size:13px;">{{ req.user.username }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ req.user.email }}</div>
+        </td>
+        <td>
+          <div style="font-weight:500; font-size:13px;">{{ req.job.title|truncatechars:35 }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ req.job.department|default:"—" }}</div>
+        </td>
+        <td>{{ req.plan.name|default:"Custom" }}</td>
+        <td><span style="font-weight:600;">Rs. {{ req.payment_amount|default:"0" }}</span></td>
+        <td>
+          {% if req.request_status == 'payment_pending' %}<span class="badge badge-amber">Payment Pending</span>
+          {% elif req.request_status == 'payment_verification' %}<span class="badge badge-orange">Verification</span>
+          {% elif req.request_status == 'queued' %}<span class="badge badge-blue">Queued</span>
+          {% elif req.request_status == 'in_progress' %}<span class="badge badge-violet">In Progress</span>
+          {% elif req.request_status == 'submitted' %}<span class="badge badge-green">Submitted</span>
+          {% elif req.request_status == 'failed' %}<span class="badge badge-red">Failed</span>
+          {% elif req.request_status == 'refunded' %}<span class="badge badge-slate">Refunded</span>
+          {% else %}<span class="badge badge-slate">{{ req.request_status }}</span>{% endif %}
+        </td>
+        <td>
+          {% if req.payment_status == 'paid' %}<span class="badge badge-green">Paid</span>
+          {% elif req.payment_status == 'refunded' %}<span class="badge badge-slate">Refunded</span>
+          {% else %}<span class="badge badge-amber">Pending</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ req.created_at|date:"d M Y" }}</span></td>
+        <td>
+          <a href="{% url 'dashboard_service_request_detail' req.id %}" class="action-btn">View</a>
+          <a href="/admin/core/applicationrequest/{{ req.id }}/change/" target="_blank" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" class="empty-state"><i class="ti ti-inbox"></i>No service requests yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if requests.has_other_pages %}
+<div style="margin-top:16px;">
+  {% include "dashboard/pagination.html" with page_obj=requests %}
+</div>
+{% endif %}
+{% endblock %}

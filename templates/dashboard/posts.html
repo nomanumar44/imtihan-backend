@@ -1,0 +1,101 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Blog Posts{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Blog Posts</div>
+    <div class="page-subtitle">Manage articles, categories and comments</div>
+  </div>
+  <a href="{% url 'dashboard_post_create' %}" class="btn-add">
+    <i class="ti ti-plus"></i> New Post
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_posts }}</div>
+    <div class="stat-label">Total Posts</div>
+    <div class="stat-change">All articles</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ published_posts }}</div>
+    <div class="stat-label">Published</div>
+    <div class="stat-change">Live on website</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#f59e0b">{{ draft_posts }}</div>
+    <div class="stat-label">Drafts</div>
+    <div class="stat-change">Not yet published</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#ef4444">{{ pending_comments }}</div>
+    <div class="stat-label">Pending Comments</div>
+    <div class="stat-change">Awaiting approval</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+  <span style="font-size:12px; color:#6b7280; font-weight:500;">Filter:</span>
+  <a href="?" class="badge {% if not status_filter %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">All</a>
+  <a href="?status=published" class="badge {% if status_filter == 'published' %}badge-green{% else %}badge-slate{% endif %}" style="text-decoration:none;">Published</a>
+  <a href="?status=draft" class="badge {% if status_filter == 'draft' %}badge-amber{% else %}badge-slate{% endif %}" style="text-decoration:none;">Draft</a>
+  {% if categories %}
+  <span style="font-size:12px; color:#6b7280; font-weight:500; margin-left:8px;">Category:</span>
+  {% for cat in categories %}
+  <a href="?category={{ cat.slug }}" class="badge {% if category_filter == cat.slug %}badge-violet{% else %}badge-slate{% endif %}" style="text-decoration:none;">{{ cat.name }}</a>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<!-- Posts Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Category</th>
+        <th>Author</th>
+        <th>Status</th>
+        <th>Views</th>
+        <th>Comments</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for post in posts %}
+      <tr>
+        <td>
+          <div style="font-weight:500; font-size:13px;">{{ post.title|truncatechars:50 }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ post.slug }}</div>
+        </td>
+        <td>{{ post.category.name|default:"—" }}</td>
+        <td>{{ post.author.username|default:"—" }}</td>
+        <td>
+          {% if post.status == 'published' %}<span class="badge badge-green">Published</span>
+          {% elif post.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% else %}<span class="badge badge-slate">{{ post.status }}</span>{% endif %}
+        </td>
+        <td style="text-align:center;">{{ post.view_count|default:"0" }}</td>
+        <td style="text-align:center;">{{ post.comments.count }}</td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ post.created_at|date:"d M Y" }}</span></td>
+        <td>
+          <a href="{% url 'dashboard_post_detail' post.id %}" class="action-btn">View</a>
+          <a href="{% url 'dashboard_post_edit' post.id %}" class="action-btn">Edit</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="empty-state"><i class="ti ti-article-off"></i>No blog posts yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if posts.has_other_pages %}
+<div style="margin-top:16px;">
+  {% include "dashboard/pagination.html" with page_obj=posts %}
+</div>
+{% endif %}
+{% endblock %}

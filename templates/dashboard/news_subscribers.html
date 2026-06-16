@@ -1,0 +1,78 @@
+{% extends "dashboard/base.html" %}
+{% block title %}News Subscribers{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">News Subscribers</div>
+    <div class="page-subtitle">Email subscribers for job alerts and updates</div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total_subscribers }}</div>
+    <div class="stat-label">Total Subscribers</div>
+    <div class="stat-change">All time</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ active_subscribers }}</div>
+    <div class="stat-label">Active</div>
+    <div class="stat-change">Receiving emails</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#6b7280">{{ inactive_subscribers }}</div>
+    <div class="stat-label">Inactive</div>
+    <div class="stat-change">Unsubscribed or bounced</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+  <span style="font-size:12px; color:#6b7280; font-weight:500;">Filter:</span>
+  <a href="?" class="badge {% if not status_filter %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">All</a>
+  <a href="?status=active" class="badge {% if status_filter == 'active' %}badge-green{% else %}badge-slate{% endif %}" style="text-decoration:none;">Active</a>
+  <a href="?status=inactive" class="badge {% if status_filter == 'inactive' %}badge-slate{% else %}badge-slate{% endif %}" style="text-decoration:none;">Inactive</a>
+</div>
+
+<!-- Subscribers Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Boards</th>
+        <th>Status</th>
+        <th>Subscribed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sub in subscribers %}
+      <tr>
+        <td style="font-family:monospace; font-size:13px;">{{ sub.email }}</td>
+        <td>
+          {% for board in sub.boards.all %}
+          <span class="badge badge-slate" style="font-size:10px;">{{ board.name }}</span>
+          {% empty %}
+          <span style="font-size:12px; color:#6b7280;">All boards</span>
+          {% endfor %}
+        </td>
+        <td>
+          {% if sub.is_active %}<span class="badge badge-green">Active</span>
+          {% else %}<span class="badge badge-slate">Inactive</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ sub.subscribed_at|date:"d M Y" }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="empty-state"><i class="ti ti-inbox"></i>No subscribers yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if subscribers.has_other_pages %}
+<div style="margin-top:16px;">
+  {% include "dashboard/pagination.html" with page_obj=subscribers %}
+</div>
+{% endif %}
+{% endblock %}

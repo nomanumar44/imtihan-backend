@@ -1,0 +1,31 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Syllabus{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div><div class="page-title">Syllabus</div><div class="page-subtitle">{{ total_count }} syllabi entries</div></div>
+  <a href="{% url 'dashboard_syllabus_create' %}" class="btn-add"><i class="ti ti-plus"></i> Add Syllabus</a>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Title</th><th>Slug</th><th>Exam</th><th>Post</th><th>Updated</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for s in syllabi %}
+      <tr>
+        <td>{{ s.title|truncatechars:50 }}</td>
+        <td class="muted">{{ s.slug|default:"—" }}</td>
+        <td><span class="badge badge-{{ s.exam.badge_color }}">{{ s.exam.name }}</span></td>
+        <td>{{ s.post_name|default:"—" }}</td>
+        <td style="font-size:12px;color:var(--color-text-tertiary)">{{ s.updated_at|date:"d M Y" }}</td>
+        <td>
+          <a href="{% url 'dashboard_syllabus_edit' s.id %}" class="action-btn">Edit</a>
+          <button onclick="apiDelete('/api/syllabus/{{ s.id }}/')" class="action-btn danger">Delete</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty-state"><i class="ti ti-book-off"></i>No syllabi yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=syllabi %}
+{% endblock %}

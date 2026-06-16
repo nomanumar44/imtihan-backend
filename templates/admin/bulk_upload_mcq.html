@@ -1,0 +1,43 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div id="content-main">
+  <h1>Bulk Upload MCQs</h1>
+  <p>Paste MCQ text. Format: numbered questions, options A/B/C/D, optional answer line.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-row">
+      <label>Exam:</label>
+      <select name="exam" required>
+        <option value="">-- Select Exam --</option>
+        {% for e in exams %}<option value="{{ e.pk }}">{{ e.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Subject:</label>
+      <select name="subject" required>
+        <option value="">-- Select Subject --</option>
+        {% for s in subjects %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Status:</label>
+      <select name="status">
+        <option value="draft">Draft</option>
+        <option value="published">Published</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Source URL (optional):</label>
+      <input type="url" name="source_url" style="width:60%;">
+    </div>
+    <div class="form-row">
+      <label>MCQ Text:</label><br>
+      <textarea name="raw_text" rows="12" style="width:80%;font-family:monospace;"></textarea>
+    </div>
+    <div class="submit-row">
+      <input type="submit" value="Import MCQs" class="default">
+      <a href="{% url 'admin:core_mcq_changelist' %}" class="button cancel-link">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

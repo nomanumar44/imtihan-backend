@@ -1,0 +1,41 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Job Listings{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div><div class="page-title">Job Listings</div><div class="page-subtitle">{{ total_count }} job postings</div></div>
+  <a href="{% url 'dashboard_job_create' %}" class="btn-add"><i class="ti ti-plus"></i> Post Job</a>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Exam</th><th>BPS</th><th>Vacancies</th><th>Location</th><th>Salary</th><th>Age Limit</th><th>Last Date</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr>
+        <td>{{ j.title|truncatechars:35 }}</td>
+        <td>{% if j.exam %}<span class="badge badge-{{ j.exam.badge_color }}">{{ j.exam.name }}</span>{% else %}-{% endif %}</td>
+        <td>{{ j.bps_grade|default:"-" }}</td>
+        <td>{{ j.vacancies|default:"-" }}</td>
+        <td>{{ j.location|default:"-" }}</td>
+        <td style="font-size:12px">{{ j.salary_range|truncatechars:22|default:"-" }}</td>
+        <td style="font-size:12px">{{ j.age_limit|truncatechars:20|default:"-" }}</td>
+        <td style="font-size:12px">{{ j.last_date|date:"d M Y"|default:"-" }}</td>
+        <td>
+          {% if j.status == 'active' %}<span class="badge badge-green">Active</span>
+          {% elif j.status == 'upcoming' %}<span class="badge badge-blue">Upcoming</span>
+          {% else %}<span class="badge badge-red">Closed</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'dashboard_job_edit' j.id %}" class="action-btn">Edit</a>
+          <button onclick="showConfirmModal('Delete job', 'Are you sure you want to delete &quot;{{ j.title|escapejs }}&quot;?', function(){ apiDelete('/api/jobs/{{ j.id }}/'); })" class="action-btn danger">Delete</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10" class="empty-state"><i class="ti ti-briefcase-off"></i>No job listings yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "dashboard/pagination.html" with page_obj=jobs %}
+{% endblock %}

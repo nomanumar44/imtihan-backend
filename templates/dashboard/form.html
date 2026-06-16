@@ -1,0 +1,125 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<style>
+  .form-container {
+    max-width: 700px;
+    background: #ffffff;
+    border-radius: var(--border-radius-lg);
+    border: 0.5px solid var(--color-border-tertiary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    padding: 30px;
+    margin-top: 20px;
+  }
+  .form-group {
+    margin-bottom: 20px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  textarea.form-input {
+    resize: vertical;
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    padding-top: 20px;
+  }
+  .btn-cancel {
+    background: none;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: background 0.15s ease;
+    text-decoration: none;
+  }
+  .btn-cancel:hover {
+    background: var(--color-background-secondary);
+  }
+  .errorlist {
+    list-style: none;
+    color: #A32D2D;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .helptext {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .form-container { padding: 20px 16px; margin-top: 12px; }
+    .form-actions { flex-direction: column; gap: 8px; }
+    .form-actions .btn-cancel, .form-actions .btn-add { width: 100%; text-align: center; }
+  }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">Fill in the fields below to update the platform</div>
+  </div>
+</div>
+
+<div class="form-container">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    {% for field in form %}
+      <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+          <span class="helptext">{{ field.help_text }}</span>
+        {% endif %}
+        {% if field.errors %}
+          {{ field.errors }}
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="form-actions">
+      {% if active_page == 'jobs' %}
+        <a href="{% url 'dashboard_jobs' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'syllabus' %}
+        <a href="{% url 'dashboard_syllabus' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'past_papers' %}
+        <a href="{% url 'dashboard_past_papers' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'ca_categories' %}
+        <a href="{% url 'dashboard_current_affairs_categories' %}" class="btn-cancel">Cancel</a>
+      {% else %}
+        <a href="{% url 'dashboard_home' %}" class="btn-cancel">Cancel</a>
+      {% endif %}
+      <button type="submit" class="btn-add">Save changes</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
