@@ -251,9 +251,13 @@ CKEDITOR_CONFIGS = {
 # Quick Post (mobile admin posting)
 QUICK_POST_SECRET = os.environ.get('QUICK_POST_SECRET', 'imtihanhub-quick-post-2025')
 
-# AI Assistant (Gemini)
+# AI Assistant (Groq → Kimi → Gemini failover)
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.1-8b-instant')
+KIMI_API_KEY = os.environ.get('KIMI_API_KEY', '')
+KIMI_MODEL = os.environ.get('KIMI_MODEL', 'moonshot-v1-8k')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-1.5-flash')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
 
 # ─── Email (SMTP) ───
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')

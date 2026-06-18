@@ -197,10 +197,21 @@ class ContactMessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 
+class _BookmarkMCQSerializer(serializers.ModelSerializer):
+    question = serializers.CharField(source='question_text', read_only=True)
+    subject = SubjectSerializer(read_only=True)
+    exam = ExamSerializer(read_only=True)
+
+    class Meta:
+        model = MCQ
+        fields = ['id', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_option', 'explanation', 'subject', 'exam']
+
+
 class BookmarkSerializer(serializers.ModelSerializer):
     mcq_question = serializers.CharField(source='mcq.question_text', read_only=True)
     mcq_exam_name = serializers.CharField(source='mcq.exam.name', read_only=True)
     mcq_subject_name = serializers.CharField(source='mcq.subject.name', read_only=True)
+    mcq = _BookmarkMCQSerializer(read_only=True)
 
     class Meta:
         model = Bookmark

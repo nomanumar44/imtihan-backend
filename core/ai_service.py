@@ -1,8 +1,13 @@
 """
 AI Assistant service for ImtihanHub.
 
-Uses Google's Gemini API to provide exam tutoring via multi-turn chat sessions.
-Set GEMINI_API_KEY in your .env file to enable real responses.
+Providers (tried in order):
+1. Groq API (fast, generous free tier: 1.5M tokens/day)
+2. Kimi / Moonshot AI (OpenAI-compatible)
+3. Google Gemini API (fallback)
+
+Set GROQ_API_KEY, KIMI_API_KEY, or GEMINI_API_KEY in your .env file.
+Multiple comma-separated keys supported per provider.
 """
 
 import logging
@@ -54,12 +59,11 @@ BLOG_NEWS_PROMPT = (
 # ── Error Messages ──
 
 API_KEY_MISSING = (
-    "I'm here to help with your exam preparation!\n\n"
-    "Currently, the AI assistant is being configured. Please try again in a moment."
+    "The AI assistant is currently busy. Please try again in a few minutes."
 )
 
 QUOTA_EXCEEDED_MSG = (
-    "Daily AI limit reached on our end. Please try again later."
+    "The AI assistant is currently busy. Please try again in a few minutes."
 )
 
 NETWORK_ERROR_MSG = (
@@ -132,80 +136,174 @@ def _classify_error(error) -> str:
 
 # ── Main Entry Point ──
 
-def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general") -> str:
-    """
-    Generate AI response using Google Gemini REST API.
-
-    Args:
-        messages: Django-format history [{role, content}, ...].
-        mcq: Optional MCQ instance for MCQ-specific tutoring.
-        context_type: Page context from frontend.
-
-    Returns:
-        Response text string.
-    """
+def _get_ai_response_gemini(messages: list[dict], system_instruction: str, api_key: str) -> str:
+    """Call Google Gemini API."""
     import requests as http_requests
 
-    api_key = getattr(settings, 'GEMINI_API_KEY', '')
-    if not api_key:
-        logger.warning("GEMINI_API_KEY is not set. AI responses are disabled.")
-        return API_KEY_MISSING
+    model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-2.0-flash')
 
-    model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-flash-latest')
-
-    # Build system instruction
-    system_instruction = _get_system_prompt(mcq, context_type)
-
-    # Build contents array for Gemini REST API
     contents = []
     for i, msg in enumerate(messages):
         role = msg.get('role', 'user')
         content = msg.get('content', '')
         gemini_role = 'user' if role == 'user' else 'model'
-
-        # Prepend system instruction to the first user message
         if i == 0 and gemini_role == 'user':
             content = f"{system_instruction}\n\nStudent: {content}"
+        contents.append({'role': gemini_role, 'parts': [{'text': content}]})
 
-        contents.append({
-            'role': gemini_role,
-            'parts': [{'text': content}]
-        })
-
-    # Ensure contents is not empty
     if not contents:
         return GENERIC_ERROR_MSG
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-
     payload = {
         'contents': contents,
-        'generationConfig': {
-            'temperature': 0.7,
-            'maxOutputTokens': 1024,
-        }
+        'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 2048}
     }
 
     try:
         response = http_requests.post(url, json=payload, timeout=30)
-
         if response.status_code == 200:
             data = response.json()
             candidates = data.get('candidates', [])
             if candidates:
                 parts = candidates[0].get('content', {}).get('parts', [])
+                finish_reason = candidates[0].get('finishReason', '')
                 if parts:
-                    return parts[0].get('text', '').strip()
+                    text = parts[0].get('text', '').strip()
+                    if finish_reason == 'MAX_TOKENS' and text:
+                        text += "\n\n*(Response was cut short — ask me to continue if you need more.)*"
+                    return text
             return GENERIC_ERROR_MSG
+        elif response.status_code == 429:
+            logger.error(f"Gemini quota error (429): {response.text[:200]}")
+            return "__QUOTA__"
+        elif response.status_code in (400, 401, 403):
+            logger.error(f"Gemini auth error ({response.status_code}): {response.text[:200]}")
+            return "__AUTH__"
         else:
-            error_msg = response.text
-            logger.error(f"Gemini API HTTP {response.status_code}: {error_msg[:300]}")
-            return _classify_error(error_msg)
-
-    except http_requests.exceptions.Timeout:
-        logger.error("Gemini API request timed out.")
-        return NETWORK_ERROR_MSG
+            logger.error(f"Gemini HTTP {response.status_code}: {response.text[:200]}")
+            return "__ERROR__"
     except Exception as e:
-        friendly_msg = _classify_error(e)
-        logger.error(f"Gemini API error ({type(e).__name__}): {e}")
-        return friendly_msg
+        logger.warning(f"Gemini error: {e}")
+        return "__ERROR__"
+
+
+def _get_ai_response_openai_compatible(
+    messages: list[dict], system_instruction: str, api_key: str,
+    base_url: str, model: str
+) -> str:
+    """Generic OpenAI-compatible API caller (Groq, Kimi, etc.)."""
+    import requests as http_requests
+
+    chat_messages = []
+    if system_instruction:
+        chat_messages.append({'role': 'system', 'content': system_instruction})
+    for msg in messages:
+        role = 'assistant' if msg.get('role') == 'model' else msg.get('role', 'user')
+        chat_messages.append({'role': role, 'content': msg.get('content', '')})
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        'model': model,
+        'messages': chat_messages,
+        'temperature': 0.7,
+        'max_tokens': 2048,
+    }
+
+    try:
+        response = http_requests.post(
+            f'{base_url}/v1/chat/completions',
+            headers=headers, json=payload, timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            choices = data.get('choices', [])
+            if choices:
+                text = choices[0].get('message', {}).get('content', '').strip()
+                finish_reason = choices[0].get('finish_reason', '')
+                if finish_reason == 'length' and text:
+                    text += "\n\n*(Response was cut short — ask me to continue if you need more.)*"
+                return text
+            return GENERIC_ERROR_MSG
+        elif response.status_code == 429:
+            return "__QUOTA__"
+        elif response.status_code in (400, 401, 403):
+            logger.error(f"OpenAI-compat auth error ({response.status_code}): {response.text[:200]}")
+            return "__AUTH__"
+        else:
+            logger.error(f"OpenAI-compat HTTP {response.status_code}: {response.text[:200]}")
+            return "__ERROR__"
+    except Exception as e:
+        logger.warning(f"OpenAI-compat error: {e}")
+        return "__ERROR__"
+
+
+def _get_ai_response_groq(messages: list[dict], system_instruction: str, api_key: str) -> str:
+    """Call Groq API (fast, generous free tier)."""
+    model = getattr(settings, 'GROQ_MODEL', 'llama-3.1-8b-instant')
+    return _get_ai_response_openai_compatible(messages, system_instruction, api_key, 'https://api.groq.com/openai', model)
+
+
+def _get_ai_response_kimi(messages: list[dict], system_instruction: str, api_key: str) -> str:
+    """Call Kimi / Moonshot AI API."""
+    model = getattr(settings, 'KIMI_MODEL', 'moonshot-v1-8k')
+    return _get_ai_response_openai_compatible(messages, system_instruction, api_key, 'https://api.moonshot.cn', model)
+
+
+def _try_keys(func, messages, system_instruction, keys_raw: str) -> str:
+    """Try multiple comma-separated API keys until one succeeds."""
+    if not keys_raw:
+        return "__NO_KEYS__"
+    keys = [k.strip() for k in keys_raw.split(',') if k.strip()]
+    last_error = "__QUOTA__"
+    for key in keys:
+        result = func(messages, system_instruction, key)
+        if result and not result.startswith("__"):
+            return result
+        if result == "__AUTH__":
+            last_error = "__AUTH__"
+        elif result != "__QUOTA__":
+            last_error = result
+    return last_error
+
+
+def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general") -> str:
+    """
+    Generate AI response. Tries Groq → Kimi → Gemini.
+    Supports multiple comma-separated keys per provider.
+    """
+    system_instruction = _get_system_prompt(mcq, context_type)
+
+    # 1. Try Groq keys
+    groq_keys = getattr(settings, 'GROQ_API_KEY', '')
+    if groq_keys:
+        result = _try_keys(_get_ai_response_groq, messages, system_instruction, groq_keys)
+        if result and not result.startswith("__"):
+            return result
+        logger.warning("All Groq keys failed, trying Kimi fallback.")
+
+    # 2. Try Kimi keys
+    kimi_keys = getattr(settings, 'KIMI_API_KEY', '')
+    if kimi_keys:
+        result = _try_keys(_get_ai_response_kimi, messages, system_instruction, kimi_keys)
+        if result and not result.startswith("__"):
+            return result
+        logger.warning("All Kimi keys failed, trying Gemini fallback.")
+
+    # 3. Fallback to Gemini keys
+    gemini_keys = getattr(settings, 'GEMINI_API_KEY', '')
+    if gemini_keys:
+        result = _try_keys(_get_ai_response_gemini, messages, system_instruction, gemini_keys)
+        if result and not result.startswith("__"):
+            return result
+        if result == "__QUOTA__":
+            return QUOTA_EXCEEDED_MSG
+        if result == "__AUTH__":
+            return API_KEY_MISSING
+        return GENERIC_ERROR_MSG
+
+    logger.warning("No AI API keys configured (GROQ_API_KEY, KIMI_API_KEY, or GEMINI_API_KEY).")
+    return API_KEY_MISSING

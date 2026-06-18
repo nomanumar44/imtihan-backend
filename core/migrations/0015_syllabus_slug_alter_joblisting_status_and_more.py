@@ -5,6 +5,24 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def populate_syllabus_slugs(apps, schema_editor):
+    Syllabus = apps.get_model('core', 'Syllabus')
+    from django.utils.text import slugify
+    seen = set()
+    for s in Syllabus.objects.all():
+        base = slugify(f"{s.title}-{s.post_name}" if s.post_name else s.title)[:350]
+        if not base:
+            base = f"syllabus-{s.id}"
+        slug = base
+        counter = 1
+        while slug in seen or Syllabus.objects.filter(slug=slug).exclude(pk=s.pk).exists():
+            slug = f"{base}-{counter}"
+            counter += 1
+        seen.add(slug)
+        s.slug = slug
+        s.save(update_fields=['slug'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,7 +31,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Step 1: add slug without unique constraint so existing rows can coexist
         migrations.AddField(
+            model_name='syllabus',
+            name='slug',
+            field=models.SlugField(blank=True, default='', max_length=350),
+        ),
+        # Step 2: populate unique slugs for existing rows
+        migrations.RunPython(populate_syllabus_slugs, migrations.RunPython.noop),
+        # Step 3: enforce uniqueness now that all rows have distinct slugs
+        migrations.AlterField(
             model_name='syllabus',
             name='slug',
             field=models.SlugField(blank=True, default='', max_length=350, unique=True),

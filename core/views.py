@@ -1,16 +1,19 @@
 import json
+import logging
 import random
 from datetime import timedelta
 from io import BytesIO
 
 from django.conf import settings
+from django.db import models, transaction
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, Q, Sum
 from django.db.utils import OperationalError, ProgrammingError
 from django.contrib.auth import authenticate
+from django.utils.text import slugify
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, throttle_classes, authentication_classes, permission_classes
@@ -381,7 +384,7 @@ def frontend_home(request):
         jobs_data.append({
             'id': j.id,
             'title': j.title,
-            'slug': j.slug,
+            'slug': getattr(j, 'slug', None) or slugify(j.title)[:350],
             'org': j.exam.name if j.exam else j.department,
             'location': j.location if j.location else ('Federal' if j.exam and 'FPSC' in j.exam.name else 'Provincial'),
             'date': j.last_date.strftime('%d %b') if j.last_date else 'Closing Soon',
@@ -1491,19 +1494,20 @@ def user_dashboard_stats(request):
     student = getattr(user, 'student_profile', None)
     today = timezone.now().date()
 
-    # Reset daily counter if last practice was not today
+    # Reset daily counters if last practice was not today
     if student and student.last_practice_date != today:
         student.mcqs_today = 0
+        student.tests_today = 0
         student.last_practice_date = today
-        student.save(update_fields=['mcqs_today', 'last_practice_date'])
+        student.save(update_fields=['mcqs_today', 'tests_today', 'last_practice_date'])
 
     total_tests = TestResult.objects.filter(student=user).count()
     avg_score = TestResult.objects.filter(student=user).aggregate(
-        avg=models.Avg('score_percent')
+        avg=Avg('score_percent')
     )['avg'] or 0
     bookmarks_count = Bookmark.objects.filter(user=user).count()
     total_mcqs = TestResult.objects.filter(student=user).aggregate(
-        total=models.Sum('total_questions')
+        total=Sum('total_questions')
     )['total'] or 0
 
     # Compute streak from test result dates
@@ -1632,7 +1636,7 @@ def user_recent_tests(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def quick_practice(request):
-    """Return 10 random published MCQs for quick practice."""
+    """Return 20 random published MCQs for quick practice."""
     mcqs = MCQ.objects.filter(status='published').select_related('exam', 'subject').order_by('?')[:20]
     opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
     questions = []
@@ -1646,7 +1650,7 @@ def quick_practice(request):
             'subject': q.subject.name if q.subject else '',
             'exam': q.exam.name if q.exam else '',
         })
-    return Response({'questions': questions, 'title': 'Quick Practice (10 Questions)'})
+    return Response({'questions': questions, 'title': 'Quick Practice (20 Questions)'})
 
 
 @api_view(['GET'])
@@ -1724,9 +1728,10 @@ def user_progress(request):
     weak_subjects = subject_stats_sorted[:3]
     strong_subjects = sorted(subject_stats, key=lambda x: x['accuracy'], reverse=True)[:3]
 
-    # Overall accuracy
-    total_q = sum(v['total_questions'] for v in subject_perf.values())
-    total_c = sum(v['correct_answers'] for v in subject_perf.values())
+    # Overall accuracy from ALL tests (including those without a subject)
+    all_results = TestResult.objects.filter(student=user)
+    total_q = all_results.aggregate(total=Sum('total_questions'))['total'] or 0
+    total_c = all_results.aggregate(total=Sum('correct_answers'))['total'] or 0
     overall_accuracy = round((total_c / total_q) * 100, 1) if total_q > 0 else 0
 
     # Study time this week vs last week
@@ -1932,6 +1937,9 @@ def subscribe_email(request):
     return Response({'message': 'Subscribed successfully!'}, status=status.HTTP_201_CREATED)
 
 
+logger = logging.getLogger(__name__)
+
+
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1943,61 +1951,72 @@ def submit_test(request):
 
     exam_id = data.get('exam_id')
     subject_id = data.get('subject_id')
-    total_questions = int(data.get('total_questions', 0))
-    correct_answers = int(data.get('correct_answers', 0))
-    wrong_answers = int(data.get('wrong_answers', 0))
-    score_percent = float(data.get('score_percent', 0))
-    time_taken_seconds = int(data.get('time_taken_seconds', 0))
+    try:
+        total_questions = int(data.get('total_questions', 0))
+        correct_answers = int(data.get('correct_answers', 0))
+        wrong_answers = int(data.get('wrong_answers', 0))
+        score_percent = float(data.get('score_percent', 0))
+        time_taken_seconds = int(data.get('time_taken_seconds', 0))
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid test submission data from user {user.id}: {e}")
+        return Response({'error': 'Invalid numeric fields in submission.'}, status=status.HTTP_400_BAD_REQUEST)
+
     answers_data = data.get('answers', [])
 
     exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
     subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
 
-    test_result = TestResult.objects.create(
-        student=user,
-        exam=exam,
-        subject=subject,
-        total_questions=total_questions,
-        correct_answers=correct_answers,
-        wrong_answers=wrong_answers,
-        score_percent=score_percent,
-        time_taken_seconds=time_taken_seconds,
-    )
+    try:
+        with transaction.atomic():
+            test_result = TestResult.objects.create(
+                student=user,
+                exam=exam,
+                subject=subject,
+                total_questions=total_questions,
+                correct_answers=correct_answers,
+                wrong_answers=wrong_answers,
+                score_percent=score_percent,
+                time_taken_seconds=time_taken_seconds,
+            )
 
-    for ans in answers_data:
-        TestAnswer.objects.create(
-            test_result=test_result,
-            question_id=ans.get('question_id', 0),
-            question_text=ans.get('question_text', ''),
-            option_a=ans.get('option_a', ''),
-            option_b=ans.get('option_b', ''),
-            option_c=ans.get('option_c', ''),
-            option_d=ans.get('option_d', ''),
-            correct_option=ans.get('correct_option', ''),
-            selected_option=ans.get('selected_option', ''),
-            explanation=ans.get('explanation', ''),
-            is_correct=ans.get('is_correct', False),
-        )
+            for ans in answers_data:
+                TestAnswer.objects.create(
+                    test_result=test_result,
+                    question_id=ans.get('question_id', 0),
+                    question_text=ans.get('question_text', ''),
+                    option_a=ans.get('option_a', ''),
+                    option_b=ans.get('option_b', ''),
+                    option_c=ans.get('option_c', ''),
+                    option_d=ans.get('option_d', ''),
+                    correct_option=ans.get('correct_option', ''),
+                    selected_option=ans.get('selected_option', ''),
+                    explanation=ans.get('explanation', ''),
+                    is_correct=ans.get('is_correct', False),
+                )
 
-    # Update student XP and streak
-    if student:
-        xp_earned = correct_answers * 10
-        student.xp_points += xp_earned
-        # Level up logic
-        while student.xp_points >= student.level * 500:
-            student.level += 1
-        student.mcqs_today += total_questions
-        student.save()
+            # Update student XP and streak
+            if student:
+                xp_earned = correct_answers * 10
+                student.xp_points += xp_earned
+                # Level up logic
+                while student.xp_points >= student.level * 500:
+                    student.level += 1
+                student.mcqs_today += total_questions
+                student.save()
 
-        # Daily practice log
-        today = timezone.now().date()
-        log, _ = DailyPracticeLog.objects.get_or_create(user=user, date=today, defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0})
-        log.mcqs_answered += total_questions
-        log.tests_completed += 1
-        log.xp_earned += xp_earned
-        log.save()
+                # Daily practice log
+                today = timezone.now().date()
+                log, _ = DailyPracticeLog.objects.get_or_create(user=user, date=today, defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0})
+                log.mcqs_answered += total_questions
+                log.tests_completed += 1
+                log.xp_earned += xp_earned
+                log.save()
 
-    return Response({'test_id': test_result.id, 'message': 'Test submitted successfully.'})
+        logger.info(f"Test submitted: id={test_result.id} user={user.id} questions={total_questions} score={score_percent}%")
+        return Response({'test_id': test_result.id, 'message': 'Test submitted successfully.'})
+    except Exception as e:
+        logger.exception(f"Test submission failed for user {user.id}: {e}")
+        return Response({'error': 'Failed to save test result. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -2672,27 +2691,13 @@ def quick_post_page(request):
 
 
 def _get_or_create_ai_usage(user):
-    """Get or create today's AIUsage record for a user, respecting subscription plan."""
-    from .models import AISubscription
+    """Get or create today's AIUsage record for a user."""
+
     today = timezone.now().date()
-
-    # Determine max questions from subscription
-    max_q = 5  # default free tier
-    try:
-        sub = AISubscription.objects.get(user=user)
-        if sub.is_active_plan():
-            max_q = sub.daily_limit
-    except AISubscription.DoesNotExist:
-        pass
-
-    usage, created = AIUsage.objects.get_or_create(
+    usage, _ = AIUsage.objects.get_or_create(
         user=user, date=today,
-        defaults={'questions_used': 0, 'max_questions': max_q}
+        defaults={'questions_used': 0, 'max_questions': 5}
     )
-    # Update max if subscription changed
-    if not created and usage.max_questions != max_q:
-        usage.max_questions = max_q
-        usage.save(update_fields=['max_questions'])
     return usage
 
 
