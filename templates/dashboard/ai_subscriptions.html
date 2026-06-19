@@ -1,0 +1,145 @@
+{% extends "dashboard/base.html" %}
+{% block title %}AI Subscriptions{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">AI Subscriptions</div>
+    <div class="page-subtitle">Premium plan payment requests — approve or reject</div>
+  </div>
+</div>
+
+{% if messages %}
+<div style="margin-bottom:16px;">
+  {% for msg in messages %}
+  <div style="padding:10px 16px; border-radius:8px; font-size:13px; font-weight:500;
+       {% if msg.tags == 'success' %}background:#dcfce7; color:#166534; border:1px solid #bbf7d0;
+       {% elif msg.tags == 'warning' %}background:#fef9c3; color:#854d0e; border:1px solid #fef08a;
+       {% elif msg.tags == 'error' %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+       {% else %}background:#e0f2fe; color:#075985; border:1px solid #bae6fd;{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Stats -->
+<div class="stats-row" style="grid-template-columns: repeat(5, 1fr);">
+  <div class="stat-card">
+    <div class="stat-num">{{ total }}</div>
+    <div class="stat-label">Total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#f59e0b">{{ pending }}</div>
+    <div class="stat-label">Pending</div>
+    <div class="stat-change">Awaiting verification</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#10b981">{{ active }}</div>
+    <div class="stat-label">Active</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#6b7280">{{ expired }}</div>
+    <div class="stat-label">Expired</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" style="color:#ef4444">{{ cancelled }}</div>
+    <div class="stat-label">Cancelled</div>
+  </div>
+</div>
+
+<!-- Status Filter -->
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+  <span style="font-size:12px; color:#6b7280; font-weight:500;">Filter by status:</span>
+  <a href="?" class="badge {% if not status_filter %}badge-blue{% else %}badge-slate{% endif %}" style="text-decoration:none;">All</a>
+  <a href="?status=pending" class="badge {% if status_filter == 'pending' %}badge-amber{% else %}badge-slate{% endif %}" style="text-decoration:none;">Pending</a>
+  <a href="?status=active" class="badge {% if status_filter == 'active' %}badge-green{% else %}badge-slate{% endif %}" style="text-decoration:none;">Active</a>
+  <a href="?status=expired" class="badge {% if status_filter == 'expired' %}badge-slate{% else %}badge-slate{% endif %}" style="text-decoration:none;">Expired</a>
+  <a href="?status=cancelled" class="badge {% if status_filter == 'cancelled' %}badge-red{% else %}badge-slate{% endif %}" style="text-decoration:none;">Cancelled</a>
+</div>
+
+<!-- Subscriptions Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Plan</th>
+        <th>Amount</th>
+        <th>Payment Method</th>
+        <th>Reference</th>
+        <th>Screenshot</th>
+        <th>Status</th>
+        <th>Expires</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sub in subs %}
+      <tr>
+        <td><span style="font-family:monospace; font-weight:600; font-size:12px;">#SUB-{{ sub.id|stringformat:"04d" }}</span></td>
+        <td>
+          <div style="font-weight:500; font-size:13px;">{{ sub.user.username }}</div>
+          <div style="font-size:11px; color:#6b7280;">{{ sub.user.email }}</div>
+        </td>
+        <td>
+          {% if sub.plan == 'pro' %}<span class="badge badge-blue">Pro</span>
+          {% elif sub.plan == 'premium' %}<span class="badge badge-violet">Premium</span>
+          {% else %}<span class="badge badge-slate">{{ sub.plan }}</span>{% endif %}
+        </td>
+        <td><span style="font-weight:600;">Rs. {% if sub.plan == 'pro' %}499{% elif sub.plan == 'premium' %}999{% else %}—{% endif %}</span></td>
+        <td><span style="font-size:12px; text-transform:capitalize;">{{ sub.payment_method|default:"—" }}</span></td>
+        <td>
+          {% if sub.payment_reference %}
+            <span style="font-family:monospace; font-size:11px; font-weight:600;">{{ sub.payment_reference|truncatechars:20 }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if sub.payment_screenshot %}
+            <a href="{{ sub.payment_screenshot.url }}" target="_blank" style="color:#0ea5e9; font-size:12px; text-decoration:underline;">View</a>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if sub.status == 'pending' %}<span class="badge badge-amber">Pending</span>
+          {% elif sub.status == 'active' %}<span class="badge badge-green">Active</span>
+          {% elif sub.status == 'expired' %}<span class="badge badge-slate">Expired</span>
+          {% elif sub.status == 'cancelled' %}<span class="badge badge-red">Cancelled</span>
+          {% else %}<span class="badge badge-slate">{{ sub.status }}</span>{% endif %}
+        </td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ sub.expires_at|date:"d M Y"|default:"—" }}</span></td>
+        <td><span style="font-size:12px; color:#6b7280;">{{ sub.created_at|date:"d M Y" }}</span></td>
+        <td>
+          {% if sub.status == 'pending' %}
+            <button onclick="showConfirmModal(
+              'Approve this {{ sub.plan }} plan subscription for {{ sub.user.username }}?',
+              function() { window.location.href = '{% url 'dashboard_ai_subscription_approve' sub.id %}'; },
+              'Approve Subscription',
+              'This will activate the plan for 30 days.',
+              { iconClass: 'ti-check', iconColor: '#10b981', iconBg: '#ecfdf5', okText: 'Approve', okColor: '#10b981', okHover: '#059669' }
+            );" class="action-btn" style="color:#10b981; border-color:#10b981; background:transparent; cursor:pointer; font-family:inherit;">Approve</button>
+            <button onclick="showConfirmModal(
+              'Reject this {{ sub.plan }} plan subscription for {{ sub.user.username }}?',
+              function() { window.location.href = '{% url 'dashboard_ai_subscription_reject' sub.id %}'; },
+              'Reject Subscription',
+              'This will cancel the subscription request.',
+              { iconClass: 'ti-x', iconColor: '#ef4444', iconBg: '#fef2f2', okText: 'Reject', okColor: '#ef4444', okHover: '#dc2626' }
+            );" class="action-btn" style="color:#ef4444; border-color:#ef4444; background:transparent; cursor:pointer; font-family:inherit;">Reject</button>
+          {% else %}
+            <span style="font-size:11px; color:#9ca3af;">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="11" class="empty-state"><i class="ti ti-inbox"></i>No AI subscriptions yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if subs.has_other_pages %}
+<div style="margin-top:16px;">
+  {% include "dashboard/pagination.html" with page_obj=subs %}
+</div>
+{% endif %}
+{% endblock %}

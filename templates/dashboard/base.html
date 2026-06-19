@@ -620,6 +620,9 @@
         <a href="{% url 'dashboard_service_requests' %}" class="nav-item {% if active_page == 'service_requests' %}active{% endif %}">
           <i class="ti ti-hand-helping"></i> Service Requests
         </a>
+        <a href="{% url 'dashboard_ai_subscriptions' %}" class="nav-item {% if active_page == 'ai_subscriptions' %}active{% endif %}">
+          <i class="ti ti-robot"></i> AI Subscriptions
+        </a>
         <a href="{% url 'dashboard_job_profiles' %}" class="nav-item {% if active_page == 'job_profiles' %}active{% endif %}">
           <i class="ti ti-briefcase"></i> Job Profiles
         </a>
@@ -715,8 +718,8 @@
     <!-- Card -->
     <div style="position:relative;background:#fff;border-radius:14px;padding:28px 28px 22px;width:100%;max-width:380px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:modalIn .18s ease">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-        <div style="width:38px;height:38px;border-radius:10px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="ti ti-trash" style="font-size:18px;color:#ef4444"></i>
+        <div id="confirmIconWrap" style="width:38px;height:38px;border-radius:10px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i id="confirmIcon" class="ti ti-trash" style="font-size:18px;color:#ef4444"></i>
         </div>
         <div>
           <div style="font-size:15px;font-weight:600;color:#1a1a2e" id="confirmTitle">Delete item</div>
@@ -763,11 +766,24 @@
 
     let _confirmCallback = null;
 
-    function showConfirmModal(message, callback, title, subtitle) {
+    function showConfirmModal(message, callback, title, subtitle, opts) {
+      opts = opts || {};
       document.getElementById('confirmMessage').textContent  = message  || 'Are you sure you want to delete this item?';
       document.getElementById('confirmTitle').textContent    = title    || 'Delete item';
       document.getElementById('confirmSubtitle').textContent = subtitle || 'This action cannot be undone.';
-      document.getElementById('confirmOkBtn').onclick = function() {
+      // Customize icon
+      var iconEl = document.getElementById('confirmIcon');
+      var iconWrap = document.getElementById('confirmIconWrap');
+      iconEl.className = 'ti ' + (opts.iconClass || 'ti-trash');
+      iconEl.style.color = opts.iconColor || '#ef4444';
+      iconWrap.style.background = opts.iconBg || '#fef2f2';
+      // Customize OK button
+      var okBtn = document.getElementById('confirmOkBtn');
+      okBtn.textContent = opts.okText || 'Delete';
+      okBtn.style.background = opts.okColor || '#ef4444';
+      okBtn.onmouseover = function(){ this.style.background = opts.okHover || '#dc2626'; };
+      okBtn.onmouseout  = function(){ this.style.background = opts.okColor || '#ef4444'; };
+      okBtn.onclick = function() {
         closeConfirmModal();
         if (callback) callback();
       };
@@ -858,6 +874,9 @@
 
         // Default: collapse all except the one with active page
         let isCollapsed = collapsed[sectionName];
+        if (isCollapsed === undefined) {
+          isCollapsed = !(activeSection && sectionName === activeSection);
+        }
         if (activeSection && sectionName === activeSection) {
           isCollapsed = false;
         }
@@ -872,6 +891,17 @@
             group.classList.add('collapsed');
             btn.classList.add('collapsed');
           } else {
+            // True accordion: collapse all other open sections first
+            sections.forEach(function(otherBtn) {
+              if (otherBtn === btn) return;
+              const otherSection = otherBtn.dataset.section;
+              const otherGroup = document.querySelector('.nav-group[data-section="' + otherSection + '"]');
+              if (otherGroup && !otherGroup.classList.contains('collapsed')) {
+                otherGroup.classList.add('collapsed');
+                otherBtn.classList.add('collapsed');
+                collapsed[otherSection] = true;
+              }
+            });
             group.classList.remove('collapsed');
             btn.classList.remove('collapsed');
           }

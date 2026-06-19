@@ -87,6 +87,11 @@ urlpatterns = [
     # AI Usage
     path('ai-usage/', dashboard_views.dashboard_ai_usage, name='dashboard_ai_usage'),
 
+    # AI Subscriptions
+    path('ai-subscriptions/', dashboard_views.dashboard_ai_subscriptions, name='dashboard_ai_subscriptions'),
+    path('ai-subscriptions/<int:pk>/approve/', dashboard_views.dashboard_ai_subscription_approve, name='dashboard_ai_subscription_approve'),
+    path('ai-subscriptions/<int:pk>/reject/', dashboard_views.dashboard_ai_subscription_reject, name='dashboard_ai_subscription_reject'),
+
     # Chat Sessions
     path('chat-sessions/', dashboard_views.dashboard_chat_sessions, name='dashboard_chat_sessions'),
 

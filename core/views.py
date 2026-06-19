@@ -16,12 +16,13 @@ from django.contrib.auth import authenticate
 from django.utils.text import slugify
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, throttle_classes, authentication_classes, permission_classes
+from rest_framework.decorators import api_view, throttle_classes, authentication_classes, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
@@ -31,7 +32,7 @@ from .models import (
     Category, Tag, Post, Comment, NewsSubscriber,
     AIUsage, ChatSession, ChatMessage,
     UserProfile, UserEducation, UserExperience, UserDocument, JobApplication,
-    ServicePlan, ApplicationRequest, AdminNote,
+    ServicePlan, ApplicationRequest, AdminNote, AISubscription,
 )
 from .serializers import (
     ExamSerializer, SubjectSerializer,
@@ -2691,13 +2692,30 @@ def quick_post_page(request):
 
 
 def _get_or_create_ai_usage(user):
-    """Get or create today's AIUsage record for a user."""
-
+    """Get or create today's AIUsage record for a user, respecting their subscription plan."""
+    from django.utils import timezone
     today = timezone.now().date()
-    usage, _ = AIUsage.objects.get_or_create(
+
+    # Determine max_questions from active subscription
+    max_q = 5  # free tier default
+    try:
+        sub = AISubscription.objects.get(user=user)
+        if sub.is_active_plan():
+            max_q = AISubscription.PLAN_LIMITS.get(sub.plan, 5)
+        else:
+            # If subscription is pending, still give free tier limit
+            max_q = 5
+    except AISubscription.DoesNotExist:
+        pass
+
+    usage, created = AIUsage.objects.get_or_create(
         user=user, date=today,
-        defaults={'questions_used': 0, 'max_questions': 5}
+        defaults={'questions_used': 0, 'max_questions': max_q}
     )
+    # Update max_questions if it changed (e.g. subscription was approved today)
+    if not created and usage.max_questions != max_q:
+        usage.max_questions = max_q
+        usage.save(update_fields=['max_questions'])
     return usage
 
 
@@ -2790,12 +2808,24 @@ def ai_chat(request):
 @permission_classes([IsAuthenticated])
 def ai_usage(request):
     """Return today's AI usage for the authenticated user."""
+    from django.utils import timezone
     usage = _get_or_create_ai_usage(request.user)
+    # Include subscription info so frontend can hide upgrade prompts
+    sub_plan = 'free'
+    sub_status = 'active'
+    try:
+        sub = AISubscription.objects.get(user=request.user)
+        sub_plan = sub.plan
+        sub_status = sub.status
+    except AISubscription.DoesNotExist:
+        pass
     return Response({
         'used': usage.questions_used,
         'remaining': usage.remaining(),
         'max': usage.max_questions,
         'resets_at': str(usage.date + timedelta(days=1)),
+        'subscription_plan': sub_plan,
+        'subscription_status': sub_status,
     })
 
 
@@ -2850,13 +2880,14 @@ def ai_session_detail(request, session_id):
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def ai_subscribe(request):
-    """Create or update an AI subscription for the user."""
-    from .models import AISubscription
-
+    """Create or update an AI subscription for the user with payment proof."""
     plan = request.data.get('plan', '').strip().lower()
     payment_method = request.data.get('payment_method', '').strip()
     phone = request.data.get('phone', '').strip()
+    payment_reference = request.data.get('payment_reference', '').strip()
+    payment_screenshot = request.FILES.get('payment_screenshot')
 
     if plan not in ('pro', 'premium'):
         return Response({'error': 'Invalid plan. Choose "pro" or "premium".'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2867,7 +2898,14 @@ def ai_subscribe(request):
     if payment_method not in ('jazzcash', 'easypaisa', 'card'):
         return Response({'error': 'Invalid payment method.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Create or update subscription
+    if not payment_reference:
+        return Response({'error': 'Transaction reference number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not payment_screenshot:
+        return Response({'error': 'Payment screenshot is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Delete old screenshot if replacing
+    old_screenshot = None
     sub, created = AISubscription.objects.get_or_create(
         user=request.user,
         defaults={
@@ -2875,32 +2913,35 @@ def ai_subscribe(request):
             'status': 'pending',
             'payment_method': payment_method,
             'phone': phone,
+            'payment_reference': payment_reference,
+            'payment_screenshot': payment_screenshot,
             'expires_at': timezone.now() + timedelta(days=30),
         }
     )
 
     if not created:
+        old_screenshot = sub.payment_screenshot.name if sub.payment_screenshot else None
         sub.plan = plan
         sub.status = 'pending'
         sub.payment_method = payment_method
         sub.phone = phone
+        sub.payment_reference = payment_reference
+        sub.payment_screenshot = payment_screenshot
         sub.expires_at = timezone.now() + timedelta(days=30)
         sub.save()
 
-    # In production, integrate with JazzCash/EasyPaisa API here.
-    # For now, auto-activate the subscription (simulated payment success).
-    sub.status = 'active'
-    sub.save(update_fields=['status'])
-
-    # Update today's usage to reflect new limits
-    _get_or_create_ai_usage(request.user)
+    # Delete old screenshot file after save
+    if old_screenshot and payment_screenshot:
+        from django.core.files.storage import default_storage
+        if default_storage.exists(old_screenshot):
+            default_storage.delete(old_screenshot)
 
     return Response({
-        'message': f'{plan.capitalize()} plan activated successfully!',
+        'message': f'{plan.capitalize()} plan subscription request submitted! Your payment is being verified.',
         'plan': sub.plan,
         'status': sub.status,
         'daily_limit': sub.daily_limit,
-        'expires_at': str(sub.expires_at),
+        'expires_at': str(sub.expires_at) if sub.expires_at else None,
     })
 
 
@@ -2909,8 +2950,6 @@ def ai_subscribe(request):
 @permission_classes([IsAuthenticated])
 def ai_subscription_status(request):
     """Return current subscription status for the user."""
-    from .models import AISubscription
-
     try:
         sub = AISubscription.objects.get(user=request.user)
         return Response({

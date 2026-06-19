@@ -20,7 +20,7 @@ from .models import (
     SectionContent,
     ServicePlan, ApplicationRequest, UserProfile, UserEducation, UserExperience, UserDocument,
     Post, Comment, Category, Tag, NewsSubscriber,
-    AIUsage, ChatSession, ChatMessage,
+    AIUsage, ChatSession, ChatMessage, AISubscription,
 )
 from .forms import (
     JobListingForm, SyllabusForm, PastPaperForm, MCQForm,
@@ -1861,3 +1861,113 @@ def dashboard_django_users(request):
         'active_users': active_users,
         'active_page': 'django_users',
     })
+
+
+# ─── AI Subscriptions Dashboard ──────────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_ai_subscriptions(request):
+    """Admin dashboard for AI plan subscription requests."""
+    subs = AISubscription.objects.select_related('user').exclude(plan='free')
+
+    # Stats
+    total = subs.count()
+    pending = subs.filter(status='pending').count()
+    active = subs.filter(status='active').count()
+    expired = subs.filter(status='expired').count()
+    cancelled = subs.filter(status='cancelled').count()
+
+    # Filters
+    status_filter = request.GET.get('status')
+    if status_filter:
+        subs = subs.filter(status=status_filter)
+
+    # Pagination
+    paginator = Paginator(subs.order_by('-created_at'), 25)
+    page = request.GET.get('page')
+    try:
+        subs_page = paginator.page(page)
+    except PageNotAnInteger:
+        subs_page = paginator.page(1)
+    except EmptyPage:
+        subs_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'subs': subs_page,
+        'total': total,
+        'pending': pending,
+        'active': active,
+        'expired': expired,
+        'cancelled': cancelled,
+        'active_page': 'ai_subscriptions',
+        'status_filter': status_filter,
+    }
+    return render(request, 'dashboard/ai_subscriptions.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_ai_subscription_approve(request, pk):
+    """Admin approves a pending AI subscription — sets status to active."""
+    sub = get_object_or_404(AISubscription, pk=pk)
+    if sub.status == 'pending':
+        sub.status = 'active'
+        sub.expires_at = timezone.now() + timedelta(days=30)
+        sub.save(update_fields=['status', 'expires_at', 'updated_at'])
+        messages.success(request, f'Approved {sub.plan} plan for {sub.user.username}.')
+        # Send confirmation email to user
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+            plan_name = sub.plan.title()
+            send_mail(
+                subject=f'ImtihanHub: Your {plan_name} Plan is Active!',
+                message=(
+                    f'Hello {sub.user.first_name or sub.user.username},\n\n'
+                    f'Your {plan_name} plan subscription has been approved and is now active!\n\n'
+                    f'Plan: {plan_name}\n'
+                    f'Questions per day: {sub.daily_limit}\n'
+                    f'Valid until: {sub.expires_at.strftime("%d %B %Y") if sub.expires_at else "N/A"}\n\n'
+                    f'You can now enjoy your increased daily AI question limit.\n\n'
+                    f'Thank you for choosing ImtihanHub!\n'
+                ),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@imtihanhub.com'),
+                recipient_list=[sub.user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+    else:
+        messages.warning(request, f'Subscription is not pending (current: {sub.status}).')
+    return redirect('dashboard_ai_subscriptions')
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_ai_subscription_reject(request, pk):
+    """Admin rejects a pending AI subscription — sets status to cancelled."""
+    sub = get_object_or_404(AISubscription, pk=pk)
+    if sub.status == 'pending':
+        sub.status = 'cancelled'
+        sub.save(update_fields=['status', 'updated_at'])
+        messages.success(request, f'Rejected subscription for {sub.user.username}.')
+        # Send rejection email to user
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+            send_mail(
+                subject='ImtihanHub: Subscription Request Update',
+                message=(
+                    f'Hello {sub.user.first_name or sub.user.username},\n\n'
+                    f'Unfortunately, your AI subscription payment could not be verified.\n'
+                    f'Your subscription request has been cancelled.\n\n'
+                    f'If you believe this is an error, please contact our support team.\n\n'
+                    f'Thank you for choosing ImtihanHub!\n'
+                ),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@imtihanhub.com'),
+                recipient_list=[sub.user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+    else:
+        messages.warning(request, f'Subscription is not pending (current: {sub.status}).')
+    return redirect('dashboard_ai_subscriptions')

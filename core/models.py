@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from ckeditor_uploader.fields import RichTextUploadingField
 
 
@@ -850,7 +851,7 @@ class AISubscription(models.Model):
 
     PLAN_LIMITS = {
         'free': 5,
-        'pro': 50,
+        'pro': 100,
         'premium': 9999,  # Essentially unlimited
     }
 
@@ -859,6 +860,8 @@ class AISubscription(models.Model):
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
     payment_method = models.CharField(max_length=20, blank=True)
     phone = models.CharField(max_length=20, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True, default='', help_text='Transaction ID / reference number')
+    payment_screenshot = models.ImageField(upload_to='ai_payments/', blank=True, null=True, help_text='Payment proof screenshot')
     started_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
