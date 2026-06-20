@@ -2832,6 +2832,61 @@ def ai_usage(request):
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+def ai_diagnostic(request):
+    """Diagnostic endpoint to check AI provider configuration (admin only)."""
+    if not request.user.is_staff:
+        return Response({'error': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+
+    from django.conf import settings as dj_settings
+
+    groq_keys = getattr(dj_settings, 'GROQ_API_KEY', '')
+    kimi_keys = getattr(dj_settings, 'KIMI_API_KEY', '')
+    gemini_keys = getattr(dj_settings, 'GEMINI_API_KEY', '')
+
+    def mask(key):
+        if not key:
+            return None
+        k = key.strip()
+        if len(k) <= 8:
+            return f"{k[:2]}...{k[-2:]}"
+        return f"{k[:4]}...{k[-4:]}"
+
+    providers = []
+    for name, keys, model_attr in [
+        ('Groq', groq_keys, 'GROQ_MODEL'),
+        ('Kimi', kimi_keys, 'KIMI_MODEL'),
+        ('Gemini', gemini_keys, 'GEMINI_MODEL'),
+    ]:
+        key_list = [k.strip() for k in (keys or '').split(',') if k.strip()]
+        providers.append({
+            'name': name,
+            'configured': len(key_list) > 0,
+            'key_count': len(key_list),
+            'key_preview': [mask(k) for k in key_list],
+            'model': getattr(dj_settings, model_attr, 'default'),
+        })
+
+    # Test a simple request to the first available provider
+    test_result = None
+    try:
+        from .ai_service import get_ai_response
+        test_result = get_ai_response(
+            messages=[{'role': 'user', 'content': 'Say "hello" in one word.'}],
+            context_type='general'
+        )
+    except Exception as e:
+        test_result = f"Exception: {e}"
+
+    return Response({
+        'providers': providers,
+        'any_configured': bool(groq_keys or kimi_keys or gemini_keys),
+        'test_response': test_result[:200] if isinstance(test_result, str) else str(test_result)[:200],
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def ai_sessions(request):
     """Return all chat sessions for the authenticated user."""
     sessions = ChatSession.objects.filter(user=request.user).select_related('mcq').order_by('-created_at')

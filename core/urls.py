@@ -72,6 +72,7 @@ urlpatterns = [
     path('admin/quick-post/recent/', views.quick_post_recent, name='api-quick-post-recent'),
     path('ai/chat/', views.ai_chat, name='api-ai-chat'),
     path('ai/usage/', views.ai_usage, name='api-ai-usage'),
+    path('ai/diagnostic/', views.ai_diagnostic, name='api-ai-diagnostic'),
     path('ai/subscribe/', views.ai_subscribe, name='api-ai-subscribe'),
     path('ai/subscription/', views.ai_subscription_status, name='api-ai-subscription'),
     path('ai/sessions/', views.ai_sessions, name='api-ai-sessions'),

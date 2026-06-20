@@ -173,18 +173,19 @@ def _get_ai_response_gemini(messages: list[dict], system_instruction: str, api_k
                     if finish_reason == 'MAX_TOKENS' and text:
                         text += "\n\n*(Response was cut short — ask me to continue if you need more.)*"
                     return text
+            logger.warning(f"Gemini: 200 but no candidates. Response: {str(data)[:300]}")
             return GENERIC_ERROR_MSG
         elif response.status_code == 429:
-            logger.error(f"Gemini quota error (429): {response.text[:200]}")
+            logger.error(f"Gemini quota error (429): {response.text[:300]}")
             return "__QUOTA__"
         elif response.status_code in (400, 401, 403):
-            logger.error(f"Gemini auth error ({response.status_code}): {response.text[:200]}")
+            logger.error(f"Gemini auth error ({response.status_code}): {response.text[:300]}")
             return "__AUTH__"
         else:
-            logger.error(f"Gemini HTTP {response.status_code}: {response.text[:200]}")
+            logger.error(f"Gemini HTTP {response.status_code}: {response.text[:300]}")
             return "__ERROR__"
     except Exception as e:
-        logger.warning(f"Gemini error: {e}")
+        logger.warning(f"Gemini connection error: {e}")
         return "__ERROR__"
 
 
@@ -227,17 +228,19 @@ def _get_ai_response_openai_compatible(
                 if finish_reason == 'length' and text:
                     text += "\n\n*(Response was cut short — ask me to continue if you need more.)*"
                 return text
+            logger.warning(f"OpenAI-compat ({base_url}): 200 but no choices. Response: {str(data)[:300]}")
             return GENERIC_ERROR_MSG
         elif response.status_code == 429:
+            logger.error(f"OpenAI-compat ({base_url}) quota error (429): {response.text[:300]}")
             return "__QUOTA__"
         elif response.status_code in (400, 401, 403):
-            logger.error(f"OpenAI-compat auth error ({response.status_code}): {response.text[:200]}")
+            logger.error(f"OpenAI-compat ({base_url}) auth error ({response.status_code}): {response.text[:300]}")
             return "__AUTH__"
         else:
-            logger.error(f"OpenAI-compat HTTP {response.status_code}: {response.text[:200]}")
+            logger.error(f"OpenAI-compat ({base_url}) HTTP {response.status_code}: {response.text[:300]}")
             return "__ERROR__"
     except Exception as e:
-        logger.warning(f"OpenAI-compat error: {e}")
+        logger.warning(f"OpenAI-compat ({base_url}) connection error: {e}")
         return "__ERROR__"
 
 
@@ -277,33 +280,42 @@ def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general
     """
     system_instruction = _get_system_prompt(mcq, context_type)
 
-    # 1. Try Groq keys
+    # Log which keys are configured (without revealing the actual keys)
     groq_keys = getattr(settings, 'GROQ_API_KEY', '')
+    kimi_keys = getattr(settings, 'KIMI_API_KEY', '')
+    gemini_keys = getattr(settings, 'GEMINI_API_KEY', '')
+    logger.info(
+        f"AI request: context={context_type}, "
+        f"Groq={'yes' if groq_keys else 'no'}, "
+        f"Kimi={'yes' if kimi_keys else 'no'}, "
+        f"Gemini={'yes' if gemini_keys else 'no'}"
+    )
+
+    # 1. Try Groq keys
     if groq_keys:
         result = _try_keys(_get_ai_response_groq, messages, system_instruction, groq_keys)
         if result and not result.startswith("__"):
             return result
-        logger.warning("All Groq keys failed, trying Kimi fallback.")
+        logger.warning(f"All Groq keys failed (result={result}), trying Kimi fallback.")
 
     # 2. Try Kimi keys
-    kimi_keys = getattr(settings, 'KIMI_API_KEY', '')
     if kimi_keys:
         result = _try_keys(_get_ai_response_kimi, messages, system_instruction, kimi_keys)
         if result and not result.startswith("__"):
             return result
-        logger.warning("All Kimi keys failed, trying Gemini fallback.")
+        logger.warning(f"All Kimi keys failed (result={result}), trying Gemini fallback.")
 
     # 3. Fallback to Gemini keys
-    gemini_keys = getattr(settings, 'GEMINI_API_KEY', '')
     if gemini_keys:
         result = _try_keys(_get_ai_response_gemini, messages, system_instruction, gemini_keys)
         if result and not result.startswith("__"):
             return result
+        logger.error(f"All Gemini keys failed (result={result}). All providers exhausted.")
         if result == "__QUOTA__":
             return QUOTA_EXCEEDED_MSG
         if result == "__AUTH__":
             return API_KEY_MISSING
         return GENERIC_ERROR_MSG
 
-    logger.warning("No AI API keys configured (GROQ_API_KEY, KIMI_API_KEY, or GEMINI_API_KEY).")
+    logger.error("No AI API keys configured (GROQ_API_KEY, KIMI_API_KEY, or GEMINI_API_KEY). All empty.")
     return API_KEY_MISSING
