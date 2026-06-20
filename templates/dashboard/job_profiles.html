@@ -78,7 +78,7 @@
         <td>{{ p.get_domicile_display|default:"—" }}</td>
         <td style="text-align:center;"><span style="font-weight:600;">{{ p.user.educations.count }}</span></td>
         <td style="text-align:center;"><span style="font-weight:600;">{{ p.user.experiences.count }}</span></td>
-        <td style="text-align:center;"><span style="font-weight:600;">{{ p.user.documents.count }}</span></td>
+        <td style="text-align:center;"><span style="font-weight:600;">{{ p.user.job_documents.count }}</span></td>
         <td>
           {% if p.full_name and p.cnic and p.dob and p.phone and p.permanent_address and p.user.educations.exists and p.user.experiences.exists %}
             <span class="badge badge-green">Complete</span>

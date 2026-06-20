@@ -1412,7 +1412,7 @@ def dashboard_service_request_detail(request, pk):
 def dashboard_job_profiles(request):
     """Admin dashboard for user job profiles."""
     profiles = UserProfile.objects.select_related('user').prefetch_related(
-        'user__educations', 'user__experiences', 'user__documents'
+        'user__educations', 'user__experiences', 'user__job_documents'
     )
 
     # Stats

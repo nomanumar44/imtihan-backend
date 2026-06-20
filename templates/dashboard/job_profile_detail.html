@@ -85,14 +85,14 @@
         <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Personal</span> <span>{% if profile.full_name and profile.cnic %}✓{% else %}○{% endif %}</span></div>
         <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Education</span> <span>{% if profile.user.educations.exists %}✓{% else %}○{% endif %}</span></div>
         <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Experience</span> <span>{% if profile.user.experiences.exists %}✓{% else %}○{% endif %}</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>Documents</span> <span>{% if profile.user.documents.exists %}✓{% else %}○{% endif %}</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Documents</span> <span>{% if profile.user.job_documents.exists %}✓{% else %}○{% endif %}</span></div>
       </div>
     </div>
 
     <!-- Documents -->
     <div style="background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px;">
-      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Documents ({{ profile.user.documents.count }})</div>
-      {% for doc in profile.user.documents.all %}
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Documents ({{ profile.user.job_documents.count }})</div>
+      {% for doc in profile.user.job_documents.all %}
       <div style="padding:10px; background:#f9fafb; border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
         <div>
           <div style="font-size:13px; font-weight:500;">{{ doc.get_doc_type_display|default:doc.doc_type }}</div>
