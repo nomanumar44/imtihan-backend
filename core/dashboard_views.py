@@ -1466,7 +1466,7 @@ def dashboard_job_profile_detail(request, pk):
     """Admin: view single user job profile details."""
     profile = get_object_or_404(
         UserProfile.objects.select_related('user').prefetch_related(
-            'user__educations', 'user__experiences', 'user__documents',
+            'user__educations', 'user__experiences', 'user__job_documents',
             'user__application_requests__job',
         ),
         pk=pk
