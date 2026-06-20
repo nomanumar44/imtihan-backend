@@ -278,10 +278,23 @@ class SectionContentAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'type', 'color', 'post_count', 'created_at']
+    list_display = ['name', 'slug', 'type', 'color_preview', 'post_count', 'created_at']
     list_filter = ['type']
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ('name',)}
+    list_per_page = 25
+    list_display_links = ['name', 'slug']
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'slug', 'type'),
+            'description': 'Set the category name and type. Slug auto-generates from name.'
+        }),
+        ('Appearance', {
+            'fields': ('color', 'icon'),
+            'description': 'Customize how this category appears on the site. Color is a hex code (e.g. #10B981). Icon is a Lucide icon name (e.g. BookOpen, Newspaper).'
+        }),
+    )
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_post_count=Count('posts', distinct=True))
@@ -290,6 +303,30 @@ class CategoryAdmin(admin.ModelAdmin):
         return obj._post_count
     post_count.short_description = 'Posts'
     post_count.admin_order_field = '_post_count'
+
+    def color_preview(self, obj):
+        if obj.color:
+            return format_html(
+                '<span style="display:inline-flex; align-items:center; gap:6px;">'
+                '<span style="display:inline-block; width:16px; height:16px; '
+                'border-radius:4px; background:{}; border:1px solid #e5e7eb;"></span>'
+                '<span style="font-family:monospace; font-size:12px;">{}</span>'
+                '</span>',
+                obj.color, obj.color
+            )
+        return '—'
+    color_preview.short_description = 'Color'
+
+    class Media:
+        css = {
+            'all': (
+                'https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.8.2/dist/themes/classic.min.css',
+            ),
+        }
+        js = (
+            'https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.8.2/dist/pickr.min.js',
+            'js/admin/color-picker.js',
+        )
 
 
 @admin.register(Tag)
