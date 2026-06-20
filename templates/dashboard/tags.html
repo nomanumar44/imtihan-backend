@@ -33,14 +33,16 @@
   }
   .form-input {
     width: 100%;
-    padding: 9px 12px;
-    border: 0.5px solid var(--color-border-secondary);
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-md);
-    font-size: 13px;
+    font-size: 14px;
     font-family: inherit;
     color: var(--color-text-primary);
     background: #fff;
     outline: none;
+    min-height: 38px;
+    display: block;
   }
   .form-input:focus {
     border-color: var(--brand-green);
@@ -53,7 +55,7 @@
     margin-top: 4px;
     line-height: 1.4;
   }
-  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 5px; }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 5px; background: #FCEBEB; padding: 6px 10px; border-radius: 6px; }
   .muted { font-size: 12px; color: var(--color-text-tertiary); }
   .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
   .inline-delete { display: inline; }

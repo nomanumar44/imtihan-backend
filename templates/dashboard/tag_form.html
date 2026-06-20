@@ -23,13 +23,15 @@
   .form-input {
     width: 100%;
     padding: 10px 14px;
-    border: 0.5px solid var(--color-border-secondary);
+    border: 1px solid var(--color-border-secondary);
     border-radius: var(--border-radius-md);
     font-size: 14px;
     font-family: inherit;
     color: var(--color-text-primary);
     background: #ffffff;
     outline: none;
+    min-height: 38px;
+    display: block;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .form-input:focus {
@@ -57,7 +59,7 @@
     text-decoration: none;
   }
   .btn-cancel:hover { background: var(--color-background-secondary); }
-  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 4px; }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 4px; background: #FCEBEB; padding: 6px 10px; border-radius: 6px; }
   .helptext {
     font-size: 11px;
     color: var(--color-text-secondary);

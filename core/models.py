@@ -61,12 +61,64 @@ class Exam(models.Model):
 
 class Subject(models.Model):
     """Subject like Pakistan Studies, English, Math, etc."""
+
+    class Icon(models.TextChoices):
+        LANDMARK = 'landmark', 'Landmark'
+        GLOBE = 'globe', 'Globe / World'
+        FLAG = 'flag', 'Flag'
+        MAP_PIN = 'map-pin', 'Map Pin'
+        MOUNTAIN = 'mountain', 'Mountain'
+        BOOK = 'book', 'Book'
+        BOOK_OPEN = 'book-open', 'Book Open'
+        LIBRARY = 'library', 'Library'
+        GRADUATION_CAP = 'graduation-cap', 'Graduation'
+        PEN_TOOL = 'pen-tool', 'Pen Tool'
+        FEATHER = 'feather', 'Feather'
+        ALPHABET = 'alphabet', 'Alphabet'
+        LANGUAGES = 'languages', 'Languages'
+        CALCULATOR = 'calculator', 'Calculator'
+        CHART_BAR = 'chart-bar', 'Chart Bar'
+        TRIANGLE = 'triangle', 'Triangle'
+        SQUARE_ROOT = 'square-root', 'Square Root'
+        BINARY = 'binary', 'Binary / CS'
+        LAPTOP = 'laptop', 'Laptop'
+        CODE = 'code', 'Code'
+        FLASK = 'flask', 'Flask'
+        ATOM = 'atom', 'Atom'
+        DNA = 'dna', 'DNA'
+        MICROSCOPE = 'microscope', 'Microscope'
+        ROCKET = 'rocket', 'Rocket'
+        SUN = 'sun', 'Sun'
+        CLOUD = 'cloud', 'Cloud'
+        ZAP = 'zap', 'Zap / Energy'
+        BRAIN = 'brain', 'Brain'
+        LIGHTBULB = 'lightbulb', 'Lightbulb'
+        SCALE = 'scale', 'Scale / Law'
+        GAVEL = 'gavel', 'Gavel'
+        BUILDING = 'building', 'Building'
+        LANDMARK_BUILDING = 'landmark-building', 'Landmark Building'
+        NEWS_PAPER = 'newspaper', 'Newspaper'
+        RADIO = 'radio', 'Radio'
+        HISTORY = 'history', 'History'
+        CLOCK = 'clock', 'Clock'
+        CALENDAR = 'calendar', 'Calendar'
+        USERS = 'users', 'Users'
+        USER = 'user', 'User'
+        HEART_PULSE = 'heart-pulse', 'Health'
+        LEAF = 'leaf', 'Environment'
+        COINS = 'coins', 'Economics'
+        TRENDING_UP = 'trending-up', 'Trending Up'
+        SHIELD = 'shield', 'Shield'
+        STAR = 'star', 'Star'
+        MOON = 'moon', 'Moon'
+        COMPASS = 'compass', 'Compass'
+
     name = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(max_length=220, unique=True)
     icon = models.CharField(
         max_length=20,
-        choices=Exam.Icon.choices,
-        default=Exam.Icon.LANDMARK,
+        choices=Icon.choices,
+        default=Icon.BOOK,
         help_text='Icon shown on the subject card.'
     )
     badge_color = models.CharField(
