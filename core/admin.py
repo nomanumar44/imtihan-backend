@@ -316,17 +316,6 @@ class CategoryAdmin(admin.ModelAdmin):
             )
         return '—'
     color_preview.short_description = 'Color'
-    change_form_template = 'admin/core/category/change_form.html'
-
-    class Media:
-        css = {
-            'all': (
-                'https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.8.2/dist/themes/classic.min.css',
-            ),
-        }
-        js = (
-            'https://cdn.jsdelivr.net/npm/@simonwep/pickr@1.8.2/dist/pickr.min.js',
-        )
 
 
 @admin.register(Tag)
@@ -336,14 +325,6 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ['name', 'slug']
     prepopulated_fields = {'slug': ('name',)}
     list_per_page = 25
-    change_form_template = 'admin/core/tag/change_form.html'
-
-    fieldsets = (
-        ('Tag Information', {
-            'fields': ('name', 'slug'),
-            'description': 'Tags help organize posts by topic. The slug auto-generates from the name.'
-        }),
-    )
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_post_count=Count('posts', distinct=True))
