@@ -1,0 +1,367 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  /* ── Category Admin Form Redesign ── */
+
+  /* Main container */
+  #content-main {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Form card */
+  #content-main > form {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* Hide default fieldset borders, we'll style our own */
+  #content-main > form > div > fieldset {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Fieldset grouping */
+  #content-main > form > div > fieldset > h2 {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border-bottom: 2px solid #d1fae5;
+    padding: 16px 24px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #065f46;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 0;
+  }
+
+  #content-main > form > div > fieldset:first-child > h2 {
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+  }
+
+  /* Fieldset description */
+  #content-main > form > div > fieldset > .description {
+    padding: 10px 24px;
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  /* Form rows */
+  #content-main > form > div > fieldset > .form-row {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  #content-main > form > div > fieldset > .form-row:last-child {
+    border-bottom: none;
+  }
+
+  /* Labels */
+  #content-main > form > div > fieldset > .form-row > label {
+    width: 160px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    padding-top: 8px;
+  }
+
+  /* Required asterisk */
+  #content-main > form > div > fieldset > .form-row > label.required::after {
+    content: ' *';
+    color: #ef4444;
+  }
+
+  /* Input fields */
+  #content-main input[type="text"],
+  #content-main input[type="url"],
+  #content-main select {
+    width: 100%;
+    max-width: 420px;
+    padding: 10px 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #1f2937;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fff;
+  }
+
+  #content-main input[type="text"]:focus,
+  #content-main input[type="url"]:focus,
+  #content-main select:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    outline: none;
+  }
+
+  /* Select dropdowns */
+  #content-main select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  /* Slug field — readonly look */
+  #content-main input#id_slug {
+    background: #f9fafb;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  /* Help text */
+  #content-main .help,
+  #content-main p.help {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 6px;
+    margin-bottom: 0;
+    padding-left: 0;
+  }
+
+  /* Color picker wrapper */
+  .color-picker-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .color-swatch {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .color-swatch:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+
+  .color-hex-label {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    background: #f3f4f6;
+    padding: 6px 12px;
+    border-radius: 8px;
+  }
+
+  /* Preview card */
+  .category-preview {
+    margin: 0 24px 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #d1fae5;
+    border-radius: 12px;
+  }
+
+  .category-preview-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #065f46;
+    margin-bottom: 10px;
+  }
+
+  .category-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* Submit row */
+  .submit-row {
+    background: #f9fafb !important;
+    border-top: 1px solid #e5e7eb !important;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+  }
+
+  .submit-row input[type="submit"],
+  .submit-row button {
+    padding: 10px 24px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: opacity 0.2s !important;
+  }
+
+  .submit-row input[type="submit"]:hover,
+  .submit-row button:hover {
+    opacity: 0.9;
+  }
+
+  .submit-row input[name="_save"] {
+    background: #10b981 !important;
+    color: #fff !important;
+  }
+
+  .submit-row input[name="_addanother"] {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+  }
+
+  .submit-row input[name="_continue"] {
+    background: #e5e7eb !important;
+    color: #374151 !important;
+  }
+
+  /* Header title */
+  #content h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  /* Hide the raw color text input — we use the swatch */
+  input#id_color {
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{% if not original %}
+<div class="category-preview" id="categoryPreview">
+  <div class="category-preview-label">Live Preview</div>
+  <span class="category-preview-badge" id="previewBadge" style="background:#10B981;">
+    <span id="previewName">Category Name</span>
+  </span>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+(function() {
+  // ── Live preview for category badge ──
+  var nameField = document.getElementById('id_name');
+  var colorField = document.getElementById('id_color');
+  var typeField = document.getElementById('id_type');
+  var previewBadge = document.getElementById('previewBadge');
+  var previewName = document.getElementById('previewName');
+
+  function updatePreview() {
+    if (!previewBadge) return;
+    var name = nameField && nameField.value ? nameField.value : 'Category Name';
+    var color = colorField && colorField.value ? colorField.value : '#10B981';
+    previewName.textContent = name;
+    previewBadge.style.background = color;
+  }
+
+  if (nameField) nameField.addEventListener('input', updatePreview);
+  if (colorField) colorField.addEventListener('input', updatePreview);
+  if (typeField) typeField.addEventListener('change', updatePreview);
+  updatePreview();
+
+  // ── Color picker integration ──
+  var colorInput = document.getElementById('id_color');
+  if (!colorInput) return;
+
+  var wrapper = document.createElement('div');
+  wrapper.className = 'color-picker-wrapper';
+
+  var swatch = document.createElement('div');
+  swatch.className = 'color-swatch';
+  swatch.style.background = colorInput.value || '#10B981';
+
+  var hexLabel = document.createElement('span');
+  hexLabel.className = 'color-hex-label';
+  hexLabel.textContent = colorInput.value || '#10B981';
+
+  var helpHint = document.createElement('span');
+  helpHint.style.cssText = 'font-size:11px; color:#9ca3af;';
+  helpHint.textContent = 'Click swatch to pick color';
+
+  colorInput.parentNode.appendChild(wrapper);
+  wrapper.appendChild(swatch);
+  wrapper.appendChild(hexLabel);
+  wrapper.appendChild(helpHint);
+
+  // Use Pickr if available, else native color input
+  if (typeof Pickr !== 'undefined') {
+    var pickr = Pickr.create({
+      el: swatch,
+      theme: 'classic',
+      default: colorInput.value || '#10B981',
+      swatches: [
+        '#10B981', '#059669', '#0D9488', '#06B6D4',
+        '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7',
+        '#EC4899', '#F59E0B', '#EF4444', '#84CC16'
+      ],
+      components: {
+        preview: true,
+        opacity: false,
+        hue: true,
+        interaction: {
+          hex: true,
+          input: true,
+          save: true
+        }
+      }
+    });
+
+    pickr.on('save', function(color) {
+      var hex = color.toHEX().toString();
+      colorInput.value = hex;
+      swatch.style.background = hex;
+      hexLabel.textContent = hex;
+      updatePreview();
+      pickr.hide();
+    });
+
+    pickr.on('change', function(color) {
+      var hex = color.toHEX().toString();
+      swatch.style.background = hex;
+      hexLabel.textContent = hex;
+    });
+  } else {
+    var nativeInput = document.createElement('input');
+    nativeInput.type = 'color';
+    nativeInput.value = colorInput.value || '#10B981';
+    nativeInput.style.cssText = 'position:absolute; opacity:0; width:0; height:0;';
+    wrapper.appendChild(nativeInput);
+
+    swatch.addEventListener('click', function() { nativeInput.click(); });
+    nativeInput.addEventListener('input', function() {
+      colorInput.value = this.value;
+      swatch.style.background = this.value;
+      hexLabel.textContent = this.value;
+      updatePreview();
+    });
+  }
+})();
+</script>
+{% endblock %}

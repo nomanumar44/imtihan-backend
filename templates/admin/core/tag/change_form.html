@@ -1,0 +1,222 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  /* ── Tag Admin Form Redesign ── */
+
+  #content-main {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  #content-main > form {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  #content-main > form > div > fieldset {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  #content-main > form > div > fieldset > h2 {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border-bottom: 2px solid #d1fae5;
+    padding: 16px 24px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #065f46;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 0;
+  }
+
+  #content-main > form > div > fieldset:first-child > h2 {
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+  }
+
+  #content-main > form > div > fieldset > .description {
+    padding: 10px 24px;
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  #content-main > form > div > fieldset > .form-row {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  #content-main > form > div > fieldset > .form-row:last-child {
+    border-bottom: none;
+  }
+
+  #content-main > form > div > fieldset > .form-row > label {
+    width: 160px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    padding-top: 8px;
+  }
+
+  #content-main > form > div > fieldset > .form-row > label.required::after {
+    content: ' *';
+    color: #ef4444;
+  }
+
+  #content-main input[type="text"],
+  #content-main input[type="url"],
+  #content-main select {
+    width: 100%;
+    max-width: 420px;
+    padding: 10px 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #1f2937;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fff;
+  }
+
+  #content-main input[type="text"]:focus,
+  #content-main input[type="url"]:focus,
+  #content-main select:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    outline: none;
+  }
+
+  #content-main input#id_slug {
+    background: #f9fafb;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  #content-main .help,
+  #content-main p.help {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 6px;
+    margin-bottom: 0;
+  }
+
+  /* Tag preview */
+  .tag-preview {
+    margin: 0 24px 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #d1fae5;
+    border-radius: 12px;
+  }
+
+  .tag-preview-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #065f46;
+    margin-bottom: 10px;
+  }
+
+  .tag-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+    background: #d1fae5;
+    border: 1px solid #a7f3d0;
+  }
+
+  /* Submit row */
+  .submit-row {
+    background: #f9fafb !important;
+    border-top: 1px solid #e5e7eb !important;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+  }
+
+  .submit-row input[type="submit"],
+  .submit-row button {
+    padding: 10px 24px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: opacity 0.2s !important;
+  }
+
+  .submit-row input[type="submit"]:hover,
+  .submit-row button:hover {
+    opacity: 0.9;
+  }
+
+  .submit-row input[name="_save"] {
+    background: #10b981 !important;
+    color: #fff !important;
+  }
+
+  .submit-row input[name="_addanother"] {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+  }
+
+  .submit-row input[name="_continue"] {
+    background: #e5e7eb !important;
+    color: #374151 !important;
+  }
+
+  #content h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{% if not original %}
+<div class="tag-preview">
+  <div class="tag-preview-label">Live Preview</div>
+  <span class="tag-preview-badge" id="previewTag">Tag Name</span>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+(function() {
+  var nameField = document.getElementById('id_name');
+  var previewTag = document.getElementById('previewTag');
+
+  function updatePreview() {
+    if (!previewTag) return;
+    var name = nameField && nameField.value ? nameField.value : 'Tag Name';
+    previewTag.textContent = name;
+  }
+
+  if (nameField) nameField.addEventListener('input', updatePreview);
+  updatePreview();
+})();
+</script>
+{% endblock %}

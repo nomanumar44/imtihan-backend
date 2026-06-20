@@ -677,6 +677,7 @@ class Tag(models.Model):
     """Tags for news and blog posts."""
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=70, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
         ordering = ['name']
