@@ -25,7 +25,7 @@ from .models import (
 from .forms import (
     JobListingForm, SyllabusForm, PastPaperForm, MCQForm,
     CurrentAffairsCategoryForm, AnnouncementForm, ExamForm, SectionContentForm,
-    SubjectForm, PostForm,
+    SubjectForm, PostForm, CategoryForm, TagForm,
 )
 from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
@@ -1619,6 +1619,116 @@ def dashboard_post_edit(request, pk):
         'title': 'Edit Post',
         'active_page': 'posts',
     })
+
+
+# ─── Categories & Tags Dashboard ───────────────────────────────────────────
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_categories(request):
+    """List and create categories for blog/news."""
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Category added successfully.')
+            return redirect('dashboard_categories')
+    else:
+        form = CategoryForm()
+
+    categories = Category.objects.annotate(post_count=Count('posts', distinct=True)).order_by('name')
+    context = {
+        'active_page': 'categories',
+        'categories': categories,
+        'form': form,
+        'total_count': categories.count(),
+        'blog_count': categories.filter(type='blog').count(),
+        'news_count': categories.filter(type='news').count(),
+    }
+    return render(request, 'dashboard/categories.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_category_edit(request, pk):
+    """Edit an existing category."""
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Category updated successfully.')
+            return redirect('dashboard_categories')
+    else:
+        form = CategoryForm(instance=category)
+
+    return render(request, 'dashboard/category_form.html', {
+        'form': form,
+        'title': 'Edit Category',
+        'active_page': 'categories',
+    })
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_category_delete(request, pk):
+    """Delete a category."""
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == 'POST':
+        name = category.name
+        category.delete()
+        messages.success(request, f'Deleted category "{name}".')
+    return redirect('dashboard_categories')
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_tags(request):
+    """List and create tags."""
+    if request.method == 'POST':
+        form = TagForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Tag added successfully.')
+            return redirect('dashboard_tags')
+    else:
+        form = TagForm()
+
+    tags = Tag.objects.annotate(post_count=Count('posts', distinct=True)).order_by('name')
+    context = {
+        'active_page': 'tags',
+        'tags': tags,
+        'form': form,
+        'total_count': tags.count(),
+    }
+    return render(request, 'dashboard/tags.html', context)
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_tag_edit(request, pk):
+    """Edit an existing tag."""
+    tag = get_object_or_404(Tag, pk=pk)
+    if request.method == 'POST':
+        form = TagForm(request.POST, instance=tag)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Tag updated successfully.')
+            return redirect('dashboard_tags')
+    else:
+        form = TagForm(instance=tag)
+
+    return render(request, 'dashboard/tag_form.html', {
+        'form': form,
+        'title': 'Edit Tag',
+        'active_page': 'tags',
+    })
+
+
+@login_required(login_url='/dashboard/login/')
+def dashboard_tag_delete(request, pk):
+    """Delete a tag."""
+    tag = get_object_or_404(Tag, pk=pk)
+    if request.method == 'POST':
+        name = tag.name
+        tag.delete()
+        messages.success(request, f'Deleted tag "{name}".')
+    return redirect('dashboard_tags')
 
 
 # ─── Service Plans Dashboard ─────────────────────────────────────────────────

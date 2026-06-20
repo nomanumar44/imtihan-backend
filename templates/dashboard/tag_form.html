@@ -1,0 +1,147 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+
+<style>
+  .form-container {
+    max-width: 700px;
+    background: #ffffff;
+    border-radius: var(--border-radius-lg);
+    border: 0.5px solid var(--color-border-tertiary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    padding: 30px;
+    margin-top: 20px;
+  }
+  .form-group { margin-bottom: 20px; }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    padding-top: 20px;
+  }
+  .btn-cancel {
+    background: none;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: background 0.15s ease;
+    text-decoration: none;
+  }
+  .btn-cancel:hover { background: var(--color-background-secondary); }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 4px; }
+  .helptext {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    display: block;
+  }
+  .preview-card {
+    margin-top: 20px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #d1fae5;
+    border-radius: 12px;
+  }
+  .preview-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #065f46;
+    margin-bottom: 10px;
+  }
+  .preview-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+    background: #d1fae5;
+    border: 1px solid #a7f3d0;
+  }
+  @media (max-width: 640px) {
+    .form-container { padding: 20px 16px; margin-top: 12px; }
+    .form-actions { flex-direction: column; gap: 8px; }
+    .form-actions .btn-cancel, .form-actions .btn-add { width: 100%; text-align: center; }
+  }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">Update tag details</div>
+  </div>
+</div>
+
+<div class="form-container">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="{{ form.name.id_for_label }}">Name</label>
+      {{ form.name }}
+      {{ form.name.errors }}
+    </div>
+    <div class="form-group">
+      <label for="{{ form.slug.id_for_label }}">Slug</label>
+      {{ form.slug }}
+      <span class="helptext">Leave blank to auto-generate from the name.</span>
+      {{ form.slug.errors }}
+    </div>
+
+    <div class="preview-card">
+      <div class="preview-label">Preview</div>
+      <span class="preview-chip" id="previewTag">{{ form.name.value|default:'Tag Name' }}</span>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'dashboard_tags' %}" class="btn-cancel">Cancel</a>
+      <button type="submit" class="btn-add"><i class="ti ti-device-floppy"></i> Save Tag</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function() {
+  var nameField = document.getElementById('id_name');
+  var previewTag = document.getElementById('previewTag');
+  function updatePreview() {
+    if (!previewTag) return;
+    previewTag.textContent = nameField && nameField.value ? nameField.value : 'Tag Name';
+  }
+  if (nameField) nameField.addEventListener('input', updatePreview);
+  updatePreview();
+})();
+</script>
+
+{% endblock %}

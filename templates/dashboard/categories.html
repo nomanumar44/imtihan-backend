@@ -1,55 +1,189 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Categories{% endblock %}
 {% block content %}
+
+<style>
+  .category-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  .category-form {
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 18px;
+    background: #fff;
+  }
+  .category-form h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--color-text-primary);
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .form-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    background: #fff;
+    outline: none;
+  }
+  .form-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 3px rgba(15, 196, 132, 0.1);
+  }
+  input[type="color"].form-input {
+    height: 38px;
+    padding: 4px 6px;
+    cursor: pointer;
+  }
+  .helptext {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .errorlist { list-style: none; color: #A32D2D; font-size: 12px; margin-top: 5px; }
+  .muted { font-size: 12px; color: var(--color-text-tertiary); }
+  .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inline-delete { display: inline; }
+  .category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+  }
+  @media(max-width: 980px) { .category-grid { grid-template-columns: 1fr; } }
+</style>
+
 <div class="top-bar">
   <div>
     <div class="page-title">Categories</div>
-    <div class="page-subtitle">Blog and news post categories</div>
+    <div class="page-subtitle">{{ total_count }} categor{{ total_count|pluralize:"y,ies" }} for blog and news posts</div>
   </div>
-  <a href="/admin/core/category/add/" target="_blank" class="btn-add">
-    <i class="ti ti-plus"></i> Add Category
-  </a>
 </div>
 
 <div class="stats-row" style="grid-template-columns: repeat(3, 1fr);">
   <div class="stat-card">
-    <div class="stat-num">{{ total_categories }}</div>
+    <div class="stat-num">{{ total_count }}</div>
     <div class="stat-label">Total</div>
   </div>
   <div class="stat-card">
-    <div class="stat-num" style="color:#0ea5e9">{{ blog_categories }}</div>
+    <div class="stat-num" style="color:#0ea5e9">{{ blog_count }}</div>
     <div class="stat-label">Blog</div>
   </div>
   <div class="stat-card">
-    <div class="stat-num" style="color:#8b5cf6">{{ news_categories }}</div>
+    <div class="stat-num" style="color:#8b5cf6">{{ news_count }}</div>
     <div class="stat-label">News</div>
   </div>
 </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr><th>Name</th><th>Slug</th><th>Type</th><th>Color</th><th>Posts</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {% for cat in categories %}
-      <tr>
-        <td style="font-weight:500;">{{ cat.name }}</td>
-        <td style="font-size:12px; color:#6b7280;">{{ cat.slug }}</td>
-        <td><span class="badge badge-slate">{{ cat.get_type_display }}</span></td>
-        <td>
-          <span style="display:inline-block; width:20px; height:20px; border-radius:4px; background:{{ cat.color }}; border:1px solid #e5e7eb;"></span>
-          <span style="font-size:12px; color:#6b7280;">{{ cat.color }}</span>
-        </td>
-        <td style="text-align:center;">{{ cat.post_count }}</td>
-        <td>
-          <a href="/admin/core/category/{{ cat.id }}/change/" target="_blank" class="action-btn">Edit</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="6" class="empty-state"><i class="ti ti-category-off"></i>No categories yet</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="category-grid">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Slug</th>
+          <th>Type</th>
+          <th>Color</th>
+          <th>Posts</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat in categories %}
+        <tr>
+          <td style="font-weight:500;">{{ cat.name }}</td>
+          <td class="muted">{{ cat.slug }}</td>
+          <td><span class="badge badge-slate">{{ cat.get_type_display }}</span></td>
+          <td>
+            <span class="category-badge" data-color="{{ cat.color }}">
+              <span style="font-family:monospace; font-size:11px;">{{ cat.color }}</span>
+            </span>
+          </td>
+          <td style="text-align:center;"><span class="muted">{{ cat.post_count }}</span></td>
+          <td>
+            <div class="actions-cell">
+              <a href="{% url 'dashboard_category_edit' cat.pk %}" class="action-btn">Edit</a>
+              <form method="post" action="{% url 'dashboard_category_delete' cat.pk %}" id="del-cat-{{ cat.pk }}" class="inline-delete">
+                {% csrf_token %}
+                <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete {{ cat.name|escapejs }}? This will keep existing posts.', function(){document.getElementById('del-cat-{{ cat.pk }}').submit();}, 'Delete category', 'This action cannot be undone.'); return false;">Delete</a>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty-state"><i class="ti ti-category-off"></i>No categories yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category-form">
+    <h3><i class="ti ti-plus"></i> Add Category</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.name.id_for_label }}">Name</label>
+        {{ form.name }}
+        {{ form.name.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.slug.id_for_label }}">Slug</label>
+        {{ form.slug }}
+        <span class="helptext">Leave blank to auto-generate from the name.</span>
+        {{ form.slug.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.type.id_for_label }}">Type</label>
+        {{ form.type }}
+        {{ form.type.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.color.id_for_label }}">Color</label>
+        {{ form.color }}
+        {{ form.color.errors }}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.icon.id_for_label }}">Icon</label>
+        {{ form.icon }}
+        <span class="helptext">Lucide icon name, e.g. BookOpen.</span>
+        {{ form.icon.errors }}
+      </div>
+      <button type="submit" class="btn-add" style="width:100%;justify-content:center">
+        <i class="ti ti-device-floppy"></i> Save Category
+      </button>
+    </form>
+  </div>
 </div>
+
+<script>
+(function() {
+  document.querySelectorAll('.category-badge').forEach(function(badge) {
+    var color = badge.getAttribute('data-color');
+    if (color) badge.style.background = color;
+  });
+})();
+</script>
+
 {% endblock %}

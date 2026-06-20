@@ -15,6 +15,69 @@ class SectionContentForm(forms.ModelForm):
         }
 
 
+class CategoryForm(forms.ModelForm):
+    class Meta:
+        model = Category
+        fields = ['name', 'slug', 'type', 'color', 'icon']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., CSS Updates'}),
+            'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto-generated from name if empty'}),
+            'type': forms.Select(attrs={'class': 'form-input'}),
+            'color': forms.TextInput(attrs={'class': 'form-input', 'placeholder': '#10B981', 'type': 'color'}),
+            'icon': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., BookOpen'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['icon'].required = False
+        self.fields['color'].required = True
+
+    def clean_slug(self):
+        raw_slug = self.cleaned_data.get('slug') or self.cleaned_data.get('name') or ''
+        slug = slugify(raw_slug)
+        if not slug:
+            raise forms.ValidationError('Please enter a valid category name or slug.')
+        qs = Category.objects.filter(slug=slug)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A category with this slug already exists.')
+        return slug
+
+    def clean_color(self):
+        color = self.cleaned_data.get('color', '').strip()
+        if not color:
+            return '#10B981'
+        return color
+
+
+class TagForm(forms.ModelForm):
+    class Meta:
+        model = Tag
+        fields = ['name', 'slug']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., Pakistan Studies'}),
+            'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Auto-generated from name if empty'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+
+    def clean_slug(self):
+        raw_slug = self.cleaned_data.get('slug') or self.cleaned_data.get('name') or ''
+        slug = slugify(raw_slug)
+        if not slug:
+            raise forms.ValidationError('Please enter a valid tag name or slug.')
+        qs = Tag.objects.filter(slug=slug)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError('A tag with this slug already exists.')
+        return slug
+
+
 class ExamForm(forms.ModelForm):
     class Meta:
         model = Exam

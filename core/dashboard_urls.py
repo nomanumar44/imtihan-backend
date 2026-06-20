@@ -77,9 +77,13 @@ urlpatterns = [
 
     # Categories
     path('categories/', dashboard_views.dashboard_categories, name='dashboard_categories'),
+    path('categories/<int:pk>/edit/', dashboard_views.dashboard_category_edit, name='dashboard_category_edit'),
+    path('categories/<int:pk>/delete/', dashboard_views.dashboard_category_delete, name='dashboard_category_delete'),
 
     # Tags
     path('tags/', dashboard_views.dashboard_tags, name='dashboard_tags'),
+    path('tags/<int:pk>/edit/', dashboard_views.dashboard_tag_edit, name='dashboard_tag_edit'),
+    path('tags/<int:pk>/delete/', dashboard_views.dashboard_tag_delete, name='dashboard_tag_delete'),
 
     # Activity Logs
     path('activity-logs/', dashboard_views.dashboard_activity_logs, name='dashboard_activity_logs'),
