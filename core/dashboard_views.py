@@ -1794,49 +1794,6 @@ def dashboard_comments(request):
     })
 
 
-# ─── Categories Dashboard ────────────────────────────────────────────────────
-
-@login_required(login_url='/dashboard/login/')
-def dashboard_categories(request):
-    """Admin dashboard for blog/news categories."""
-    categories = Category.objects.annotate(post_count=Count('posts')).order_by('name')
-    total_categories = categories.count()
-    blog_categories = categories.filter(type='blog').count()
-    news_categories = categories.filter(type='news').count()
-
-    return render(request, 'dashboard/categories.html', {
-        'categories': categories,
-        'total_categories': total_categories,
-        'blog_categories': blog_categories,
-        'news_categories': news_categories,
-        'active_page': 'categories',
-    })
-
-
-# ─── Tags Dashboard ──────────────────────────────────────────────────────────
-
-@login_required(login_url='/dashboard/login/')
-def dashboard_tags(request):
-    """Admin dashboard for blog tags."""
-    tags = Tag.objects.annotate(post_count=Count('posts')).order_by('name')
-    total_tags = tags.count()
-
-    paginator = Paginator(tags, 30)
-    page = request.GET.get('page')
-    try:
-        tags_page = paginator.page(page)
-    except PageNotAnInteger:
-        tags_page = paginator.page(1)
-    except EmptyPage:
-        tags_page = paginator.page(paginator.num_pages)
-
-    return render(request, 'dashboard/tags.html', {
-        'tags': tags_page,
-        'total_tags': total_tags,
-        'active_page': 'tags',
-    })
-
-
 # ─── Activity Logs Dashboard ─────────────────────────────────────────────────
 
 @login_required(login_url='/dashboard/login/')
