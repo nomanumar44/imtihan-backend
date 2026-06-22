@@ -261,15 +261,23 @@ def _try_keys(func, messages, system_instruction, keys_raw: str) -> str:
     if not keys_raw:
         return "__NO_KEYS__"
     keys = [k.strip() for k in keys_raw.split(',') if k.strip()]
-    last_error = "__QUOTA__"
+    any_quota = False
+    any_auth = False
+    last_error = "__ERROR__"
     for key in keys:
         result = func(messages, system_instruction, key)
         if result and not result.startswith("__"):
             return result
-        if result == "__AUTH__":
-            last_error = "__AUTH__"
-        elif result != "__QUOTA__":
+        if result == "__QUOTA__":
+            any_quota = True
+        elif result == "__AUTH__":
+            any_auth = True
+        elif result:
             last_error = result
+    if any_quota:
+        return "__QUOTA__"
+    if any_auth:
+        return "__AUTH__"
     return last_error
 
 
