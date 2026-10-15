@@ -571,7 +571,7 @@ class Command(BaseCommand):
                     continue
 
                 # ---- FILTER 2: Ad domain blocklist ----
-                link_domain = parsed.netloc.lstrip('www.')
+                link_domain = parsed.netloc.removeprefix('www.')
                 if any(link_domain == ad or link_domain.endswith('.' + ad) for ad in AD_DOMAINS):
                     if debug:
                         self._safe_write(f'      [SKIP-AD-DOMAIN] {href}')

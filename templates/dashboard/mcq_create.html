@@ -657,7 +657,11 @@ async function publish(){
       })
     });
 
-    if (!response.ok) throw new Error('Upload failed');
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      const details = (err.errors || []).slice(0, 5).join('\n');
+      throw new Error((err.error || err.detail || 'Upload failed') + (details ? '\n' + details : ''));
+    }
 
     fill.style.width='100%';
     lbl.textContent='Finalising...';
@@ -746,7 +750,8 @@ async function saveManualMcq() {
     if(res.ok) {
       window.location.href = "{% url 'dashboard_mcqs' %}";
     } else {
-      alert('Failed to save question.');
+      const err = await res.json().catch(() => ({}));
+      alert('Failed to save question. ' + ((err.errors || [])[0] || err.error || err.detail || ''));
       btn.disabled = false;
       btn.innerHTML = 'Save Question';
     }

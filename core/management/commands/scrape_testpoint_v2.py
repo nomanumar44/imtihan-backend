@@ -23,8 +23,8 @@ import subprocess
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from django.core.management.base import BaseCommand
-from django.utils.text import slugify
-from core.models import Exam, Subject, MCQ, PastPaper, ActivityLog
+from core.utils.scrape_store import save_scraped_mcq, save_scraped_paper
+from core.models import Exam, Subject, MCQ, ActivityLog
 from core.utils import scraper_control
 
 # -- Catalogue of index pages, mapped to exam slug -----------------------------
@@ -129,16 +129,6 @@ def _extract_year(text: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _unique_slug(title: str) -> str:
-    """Generate a unique PastPaper slug from title, appending pk suffix if needed."""
-    from core.models import PastPaper as PP
-    base = slugify(title)[:300] or 'paper'
-    slug = base
-    i = 1
-    while PP.objects.filter(slug=slug).exists():
-        slug = f'{base}-{i}'
-        i += 1
-    return slug
 
 
 def _infer_subject(text: str) -> str:
@@ -399,22 +389,18 @@ class Command(BaseCommand):
 
             for mcq_data in mcqs:
                 try:
-                    _, is_new = MCQ.objects.update_or_create(
-                        question_text=mcq_data['question'],
-                        defaults={
-                            'option_a':       mcq_data['option_a'],
-                            'option_b':       mcq_data['option_b'],
-                            'option_c':       mcq_data['option_c'],
-                            'option_d':       mcq_data.get('option_d', ''),
-                            'correct_option': mcq_data['correct'],
-                            'explanation':    mcq_data['explanation'],
-                            'exam':           exam_obj,
-                            'subject':        subj_obj,
-                            'past_paper':     None,
-                            'source_url':     url,
-                            'status':         MCQ.Status.PUBLISHED,
-                        },
-                    )
+                    _, is_new = save_scraped_mcq(mcq_data['question'], {
+                        'option_a':       mcq_data['option_a'],
+                        'option_b':       mcq_data['option_b'],
+                        'option_c':       mcq_data['option_c'],
+                        'option_d':       mcq_data.get('option_d', ''),
+                        'correct_option': mcq_data['correct'],
+                        'explanation':    mcq_data['explanation'],
+                        'exam':           exam_obj,
+                        'subject':        subj_obj,
+                        'source_url':     url,
+                        'status':         MCQ.Status.PUBLISHED,
+                    })
                     if is_new:
                         created += 1
                     else:
@@ -547,17 +533,8 @@ class Command(BaseCommand):
                         subj_obj = Subject.objects.get(slug='general-knowledge')
 
                     year    = _extract_year(paper['title'])
-                    pp_slug = _unique_slug(paper['title'])
-                    past_paper_obj, pp_created = PastPaper.objects.update_or_create(
-                        source_url=paper['url'],
-                        defaults={
-                            'title':   paper['title'] or 'Untitled',
-                            'slug':    pp_slug,
-                            'exam':    exam_obj,
-                            'subject': subj_obj,
-                            'year':    year,
-                            'status':  PastPaper.Status.PUBLISHED,
-                        }
+                    past_paper_obj, pp_created = save_scraped_paper(
+                        paper['url'], paper['title'], exam_obj, subj_obj, year,
                     )
                     self._safe(
                         f'     PastPaper {"created" if pp_created else "updated"}: {past_paper_obj.title[:50]}',
@@ -569,22 +546,18 @@ class Command(BaseCommand):
 
                     for mcq_data in mcqs:
                         try:
-                            _, created = MCQ.objects.update_or_create(
-                                question_text=mcq_data['question'],
-                                defaults={
-                                    'option_a':       mcq_data['option_a'],
-                                    'option_b':       mcq_data['option_b'],
-                                    'option_c':       mcq_data['option_c'],
-                                    'option_d':       mcq_data.get('option_d', ''),
-                                    'correct_option': mcq_data['correct'],
-                                    'explanation':    mcq_data['explanation'],
-                                    'exam':           exam_obj,
-                                    'subject':        subj_obj,
-                                    'past_paper':     past_paper_obj,
-                                    'source_url':     paper['url'],
-                                    'status':         MCQ.Status.PUBLISHED,
-                                },
-                            )
+                            _, created = save_scraped_mcq(mcq_data['question'], {
+                                'option_a':       mcq_data['option_a'],
+                                'option_b':       mcq_data['option_b'],
+                                'option_c':       mcq_data['option_c'],
+                                'option_d':       mcq_data.get('option_d', ''),
+                                'correct_option': mcq_data['correct'],
+                                'explanation':    mcq_data['explanation'],
+                                'exam':           exam_obj,
+                                'subject':        subj_obj,
+                                'source_url':     paper['url'],
+                                'status':         MCQ.Status.PUBLISHED,
+                            }, past_paper=past_paper_obj)
                             if created:
                                 total_created += 1
                             else:

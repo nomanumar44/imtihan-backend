@@ -16,177 +16,16 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
+from core.utils.scrape_store import save_scraped_mcq
 from core.models import Exam, Subject, CurrentAffairsCategory, MCQ, JobListing, ActivityLog
 from core.utils.ai_scraper_suite import AIScraperSuite
-from datetime import datetime, timedelta
+from datetime import datetime
 from django.utils import timezone
 import os
 import time
 import requests
 from bs4 import BeautifulSoup
 from core.utils import scraper_control
-
-
-# ── Seed MCQs — used when live scraping fails ─────────────────────────────────
-SEED_MCQS = [
-    {
-        'question': 'Who was the first Governor General of Pakistan?',
-        'options': ['Quaid-e-Azam Muhammad Ali Jinnah', 'Liaquat Ali Khan', 'Iskander Mirza', 'Ayub Khan'],
-        'correct': 'A',
-        'subject': 'pakistan-studies',
-        'exam': 'ppsc',
-    },
-    {
-        'question': 'The Lahore Resolution was passed in which year?',
-        'options': ['1935', '1940', '1945', '1947'],
-        'correct': 'B',
-        'subject': 'pakistan-studies',
-        'exam': 'ppsc',
-    },
-    {
-        'question': 'Which is the national language of Pakistan?',
-        'options': ['Punjabi', 'Sindhi', 'Urdu', 'Pashto'],
-        'correct': 'C',
-        'subject': 'pakistan-studies',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'Which Mughal Emperor built the Badshahi Mosque in Lahore?',
-        'options': ['Akbar', 'Shah Jahan', 'Aurangzeb', 'Jahangir'],
-        'correct': 'C',
-        'subject': 'pakistan-studies',
-        'exam': 'ppsc',
-    },
-    {
-        'question': 'The synonym of "Benevolent" is:',
-        'options': ['Hostile', 'Kind', 'Strict', 'Greedy'],
-        'correct': 'B',
-        'subject': 'english',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'Islamabad became the capital of Pakistan in which year?',
-        'options': ['1947', '1958', '1969', '1972'],
-        'correct': 'C',
-        'subject': 'pakistan-studies',
-        'exam': 'nts',
-    },
-    {
-        'question': 'Which is the longest river in Pakistan?',
-        'options': ['Chenab', 'Jhelum', 'Indus', 'Ravi'],
-        'correct': 'C',
-        'subject': 'pakistan-studies',
-        'exam': 'ppsc',
-    },
-    {
-        'question': 'What does RAM stand for in computing?',
-        'options': ['Random Access Memory', 'Read Access Module', 'Rapid Array Memory', 'Read And Modify'],
-        'correct': 'A',
-        'subject': 'computer-science',
-        'exam': 'nts',
-    },
-    {
-        'question': 'How many Surahs are in the Holy Quran?',
-        'options': ['110', '112', '114', '116'],
-        'correct': 'C',
-        'subject': 'islamiat',
-        'exam': 'ppsc',
-    },
-    {
-        'question': 'Which gas makes up the largest percentage of Earth\'s atmosphere?',
-        'options': ['Oxygen', 'Carbon Dioxide', 'Nitrogen', 'Hydrogen'],
-        'correct': 'C',
-        'subject': 'general-knowledge',
-        'exam': 'nts',
-    },
-    {
-        'question': 'The headquarter of the United Nations is located in:',
-        'options': ['Washington D.C.', 'Geneva', 'New York', 'London'],
-        'correct': 'C',
-        'subject': 'general-knowledge',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'Pakistan\'s 1973 Constitution was passed on:',
-        'options': ['14 August 1973', '10 April 1973', '23 March 1973', '4 August 1973'],
-        'correct': 'B',
-        'subject': 'pakistan-studies',
-        'exam': 'fpsc',
-    },
-]
-
-# ── Seed Current Affairs ───────────────────────────────────────────────────────
-SEED_CURRENT_AFFAIRS = [
-    {
-        'question': f'The 23rd SCO Summit was hosted by Pakistan in which city?',
-        'options': ['Islamabad', 'Lahore', 'Karachi', 'Peshawar'],
-        'correct': 'A',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'Which country topped the 2024 Paris Olympics medal tally?',
-        'options': ['China', 'Great Britain', 'United States', 'Australia'],
-        'correct': 'C',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'The IMF approved Pakistan\'s Extended Fund Facility (EFF) in which year?',
-        'options': ['2022', '2023', '2024', '2025'],
-        'correct': 'C',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'Who is the current Secretary-General of the United Nations?',
-        'options': ['Ban Ki-moon', 'Kofi Annan', 'António Guterres', 'Boutros Boutros-Ghali'],
-        'correct': 'C',
-        'exam': 'fpsc',
-    },
-    {
-        'question': 'The CPEC main corridor passes through which Pakistani city?',
-        'options': ['Karachi', 'Gwadar', 'Lahore', 'Quetta'],
-        'correct': 'B',
-        'exam': 'ppsc',
-    },
-]
-
-# ── Seed Jobs ─────────────────────────────────────────────────────────────────
-SEED_JOBS = [
-    {
-        'title': 'Patwari (BPS-09)',
-        'board': 'ppsc',
-        'desc': 'PPSC invites applications for Patwari posts in Revenue Department, Punjab.',
-    },
-    {
-        'title': 'Inspector Customs (BPS-16)',
-        'board': 'fpsc',
-        'desc': 'FPSC consolidated advertisement for Inspector Customs in Federal Board of Revenue.',
-    },
-    {
-        'title': 'Assistant Director Wildlife (BPS-17)',
-        'board': 'ppsc',
-        'desc': 'PPSC vacancy for Assistant Director Wildlife in Forest Department, Punjab.',
-    },
-    {
-        'title': 'Senior Auditor (BPS-16)',
-        'board': 'fpsc',
-        'desc': 'FPSC advertisement for Senior Auditor posts in Auditor General Office.',
-    },
-    {
-        'title': 'Sub Inspector (BPS-14)',
-        'board': 'kppsc',
-        'desc': 'KPPSC is hiring Sub Inspectors for KPK Police Department.',
-    },
-    {
-        'title': 'Lecturer (Economics) BPS-17',
-        'board': 'ppsc',
-        'desc': 'PPSC invites applications for Lecturer Economics in Government Colleges.',
-    },
-    {
-        'title': 'Junior Clerk (BPS-09)',
-        'board': 'nts',
-        'desc': 'NTS test for Junior Clerk posts in various federal ministries.',
-    },
-]
 
 
 class Command(BaseCommand):
@@ -465,13 +304,10 @@ class Command(BaseCommand):
 
         # ── Self-healing fallback ─────────────────────────────────────────────
         if not raw_items and not self.stop_requested():
+            # Never publish canned questions as if they were scraped.
             self.stdout.write(self.style.WARNING(
-                '  [!] Live scraping returned nothing — loading seed MCQs.'
+                '  [!] Live scraping returned nothing — no MCQs saved.'
             ))
-            raw_items = [
-                {**m, 'options': m['options']}
-                for m in SEED_MCQS
-            ]
 
         # ── Deduplicate with Pandas ───────────────────────────────────────────
         self.stdout.write(self.style.MIGRATE_LABEL(
@@ -509,20 +345,17 @@ class Command(BaseCommand):
                 except Exam.DoesNotExist:
                     ex = Exam.objects.get(slug='ppsc')
 
-                # ✅ FIX: use update_or_create so records always save
-                mcq_obj, created = MCQ.objects.update_or_create(
-                    question_text=optimized['question'],
-                    defaults={
-                        'option_a':       optimized['options'][0],
-                        'option_b':       optimized['options'][1],
-                        'option_c':       optimized['options'][2],
-                        'option_d':       optimized['options'][3],
-                        'correct_option': optimized['correct_option'],
-                        'exam':           ex,
-                        'subject':        subj,
-                        'status':         'published',
-                    }
-                )
+                mcq_obj, created = save_scraped_mcq(optimized['question'], {
+                    'option_a':       optimized['options'][0],
+                    'option_b':       optimized['options'][1],
+                    'option_c':       optimized['options'][2],
+                    'option_d':       optimized['options'][3],
+                    'correct_option': optimized['correct_option'],
+                    'explanation':    optimized.get('explanation', '') or '',
+                    'exam':           ex,
+                    'subject':        subj,
+                    'status':         MCQ.Status.PUBLISHED,
+                })
 
                 if created:
                     created_count += 1
@@ -696,9 +529,8 @@ class Command(BaseCommand):
         # ── Self-healing fallback ─────────────────────────────────────────────
         if not raw_items and not self.stop_requested():
             self.stdout.write(self.style.WARNING(
-                '  [!] Live scraping returned nothing — loading seed Current Affairs.'
+                '  [!] Live scraping returned nothing — no Current Affairs saved.'
             ))
-            raw_items = list(SEED_CURRENT_AFFAIRS)
 
         # ── Deduplicate ───────────────────────────────────────────────────────
         cleaned = suite.clean_scraped_items(raw_items, text_key='question')
@@ -735,26 +567,24 @@ class Command(BaseCommand):
                     item.get('current_affairs_region', ''),
                 )
 
-                # ✅ FIX: update_or_create
-                mcq_obj, created = MCQ.objects.update_or_create(
-                    question_text=optimized['question'],
-                    defaults={
-                        'option_a':       optimized['options'][0],
-                        'option_b':       optimized['options'][1],
-                        'option_c':       optimized['options'][2],
-                        'option_d':       optimized['options'][3],
-                        'correct_option': optimized['correct_option'],
-                        'exam':           ex,
-                        'subject':        subj,
-                        'current_affairs_category': current_affairs_category,
-                        'status':         'published',
-                    }
-                )
-                # Stamp with correct date so month selector works flawlessly
-                target_date = item.get('target_date', timezone.now())
-                if timezone.is_naive(target_date):
-                    target_date = timezone.make_aware(target_date)
-                MCQ.objects.filter(pk=mcq_obj.pk).update(created_at=target_date)
+                mcq_obj, created = save_scraped_mcq(optimized['question'], {
+                    'option_a':       optimized['options'][0],
+                    'option_b':       optimized['options'][1],
+                    'option_c':       optimized['options'][2],
+                    'option_d':       optimized['options'][3],
+                    'correct_option': optimized['correct_option'],
+                    'explanation':    optimized.get('explanation', '') or '',
+                    'exam':           ex,
+                    'subject':        subj,
+                    'current_affairs_category': current_affairs_category,
+                    'status':         MCQ.Status.PUBLISHED,
+                })
+                # Date new questions by their news month so the month selector groups them
+                if created:
+                    target_date = item.get('target_date', timezone.now())
+                    if timezone.is_naive(target_date):
+                        target_date = timezone.make_aware(target_date)
+                    MCQ.objects.filter(pk=mcq_obj.pk).update(created_at=target_date)
 
                 if created:
                     created_count += 1
@@ -878,6 +708,7 @@ class Command(BaseCommand):
                                             'title': title.strip(),
                                             'board': src['board'],
                                             'desc':  desc.strip(),
+                                            'url':   src['url'],
                                         })
                                 self.stdout.write(self.style.SUCCESS(f'    [+] API scraped {len(jobs_list)} items successfully.'))
                         except Exception:
@@ -905,6 +736,7 @@ class Command(BaseCommand):
                         'title': title,
                         'board': src['board'],
                         'desc':  f'Official vacancy announced by {src["board"].upper()}.',
+                        'url':   src['url'],
                     })
 
             if self.stop_requested():
@@ -915,9 +747,8 @@ class Command(BaseCommand):
         # ── Self-healing fallback ─────────────────────────────────────────────
         if not raw_jobs and not self.stop_requested():
             self.stdout.write(self.style.WARNING(
-                '  [!] Live job scraping returned nothing — loading seed jobs.'
+                '  [!] Live job scraping returned nothing — no jobs saved.'
             ))
-            raw_jobs = list(SEED_JOBS)
 
         # ── Deduplicate ───────────────────────────────────────────────────────
         cleaned_jobs = suite.clean_scraped_items(raw_jobs, text_key='title')
@@ -946,8 +777,9 @@ class Command(BaseCommand):
                     ))
                     continue
 
-                # ✅ FIX: update_or_create
-                job_obj, created = JobListing.objects.update_or_create(
+                # New jobs only: a re-scrape mustn't overwrite staff edits, and the
+                # deadline/apply link are left blank for staff rather than invented.
+                job_obj, created = JobListing.objects.get_or_create(
                     title=optimized['title'],
                     exam=ex,
                     defaults={
@@ -955,9 +787,8 @@ class Command(BaseCommand):
                         'location':    optimized['location'],
                         'bps_grade':   optimized['bps_grade'],
                         'description': optimized['description'],
-                        'last_date':   datetime.now().date() + timedelta(days=30),
-                        'apply_link':  f'https://www.{item["board"]}.gov.pk',
-                        'status':      'active',
+                        'apply_link':  item.get('url', '') or '',
+                        'status':      JobListing.Status.UPCOMING,
                     }
                 )
 

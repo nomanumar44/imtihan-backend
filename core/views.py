@@ -1,7 +1,10 @@
+import hmac
 import json
 import logging
 import random
+import re
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
 from django.conf import settings
@@ -10,9 +13,11 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, F, Q, Sum
 from django.db.utils import OperationalError, ProgrammingError
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.text import slugify
 
 from rest_framework import viewsets, status
@@ -21,8 +26,13 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+
+from .gamification import (
+    XP_PER_CORRECT, XP_PER_TEST, level_for_xp, next_level_xp as level_threshold, user_streak,
+)
+from .permissions import IsStaffOrReadOnly, is_staff_request
 
 from .models import (
     Exam, Subject, CurrentAffairsCategory, MCQ, PastPaper, Syllabus,
@@ -43,7 +53,7 @@ from .serializers import (
     DashboardStatsSerializer, ContactMessageSerializer, UserProfileSerializer,
     BookmarkSerializer, EmailSubscriptionSerializer, NotificationSerializer,
     CategorySerializer, TagSerializer, PostListSerializer, PostDetailSerializer,
-    CommentSerializer, NewsSubscriberSerializer,
+    CommentSerializer, CommentCreateSerializer, NewsSubscriberSerializer,
     AIUsageSerializer, ChatSessionSerializer, ChatMessageSerializer,
     JobProfileSerializer, UserEducationSerializer, UserExperienceSerializer,
     UserDocumentSerializer, JobApplicationSerializer,
@@ -59,20 +69,25 @@ class ExamViewSet(viewsets.ModelViewSet):
         mcqs_count=Count('mcqs', filter=Q(mcqs__status='published'), distinct=True),
         past_papers_count=Count('past_papers', filter=Q(past_papers__status='published'), distinct=True),
         syllabi_count=Count('syllabi', distinct=True)
-    ).all()
+    ).order_by('name')
     serializer_class = ExamSerializer
+    permission_classes = [IsStaffOrReadOnly]
     lookup_field = 'slug'
 
 class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.annotate(
         mcqs_count=Count('mcqs', filter=Q(mcqs__status='published'), distinct=True)
-    ).all()
+    ).order_by('name')
     serializer_class = SubjectSerializer
+    permission_classes = [IsStaffOrReadOnly]
     lookup_field = 'slug'
 
 
 class MCQViewSet(viewsets.ModelViewSet):
     queryset = MCQ.objects.select_related('exam', 'subject', 'current_affairs_category').all()
+    permission_classes = [IsStaffOrReadOnly]
+    # Numeric ids only, so sibling routes such as mcqs/bulk-upload/ are not captured.
+    lookup_value_regex = r'\d+'
 
     def get_serializer_class(self):
         if self.action in ['list']:
@@ -81,6 +96,8 @@ class MCQViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if not is_staff_request(self.request):
+            qs = qs.filter(status=MCQ.Status.PUBLISHED)
         exam = self.request.query_params.get('exam')
         subject = self.request.query_params.get('subject')
         current_affairs_category = self.request.query_params.get('current_affairs_category')
@@ -99,9 +116,12 @@ class MCQViewSet(viewsets.ModelViewSet):
 class PastPaperViewSet(viewsets.ModelViewSet):
     queryset = PastPaper.objects.select_related('exam', 'subject').all()
     serializer_class = PastPaperSerializer
+    permission_classes = [IsStaffOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if not is_staff_request(self.request):
+            qs = qs.filter(status=PastPaper.Status.PUBLISHED)
         exam = self.request.query_params.get('exam')
         year = self.request.query_params.get('year')
         if exam:
@@ -114,6 +134,7 @@ class PastPaperViewSet(viewsets.ModelViewSet):
 class SyllabusViewSet(viewsets.ModelViewSet):
     queryset = Syllabus.objects.select_related('exam').all()
     serializer_class = SyllabusSerializer
+    permission_classes = [IsStaffOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -123,9 +144,18 @@ class SyllabusViewSet(viewsets.ModelViewSet):
         return qs
 
 
+def open_jobs(qs, today=None):
+    """Active/upcoming jobs whose last date (if known) hasn't passed."""
+    today = today or timezone.localdate()
+    return qs.filter(
+        status__in=[JobListing.Status.ACTIVE, JobListing.Status.UPCOMING],
+    ).exclude(last_date__lt=today)
+
+
 class JobListingViewSet(viewsets.ModelViewSet):
     queryset = JobListing.objects.select_related('exam', 'syllabus').all()
     serializer_class = JobListingSerializer
+    permission_classes = [IsStaffOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -133,33 +163,42 @@ class JobListingViewSet(viewsets.ModelViewSet):
         q_status = self.request.query_params.get('status')
         if exam:
             qs = qs.filter(exam__slug=exam)
-        if q_status:
-            qs = qs.filter(status=q_status)
+        if q_status == JobListing.Status.CLOSED:
+            # Closed explicitly, or still marked open but past its last date
+            qs = qs.filter(Q(status=q_status) | Q(last_date__lt=timezone.localdate()))
+        elif q_status:
+            qs = qs.filter(status=q_status).exclude(last_date__lt=timezone.localdate())
         return qs
 
 
 class StudentViewSet(viewsets.ModelViewSet):
-    queryset = Student.objects.select_related('user').all()
+    queryset = Student.objects.select_related('user').order_by('id')
     serializer_class = StudentSerializer
+    permission_classes = [IsAdminUser]
 
 
 class TestResultViewSet(viewsets.ModelViewSet):
     queryset = TestResult.objects.select_related('student', 'exam', 'subject').all()
     serializer_class = TestResultSerializer
+    permission_classes = [IsAdminUser]
 
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ActivityLog.objects.all()[:50]
+    queryset = ActivityLog.objects.all()
     serializer_class = ActivityLogSerializer
+    permission_classes = [IsAdminUser]
 
 
 class SignupThrottle(AnonRateThrottle):
+    scope = 'signup'  # own cache key, not shared with the global anon limit
     rate = '5/min'
 
 class LoginThrottle(AnonRateThrottle):
+    scope = 'login'  # own cache key, not shared with the global anon limit
     rate = '10/min'
 
 class ContactThrottle(AnonRateThrottle):
+    scope = 'contact'  # own cache key, not shared with the global anon limit
     rate = '3/min'
 
 
@@ -246,6 +285,7 @@ def _serialize_current_affairs_question(question, index):
 # ─── Dashboard Stats ────────────────────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def dashboard_stats(request):
     """Return aggregate stats for the admin dashboard."""
     now = timezone.now()
@@ -284,6 +324,7 @@ def dashboard_stats(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def recent_mcqs(request):
     """Return most recent 10 MCQs for the dashboard table."""
     mcqs = MCQ.objects.select_related('exam', 'subject').all()[:10]
@@ -292,6 +333,7 @@ def recent_mcqs(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def recent_activity(request):
     """Return most recent 10 activity log entries."""
     activities = ActivityLog.objects.all()[:10]
@@ -299,55 +341,101 @@ def recent_activity(request):
     return Response(serializer.data)
 
 
+_CORRECT_OPTION_RE = re.compile(r'(?:OPTION|OPT|ANSWER|ANS)?\s*[:.\-]?\s*\(?([A-D])\)?\.?')
+
+
+def _normalize_correct_option(raw, options):
+    """Map 'b', 'Option B', '(b)', '2' or the option's own text to a letter A–D ('' if unknown)."""
+    value = str(raw or '').strip()
+    if not value:
+        return ''
+    match = _CORRECT_OPTION_RE.fullmatch(value.upper())
+    if match:
+        return match.group(1)
+    if value in ('1', '2', '3', '4'):
+        return 'ABCD'[int(value) - 1]
+    for key in 'abcd':
+        if options[key] and options[key].lower() == value.lower():
+            return key.upper()
+    return ''
+
+
 @api_view(['POST'])
+@permission_classes([IsAdminUser])
 def bulk_upload_mcqs(request):
-    """Handle bulk creation of MCQs from Excel uploader."""
+    """Handle bulk creation of MCQs from the dashboard Excel/manual uploader."""
     data = request.data
-    board_slug = data.get('board')
-    subject_name = data.get('subject')
+    board_slug = (data.get('board') or '').strip().lower()
+    subject_name = (data.get('subject') or '').strip()
     questions = data.get('questions', [])
-    status_val = data.get('status', 'draft')
+    status_val = data.get('status', MCQ.Status.DRAFT)
     category_slug = data.get('current_affairs_category') or data.get('current_affairs_category_slug')
 
-    if not board_slug or not subject_name or not questions:
+    if not board_slug or not subject_name or not questions or not isinstance(questions, list):
         return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
+    if status_val not in MCQ.Status.values:
+        return Response({'error': f'Invalid status "{status_val}".'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Get or create Exam and Subject
-    exam, _ = Exam.objects.get_or_create(slug=board_slug, defaults={'name': board_slug.upper()})
-    subject, _ = Subject.objects.get_or_create(name=subject_name, defaults={'slug': subject_name.lower().replace(' ', '-')})
-    current_affairs_category = None
-    if category_slug:
-        current_affairs_category = CurrentAffairsCategory.objects.filter(
-            slug=category_slug,
-            is_active=True,
-        ).first()
+    # Reuse an existing subject by name or slug so uploads don't create near-duplicates.
+    subject_slug = slugify(subject_name)
+    subject = Subject.objects.filter(Q(name__iexact=subject_name) | Q(slug=subject_slug)).first()
 
-    created_count = 0
-    for q in questions:
-        item_category = current_affairs_category
-        item_category_slug = q.get('current_affairs_category') or q.get('current_affairs_category_slug')
-        if item_category_slug:
-            item_category = CurrentAffairsCategory.objects.filter(
-                slug=item_category_slug,
+    errors = []
+    rows = []
+    for index, q in enumerate(questions, start=1):
+        if not isinstance(q, dict):
+            errors.append(f'Row {index}: invalid row.')
+            continue
+        question_text = (q.get('question_text') or '').strip()
+        options = {key: str(q.get(f'option_{key}') or '').strip() for key in 'abcd'}
+        correct = _normalize_correct_option(q.get('correct_answer'), options)
+        if not question_text or not options['a'] or not options['b'] or not options['c']:
+            errors.append(f'Row {index}: question text and options A–C are required.')
+        elif correct not in ('A', 'B', 'C', 'D') or (correct == 'D' and not options['d']):
+            errors.append(f'Row {index}: correct answer must be A–D and point to a non-empty option.')
+        else:
+            rows.append((q, question_text, options, correct))
+
+    if errors:
+        return Response({'error': 'Some rows are invalid.', 'errors': errors[:50]}, status=status.HTTP_400_BAD_REQUEST)
+
+    with transaction.atomic():
+        exam, _ = Exam.objects.get_or_create(slug=board_slug, defaults={'name': board_slug.upper()})
+        if subject is None:
+            subject = Subject.objects.create(name=subject_name, slug=subject_slug)
+        current_affairs_category = None
+        if category_slug:
+            current_affairs_category = CurrentAffairsCategory.objects.filter(
+                slug=category_slug,
                 is_active=True,
             ).first()
 
-        MCQ.objects.create(
-            exam=exam,
-            subject=subject,
-            question_text=q.get('question_text', ''),
-            option_a=q.get('option_a', ''),
-            option_b=q.get('option_b', ''),
-            option_c=q.get('option_c', ''),
-            option_d=q.get('option_d', ''),
-            correct_option=q.get('correct_answer', 'A')[:1].upper(),
-            explanation=q.get('explanation', ''),
-            current_affairs_category=item_category if subject.slug == 'current-affairs' else None,
-            source_url=data.get('source', ''),
-            status=status_val
-        )
-        created_count += 1
+        for q, question_text, options, correct in rows:
+            item_category = current_affairs_category
+            item_category_slug = q.get('current_affairs_category') or q.get('current_affairs_category_slug')
+            if item_category_slug:
+                item_category = CurrentAffairsCategory.objects.filter(
+                    slug=item_category_slug,
+                    is_active=True,
+                ).first()
 
+            MCQ.objects.create(
+                exam=exam,
+                subject=subject,
+                question_text=question_text,
+                option_a=options['a'],
+                option_b=options['b'],
+                option_c=options['c'],
+                option_d=options['d'],
+                correct_option=correct,
+                explanation=q.get('explanation', '') or '',
+                current_affairs_category=item_category if subject.slug == 'current-affairs' else None,
+                source_url=data.get('source', '') or '',
+                status=status_val,
+                created_by=request.user,
+            )
+
+    created_count = len(rows)
     return Response({'message': f'Successfully created {created_count} MCQs', 'count': created_count})
 
 # ─── Frontend APIs ────────────────────────────────────────────────────────────
@@ -367,30 +455,30 @@ def frontend_home(request):
         for s in subjects
     ]
 
-    # 2. Latest Jobs (latest 5 active / upcoming)
-    from datetime import date
-    today = date.today()
-    jobs = JobListing.objects.filter(
-        status__in=[JobListing.Status.ACTIVE, JobListing.Status.UPCOMING]
-    ).select_related('exam', 'syllabus').order_by('-created_at')[:5]
+    # 2. Latest Jobs (latest 5 open ones; a passed last date means closed)
+    today = timezone.localdate()
+    jobs = open_jobs(JobListing.objects.all(), today).select_related('exam', 'syllabus').order_by('-created_at')[:5]
     jobs_data = []
     for j in jobs:
         last_date = j.last_date
+        # "Closing" only when a real last date is within a week; never guessed.
         if last_date and last_date <= today + timedelta(days=7):
             job_status = 'Closing'
-        elif j.created_at and j.created_at.date() >= today - timedelta(days=7):
+        elif j.created_at and timezone.localdate(j.created_at) >= today - timedelta(days=7):
             job_status = 'New'
         else:
             job_status = 'Open'
         jobs_data.append({
             'id': j.id,
             'title': j.title,
-            'slug': getattr(j, 'slug', None) or slugify(j.title)[:350],
+            'slug': str(j.id),  # job pages are addressed by id (/jobs/<id>)
             'org': j.exam.name if j.exam else j.department,
-            'location': j.location if j.location else ('Federal' if j.exam and 'FPSC' in j.exam.name else 'Provincial'),
-            'date': j.last_date.strftime('%d %b') if j.last_date else 'Closing Soon',
+            'location': j.location,
+            'date': j.last_date.strftime('%d %b %Y') if j.last_date else '',
+            'last_date': j.last_date.isoformat() if j.last_date else None,
+            'apply_link': j.apply_link,
             'status': job_status,
-            'bps': j.bps_grade if j.bps_grade else 'BPS-14',
+            'bps': j.bps_grade,
             'syllabus_id': j.syllabus_id,
             'syllabus_title': j.syllabus.title if j.syllabus else '',
             'updated_at': j.updated_at.isoformat() if j.updated_at else None,
@@ -461,6 +549,15 @@ def frontend_announcements(request):
 
 # ─── Auth APIs ──────────────────────────────────────────────────────────────
 
+def _password_error(password, user=None):
+    """Run the configured AUTH_PASSWORD_VALIDATORS; return a message or None."""
+    try:
+        validate_password(password, user)
+    except DjangoValidationError as e:
+        return ' '.join(e.messages)
+    return None
+
+
 @api_view(['POST'])
 @throttle_classes([SignupThrottle])
 def student_signup(request):
@@ -473,6 +570,7 @@ def student_signup(request):
     full_name = data.get('full_name', '')
     username = data.get('username')
 
+    email = (email or '').strip()
     if not email or not password or not confirm_password:
         return Response({'error': 'Email, password, and confirm password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -482,7 +580,13 @@ def student_signup(request):
     if not accept_terms:
         return Response({'error': 'You must accept the terms and conditions.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not username:
+    if User.objects.filter(email__iexact=email).exists():
+        return Response({'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if username:
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({'error': 'Username is already taken.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
         username = email.split('@')[0]
         # ensure unique
         base_username = username
@@ -491,8 +595,9 @@ def student_signup(request):
             username = f"{base_username}{counter}"
             counter += 1
 
-    if User.objects.filter(email=email).exists():
-        return Response({'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
+    password_error = _password_error(password, User(username=username, email=email))
+    if password_error:
+        return Response({'error': password_error}, status=status.HTTP_400_BAD_REQUEST)
 
     user = User.objects.create_user(
         username=username,
@@ -540,7 +645,7 @@ def student_login(request):
         return Response({'error': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Allow login with email too
-    user_obj = User.objects.filter(email=username).first()
+    user_obj = User.objects.filter(email__iexact=username.strip()).first()
     if user_obj:
         username = user_obj.username
 
@@ -581,64 +686,79 @@ def student_login(request):
 def current_affairs_months(request):
     """
     Returns grouped list of months with MCQ counts for subject 'Current Affairs'
-    grouped by year. Includes per-region counts.
+    grouped by year (newest first). Includes per-region counts. Months are taken
+    in local time, matching the month detail endpoint.
     """
-    try:
-        mcqs = MCQ.objects.filter(subject__slug='current-affairs', status='published').select_related('current_affairs_category')
+    from django.db.models.functions import TruncMonth
 
-        if not mcqs.exists():
-            return Response({
-                '2026': [
-                    { 'name': 'January 2026', 'slug': 'january', 'count': 120, 'pak_count': 60, 'world_count': 60 },
-                    { 'name': 'February 2026', 'slug': 'february', 'count': 95, 'pak_count': 45, 'world_count': 50 },
-                    { 'name': 'March 2026', 'slug': 'march', 'count': 110, 'pak_count': 55, 'world_count': 55 },
-                    { 'name': 'April 2026', 'slug': 'april', 'count': 85, 'pak_count': 40, 'world_count': 45 },
-                    { 'name': 'May 2026', 'slug': 'may', 'count': 70, 'pak_count': 35, 'world_count': 35 },
-                ],
-                '2025': [
-                    { 'name': 'December 2025', 'slug': 'december', 'count': 130, 'pak_count': 65, 'world_count': 65 },
-                    { 'name': 'November 2025', 'slug': 'november', 'count': 115, 'pak_count': 55, 'world_count': 60 },
-                    { 'name': 'October 2025', 'slug': 'october', 'count': 105, 'pak_count': 50, 'world_count': 55 },
-                    { 'name': 'September 2025', 'slug': 'september', 'count': 90, 'pak_count': 45, 'world_count': 45 },
-                    { 'name': 'August 2025', 'slug': 'august', 'count': 88, 'pak_count': 43, 'world_count': 45 },
-                ]
-            })
+    rows = (
+        _published_current_affairs()
+        .annotate(month=TruncMonth('created_at'))
+        .values('month', 'current_affairs_category__region')
+        .annotate(n=Count('id'))
+        .order_by('-month')
+    )
 
-        grouped = {}
-        for mcq in mcqs:
-            yr = str(mcq.created_at.year)
-            m_name = mcq.created_at.strftime('%B')
-            m_slug = m_name.lower()
-            region = 'general'
-            cat = mcq.current_affairs_category
-            if cat:
-                region = cat.region
+    grouped = {}
+    for row in rows:
+        month = row['month']
+        yr = str(month.year)
+        m_name = month.strftime('%B')
+        entry = grouped.setdefault(yr, {}).setdefault(m_name.lower(), {
+            'name': f"{m_name} {yr}",
+            'slug': m_name.lower(),
+            'count': 0,
+            'pak_count': 0,
+            'world_count': 0,
+            'general_count': 0,
+        })
+        entry['count'] += row['n']
+        region = row['current_affairs_category__region']
+        key = {'pakistan': 'pak_count', 'world': 'world_count'}.get(region, 'general_count')
+        entry[key] += row['n']
 
-            if yr not in grouped:
-                grouped[yr] = {}
-            if m_slug not in grouped[yr]:
-                grouped[yr][m_slug] = {
-                    'name': f"{m_name} {yr}",
-                    'slug': m_slug,
-                    'count': 0,
-                    'pak_count': 0,
-                    'world_count': 0,
-                    'general_count': 0,
-                }
-            grouped[yr][m_slug]['count'] += 1
-            if region == 'pakistan':
-                grouped[yr][m_slug]['pak_count'] += 1
-            elif region == 'world':
-                grouped[yr][m_slug]['world_count'] += 1
-            else:
-                grouped[yr][m_slug]['general_count'] += 1
+    return Response({yr: list(months.values()) for yr, months in grouped.items()})
 
-        res = {}
-        for yr, months_dict in grouped.items():
-            res[yr] = list(months_dict.values())
-        return Response(res)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _current_affairs_payload(mcqs, title, region_filter):
+    """Group current-affairs MCQs into Pakistan / International / General categories.
+
+    With ?region=pakistan|world only that region's category is returned.
+    """
+    pk_questions = []
+    intl_questions = []
+    general_questions = []
+
+    for index, q in enumerate(mcqs.select_related('current_affairs_category').order_by('created_at', 'id'), start=1):
+        serialized = _serialize_current_affairs_question(q, index)
+        category = q.current_affairs_category
+        if category and category.region == CurrentAffairsCategory.Region.PAKISTAN:
+            pk_questions.append(serialized)
+        elif category and category.region == CurrentAffairsCategory.Region.WORLD:
+            intl_questions.append(serialized)
+        else:
+            general_questions.append(serialized)
+
+    categories = []
+    if region_filter == 'pakistan':
+        if pk_questions:
+            categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
+    elif region_filter == 'world':
+        if intl_questions:
+            categories.append({'name': 'International Affairs', 'questions': intl_questions})
+    else:
+        if intl_questions:
+            categories.append({'name': 'International Affairs', 'questions': intl_questions})
+        if pk_questions:
+            categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
+        if general_questions:
+            categories.append({'name': 'General Current Affairs', 'questions': general_questions})
+
+    return {'title': title, 'categories': categories}
+
+
+def _published_current_affairs():
+    return MCQ.objects.filter(subject__slug='current-affairs', status='published')
 
 
 @api_view(['GET'])
@@ -647,71 +767,37 @@ def current_affairs_detail(request, year, month):
     Returns MCQs for a specific year and month categorized under International/Pakistan Affairs.
     Optional query param: ?region=pakistan|world
     """
+    import calendar
+    month_names = [name.lower() for name in calendar.month_name]
+    if not year.isdigit() or month.lower() not in month_names[1:]:
+        return Response({'error': 'Unknown month.'}, status=status.HTTP_404_NOT_FOUND)
+    month_num = month_names.index(month.lower())
+
+    mcqs = _published_current_affairs().filter(created_at__year=int(year), created_at__month=month_num)
+    title = f"{month.title()} {year} Current Affairs"
+    return Response(_current_affairs_payload(mcqs, title, request.query_params.get('region', '').lower()))
+
+
+@api_view(['GET'])
+def current_affairs_daily(request, day):
+    """MCQs added on one day (YYYY-MM-DD), grouped like the monthly view."""
+    from django.utils.dateparse import parse_date
     try:
-        import calendar
-        try:
-            month_num = list(calendar.month_name).index(month.title())
-        except ValueError:
-            month_num = 1
+        parsed = parse_date(day)
+    except ValueError:
+        parsed = None
+    if not parsed:
+        return Response({'error': 'Use a date in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        region_filter = request.query_params.get('region', '').lower()
-
-        mcqs = MCQ.objects.filter(
-            subject__slug='current-affairs',
-            status='published',
-            created_at__year=year,
-            created_at__month=month_num
-        )
-
-        if not mcqs.exists():
-            return Response({
-                'title': f"{month.title()} {year} Current Affairs",
-                'categories': []
-            })
-
-        pk_questions = []
-        intl_questions = []
-        general_questions = []
-
-        for index, q in enumerate(mcqs.select_related('current_affairs_category'), start=1):
-            serialized = _serialize_current_affairs_question(q, index)
-            category = q.current_affairs_category
-            if category and category.region == CurrentAffairsCategory.Region.PAKISTAN:
-                pk_questions.append(serialized)
-            elif category and category.region == CurrentAffairsCategory.Region.WORLD:
-                intl_questions.append(serialized)
-            else:
-                general_questions.append(serialized)
-
-        # When a region is explicitly requested, exclude general/uncategorized questions
-        # and only return the matching region category.
-        categories = []
-        if region_filter == 'pakistan':
-            if pk_questions:
-                categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
-        elif region_filter == 'world':
-            if intl_questions:
-                categories.append({'name': 'International Affairs', 'questions': intl_questions})
-        else:
-            if intl_questions:
-                categories.append({'name': 'International Affairs', 'questions': intl_questions})
-            if pk_questions:
-                categories.append({'name': 'Pakistan Affairs', 'questions': pk_questions})
-            if general_questions:
-                categories.append({'name': 'General Current Affairs', 'questions': general_questions})
-
-        return Response({
-            'title': f"{month.title()} {year} Current Affairs",
-            'categories': categories
-        })
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    mcqs = _published_current_affairs().filter(created_at__date=parsed)
+    title = f"{parsed:%d %B %Y} Current Affairs"
+    return Response(_current_affairs_payload(mcqs, title, request.query_params.get('region', '').lower()))
 
 @api_view(['GET'])
 def frontend_mcq_subjects(request):
     """Return subjects that have MCQs, paginated (default 30 per page)."""
-    page_num = int(request.query_params.get('page', 1))
-    page_size = int(request.query_params.get('page_size', 30))
+    page_num = _query_int(request, 'page', 1)
+    page_size = _query_int(request, 'page_size', 30, maximum=100)
     subjects = Subject.objects.annotate(mcq_count=Count('mcqs', filter=Q(mcqs__status='published'))).filter(mcq_count__gt=0).order_by('-mcq_count')
     paginator = Paginator(subjects, page_size)
     page = paginator.get_page(page_num)
@@ -763,7 +849,7 @@ def frontend_mcq_subject_questions(request, subject_slug):
     from django.core.paginator import Paginator
     subject = get_object_or_404(Subject, slug=subject_slug)
     
-    page_num = int(request.query_params.get('page', 1))
+    page_num = _query_int(request, 'page', 1)
     page_size = 20
     
     mcqs = MCQ.objects.filter(subject=subject, status='published').order_by('id')
@@ -843,6 +929,15 @@ def frontend_mcq_set_detail(request, subject_slug, set_id):
         'questions': questions_list
     })
 
+def _mock_test_title(job_slug):
+    """Jobs link to their mock test by id; show the job title rather than the number."""
+    if job_slug.isdigit():
+        job = JobListing.objects.filter(pk=int(job_slug)).only('title').first()
+        if job:
+            return f'{job.title} Mock Test'
+    return f'Mock Test ({job_slug.replace("-", " ").title()})'
+
+
 @api_view(['GET'])
 def frontend_mock_test(request, job_slug):
     """Generate a dynamic 100-question mock test based on specific syllabus weightages.
@@ -912,13 +1007,11 @@ def frontend_mock_test(request, job_slug):
             try:
                 parsed = json.loads(user_breakdown)
                 if isinstance(parsed, dict) and parsed:
-                    total = sum(parsed.values())
-                    if total == 0:
-                        total = 100
+                    breakdown ={str(k): max(0, min(int(v), MAX_TEST_QUESTIONS)) for k, v in parsed.items()}
                     config = {
-                        'title': f'Mock Test ({job_slug.replace("-", " ").title()})',
-                        'total': total,
-                        'breakdown': {str(k): int(v) for k, v in parsed.items()},
+                        'title': _mock_test_title(job_slug),
+                        'total': min(sum(breakdown.values()) or 100, MAX_TEST_QUESTIONS),
+                        'breakdown': breakdown,
                     }
             except (json.JSONDecodeError, ValueError, TypeError):
                 pass  # fall through to auto-distribution
@@ -952,7 +1045,7 @@ def frontend_mock_test(request, job_slug):
                 breakdown[subj_slug] = count_per_subject + (1 if i < remainder else 0)
 
             config = {
-                'title': f'Mock Test ({job_slug.replace("-", " ").title()})',
+                'title': _mock_test_title(job_slug),
                 'total': total_questions,
                 'breakdown': breakdown,
             }
@@ -1069,7 +1162,7 @@ def frontend_past_papers_list(request):
     """
     exam_slug    = request.query_params.get('exam', '')
     subject_slug = request.query_params.get('subject', '')
-    page_num     = int(request.query_params.get('page', 1))
+    page_num     = _query_int(request, 'page', 1)
     page_size    = 20
 
     qs = PastPaper.objects.select_related('exam', 'subject').filter(
@@ -1153,6 +1246,11 @@ def frontend_past_paper_detail(request, slug):
     })
 
 
+def _latin1(text):
+    """fpdf core fonts are Latin-1 only; replace anything else instead of crashing."""
+    return str(text or '').encode('latin-1', 'replace').decode('latin-1')
+
+
 @api_view(['GET'])
 def frontend_past_paper_pdf(request, slug):
     """Generate and return a PDF of the past paper with all MCQs."""
@@ -1176,7 +1274,7 @@ def frontend_past_paper_pdf(request, slug):
     # Header / Title
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(13, 58, 92)
-    pdf.cell(0, 10, paper.title, ln=True, align='C')
+    pdf.cell(0, 10, _latin1(paper.title), ln=True, align='C')
 
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(107, 114, 128)
@@ -1186,7 +1284,7 @@ def frontend_past_paper_pdf(request, slug):
     if paper.year:
         meta += f"  -  {paper.year}"
     meta += f"  -  {mcqs.count()} Questions"
-    pdf.cell(0, 6, meta, ln=True, align='C')
+    pdf.cell(0, 6, _latin1(meta), ln=True, align='C')
 
     pdf.set_draw_color(29, 158, 117)
     pdf.set_line_width(0.5)
@@ -1201,7 +1299,7 @@ def frontend_past_paper_pdf(request, slug):
         pdf.set_font('Helvetica', 'B', 11)
         pdf.set_text_color(26, 32, 44)
         q_text = f"{i}.  {q.question_text}"
-        pdf.multi_cell(0, 6, q_text.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+        pdf.multi_cell(0, 6, _latin1(q_text), ln=True)
 
         options = [q.option_a, q.option_b, q.option_c, q.option_d]
         correct_idx = opt_map.get(q.correct_option, 0)
@@ -1214,7 +1312,7 @@ def frontend_past_paper_pdf(request, slug):
             label = labels[idx]
             is_correct = idx == correct_idx
 
-            safe_opt = opt.encode('latin-1', 'replace').decode('latin-1')
+            safe_opt = _latin1(opt)
 
             if is_correct:
                 pdf.set_fill_color(225, 245, 238)
@@ -1247,7 +1345,7 @@ def frontend_past_paper_pdf(request, slug):
             pdf.set_text_color(146, 64, 14)
             pdf.set_font('Helvetica', '', 9)
             pdf.cell(8, 5, '', ln=0)
-            safe_exp = q.explanation.encode('latin-1', 'replace').decode('latin-1')
+            safe_exp = _latin1(q.explanation)
             pdf.multi_cell(0, 5, f"Explanation: {safe_exp}", ln=True, fill=True)
 
         pdf.ln(4)
@@ -1257,9 +1355,9 @@ def frontend_past_paper_pdf(request, slug):
     pdf.set_y(-15)
     pdf.set_font('Helvetica', 'I', 8)
     pdf.set_text_color(156, 163, 175)
-    pdf.cell(0, 10, f"Generated by Imtihan.pk  -  {paper.exam.name}  -  {paper.title}", ln=True, align='C')
+    pdf.cell(0, 10, _latin1(f"Generated by ImtihanHub  -  {paper.exam.name}  -  {paper.title}"), ln=True, align='C')
 
-    filename = f"{paper.title.replace(' ', '_').replace(',', '')}_MCQs.pdf"
+    filename = f"{paper.slug}-mcqs.pdf"  # slug is ASCII-safe for the header
     pdf_buffer = BytesIO()
     pdf.output(pdf_buffer)
     pdf_buffer.seek(0)
@@ -1300,8 +1398,8 @@ def frontend_syllabus_list(request):
     Query params: exam=<slug>&page=<int>&page_size=<int>
     """
     exam_slug = request.query_params.get('exam', '')
-    page_num = int(request.query_params.get('page', 1))
-    page_size = int(request.query_params.get('page_size', 20))
+    page_num = _query_int(request, 'page', 1)
+    page_size = _query_int(request, 'page_size', 20, maximum=100)
     qs = Syllabus.objects.select_related('exam').order_by('exam__name', 'title')
     if exam_slug:
         qs = qs.filter(exam__slug=exam_slug)
@@ -1373,6 +1471,7 @@ except ImportError:
 
 
 class GoogleLoginThrottle(AnonRateThrottle):
+    scope = 'google_login'  # own cache key, not shared with the global anon limit
     rate = '10/min'
 
 
@@ -1405,15 +1504,19 @@ def google_login(request):
             clock_skew_in_seconds=10
         )
     except Exception as e:
-        return Response({'error': f'Invalid Google token: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
+        logger.info('Rejected Google token: %s', e)
+        return Response({'error': 'Invalid Google token.'}, status=status.HTTP_401_UNAUTHORIZED)
 
     # Validate issuer
     if idinfo.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
         return Response({'error': 'Invalid token issuer.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    email = idinfo.get('email')
+    email = (idinfo.get('email') or '').strip()
     if not email:
         return Response({'error': 'Email not provided by Google.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Only a Google-verified address may sign in to (or be linked with) an account.
+    if idinfo.get('email_verified') not in (True, 'true'):
+        return Response({'error': 'Your Google email address is not verified.'}, status=status.HTTP_401_UNAUTHORIZED)
 
     google_id = idinfo.get('sub')
     full_name = idinfo.get('name', '')
@@ -1422,7 +1525,7 @@ def google_login(request):
     picture = idinfo.get('picture', '')
 
     # Try to find existing user by email first
-    user = User.objects.filter(email=email).first()
+    user = User.objects.filter(email__iexact=email).first()
 
     if user:
         # Update Google ID and picture on the profile if not set
@@ -1448,7 +1551,7 @@ def google_login(request):
         user = User.objects.create_user(
             username=username,
             email=email,
-            password='',  # unusable for password login
+            password=None,  # unusable: Google-only accounts can't log in with a password
             first_name=given_name or (full_name.split(' ')[0] if full_name else ''),
             last_name=family_name or (' '.join(full_name.split(' ')[1:]) if full_name else ''),
         )
@@ -1493,14 +1596,9 @@ def user_dashboard_stats(request):
     """Return comprehensive stats for the authenticated user's dashboard."""
     user = request.user
     student = getattr(user, 'student_profile', None)
-    today = timezone.now().date()
-
-    # Reset daily counters if last practice was not today
-    if student and student.last_practice_date != today:
-        student.mcqs_today = 0
-        student.tests_today = 0
-        student.last_practice_date = today
-        student.save(update_fields=['mcqs_today', 'tests_today', 'last_practice_date'])
+    today = timezone.localdate()
+    # Daily counters belong to last_practice_date; on any other day they read as zero.
+    mcqs_today = student.mcqs_today if student and student.last_practice_date == today else 0
 
     total_tests = TestResult.objects.filter(student=user).count()
     avg_score = TestResult.objects.filter(student=user).aggregate(
@@ -1511,19 +1609,7 @@ def user_dashboard_stats(request):
         total=Sum('total_questions')
     )['total'] or 0
 
-    # Compute streak from test result dates
-    streak = 0
-    test_dates = sorted(
-        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
-        reverse=True
-    )
-    if test_dates:
-        streak = 1
-        for i in range(1, len(test_dates)):
-            if (test_dates[i-1] - test_dates[i]).days == 1:
-                streak += 1
-            else:
-                break
+    streak = user_streak(user, today)
 
     # Subject-wise performance for recommendations
     subject_scores = {}
@@ -1560,7 +1646,7 @@ def user_dashboard_stats(request):
         'total_mcqs_practiced': total_mcqs,
         'streak_days': streak,
         'daily_goal': student.daily_goal if student else 20,
-        'mcqs_today': student.mcqs_today if student else 0,
+        'mcqs_today': mcqs_today,
         'recommendations': recommendations,
     })
 
@@ -1609,8 +1695,8 @@ def user_recent_tests(request):
     worst = qs.aggregate(worst=models.Min('score_percent'))['worst'] or 0
 
     # Pagination
-    page_size = int(request.query_params.get('page_size', 10))
-    page_num = int(request.query_params.get('page', 1))
+    page_size = _query_int(request, 'page_size', 10, maximum=100)
+    page_num = _query_int(request, 'page', 1)
     from django.core.paginator import Paginator
     paginator = Paginator(qs, page_size)
     page = paginator.get_page(page_num)
@@ -1660,7 +1746,7 @@ def quick_practice(request):
 def user_progress(request):
     """Return detailed progress data for charts and analytics."""
     user = request.user
-    today = timezone.now().date()
+    today = timezone.localdate()
     last_30 = today - timezone.timedelta(days=30)
 
     # Score over last 30 days
@@ -1768,7 +1854,7 @@ def user_gamification(request):
     """Return streak, XP, achievements, and leaderboard data."""
     user = request.user
     student = getattr(user, 'student_profile', None)
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # Daily practice heatmap (last 90 days)
     logs = DailyPracticeLog.objects.filter(
@@ -1809,31 +1895,19 @@ def user_gamification(request):
             user_rank = idx
             break
 
-    # Level thresholds
+    # Level thresholds (XP is cumulative; the level is derived from it)
     LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert']
     xp = student.xp_points if student else 0
-    level_idx = min(student.level - 1 if student else 0, 3)
-    level_name = LEVELS[level_idx]
-    next_level_xp = (student.level * 500) if student else 500
+    level = level_for_xp(xp)
+    level_name = LEVELS[min(level - 1, len(LEVELS) - 1)]
+    next_level_xp = level_threshold(level)
 
-    # Streak (computed from test dates)
-    streak = 0
-    test_dates = sorted(
-        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
-        reverse=True
-    )
-    if test_dates:
-        streak = 1
-        for i in range(1, len(test_dates)):
-            if (test_dates[i-1] - test_dates[i]).days == 1:
-                streak += 1
-            else:
-                break
+    streak = user_streak(user, today)
 
     return Response({
         'streak_days': streak,
         'xp_points': xp,
-        'level': student.level if student else 1,
+        'level': level,
         'level_name': level_name,
         'next_level_xp': next_level_xp,
         'xp_to_next': max(0, next_level_xp - xp),
@@ -1912,6 +1986,7 @@ def delete_bookmark(request, bookmark_id):
 
 
 class SubscribeThrottle(AnonRateThrottle):
+    scope = 'subscribe'  # own cache key, not shared with the global anon limit
     rate = '5/hour'
 
 @api_view(['POST'])
@@ -1940,32 +2015,114 @@ def subscribe_email(request):
 
 logger = logging.getLogger(__name__)
 
+MAX_TEST_QUESTIONS = 200
+MAX_TEST_SECONDS = 6 * 60 * 60
+
+
+def _int_or_none(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _query_int(request, name, default, minimum=1, maximum=None):
+    """Integer query param clamped to [minimum, maximum]; bad input falls back to default."""
+    value = _int_or_none(request.query_params.get(name))
+    if value is None:
+        value = default
+    value = max(minimum, value)
+    return min(value, maximum) if maximum is not None else value
+
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def submit_test(request):
-    """Submit a completed test and save results + per-question answers."""
+    """Submit a completed test and save results + per-question answers.
+
+    Correctness and score are computed here from the stored MCQs; the client's
+    own is_correct / score fields are ignored. XP, streaks and daily counters
+    are awarded by the TestResult post_save signal.
+    """
     data = request.data
     user = request.user
-    student = getattr(user, 'student_profile', None)
 
-    exam_id = data.get('exam_id')
-    subject_id = data.get('subject_id')
+    answers_data = data.get('answers')
+    if not isinstance(answers_data, list) or not answers_data:
+        return Response({'error': 'A test must include at least one answer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # One entry per question; ignore repeats and anything beyond a full-length mock.
+    unique_answers = {}
+    for ans in answers_data:
+        if not isinstance(ans, dict):
+            continue
+        try:
+            question_id = int(ans.get('question_id'))
+        except (TypeError, ValueError):
+            continue
+        unique_answers.setdefault(question_id, ans)
+    answers = list(unique_answers.items())[:MAX_TEST_QUESTIONS]
+    if not answers:
+        return Response({'error': 'No valid answers in submission.'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        total_questions = int(data.get('total_questions', 0))
-        correct_answers = int(data.get('correct_answers', 0))
-        wrong_answers = int(data.get('wrong_answers', 0))
-        score_percent = float(data.get('score_percent', 0))
-        time_taken_seconds = int(data.get('time_taken_seconds', 0))
-    except (ValueError, TypeError) as e:
-        logger.error(f"Invalid test submission data from user {user.id}: {e}")
-        return Response({'error': 'Invalid numeric fields in submission.'}, status=status.HTTP_400_BAD_REQUEST)
+        time_taken_seconds = int(data.get('time_taken_seconds') or 0)
+    except (ValueError, TypeError):
+        time_taken_seconds = 0
+    time_taken_seconds = min(max(time_taken_seconds, 0), MAX_TEST_SECONDS)
 
-    answers_data = data.get('answers', [])
+    mcqs = MCQ.objects.in_bulk([question_id for question_id, _ in answers])
 
+    rows = []
+    correct_answers = wrong_answers = 0
+    for question_id, ans in answers:
+        selected = str(ans.get('selected_option') or '').strip().upper()[:1]
+        if selected not in ('A', 'B', 'C', 'D'):
+            selected = ''
+        mcq = mcqs.get(question_id)
+        if mcq:
+            question_text, explanation = mcq.question_text, mcq.explanation
+            options = [mcq.option_a, mcq.option_b, mcq.option_c, mcq.option_d]
+            correct_option = mcq.correct_option
+            is_correct = bool(selected) and selected == correct_option
+        else:
+            # Unknown question: keep the text for the review page, but it can't score.
+            question_text = str(ans.get('question_text') or '')
+            explanation = str(ans.get('explanation') or '')
+            options = [str(ans.get(f'option_{key}') or '') for key in 'abcd']
+            correct_option = str(ans.get('correct_option') or '')[:1].upper()
+            is_correct = False
+        if is_correct:
+            correct_answers += 1
+        elif selected:
+            wrong_answers += 1
+        rows.append(TestAnswer(
+            question_id=question_id,
+            question_text=question_text,
+            option_a=options[0], option_b=options[1], option_c=options[2], option_d=options[3],
+            correct_option=correct_option,
+            selected_option=selected,
+            explanation=explanation,
+            is_correct=is_correct,
+        ))
+
+    total_questions = len(rows)
+    score_percent = round(correct_answers * 100 / total_questions, 2)
+
+    def single_value(ids):
+        ids = set(ids)
+        return ids.pop() if len(ids) == 1 else None
+
+    exam_id, subject_id = _int_or_none(data.get('exam_id')), _int_or_none(data.get('subject_id'))
     exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
     subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
+    if exam is None:
+        exam_id = single_value(m.exam_id for m in mcqs.values())
+        exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
+    if subject is None:
+        subject_id = single_value(m.subject_id for m in mcqs.values())
+        subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
 
     try:
         with transaction.atomic():
@@ -1979,42 +2136,18 @@ def submit_test(request):
                 score_percent=score_percent,
                 time_taken_seconds=time_taken_seconds,
             )
-
-            for ans in answers_data:
-                TestAnswer.objects.create(
-                    test_result=test_result,
-                    question_id=ans.get('question_id', 0),
-                    question_text=ans.get('question_text', ''),
-                    option_a=ans.get('option_a', ''),
-                    option_b=ans.get('option_b', ''),
-                    option_c=ans.get('option_c', ''),
-                    option_d=ans.get('option_d', ''),
-                    correct_option=ans.get('correct_option', ''),
-                    selected_option=ans.get('selected_option', ''),
-                    explanation=ans.get('explanation', ''),
-                    is_correct=ans.get('is_correct', False),
-                )
-
-            # Update student XP and streak
-            if student:
-                xp_earned = correct_answers * 10
-                student.xp_points += xp_earned
-                # Level up logic
-                while student.xp_points >= student.level * 500:
-                    student.level += 1
-                student.mcqs_today += total_questions
-                student.save()
-
-                # Daily practice log
-                today = timezone.now().date()
-                log, _ = DailyPracticeLog.objects.get_or_create(user=user, date=today, defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0})
-                log.mcqs_answered += total_questions
-                log.tests_completed += 1
-                log.xp_earned += xp_earned
-                log.save()
+            for row in rows:
+                row.test_result = test_result
+            TestAnswer.objects.bulk_create(rows)
 
         logger.info(f"Test submitted: id={test_result.id} user={user.id} questions={total_questions} score={score_percent}%")
-        return Response({'test_id': test_result.id, 'message': 'Test submitted successfully.'})
+        return Response({
+            'test_id': test_result.id,
+            'message': 'Test submitted successfully.',
+            'correct_answers': correct_answers,
+            'wrong_answers': wrong_answers,
+            'score_percent': score_percent,
+        })
     except Exception as e:
         logger.exception(f"Test submission failed for user {user.id}: {e}")
         return Response({'error': 'Failed to save test result. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -2037,7 +2170,7 @@ def leaderboard(request):
     """Return leaderboard rankings. Supports period (weekly, monthly, all_time) and board filter."""
     period = request.query_params.get('period', 'weekly')
     board = request.query_params.get('board', '')
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     if period == 'weekly':
         start = today - timezone.timedelta(days=today.weekday())
@@ -2046,71 +2179,67 @@ def leaderboard(request):
     else:
         start = None
 
-    # Base queryset for test results
-    qs = TestResult.objects.all().select_related('student', 'exam')
+    # Tests in scope give tests taken / average score for everyone listed.
+    qs = TestResult.objects.all()
     if board:
         qs = qs.filter(exam__slug__iexact=board)
-
     if start:
         qs = qs.filter(created_at__date__gte=start)
+    stats = {
+        row['student_id']: row
+        for row in qs.values('student_id').annotate(
+            tests_taken=Count('id'), avg_score=Avg('score_percent'), correct=Sum('correct_answers'),
+        )
+    }
 
-    # Aggregate per student
-    from django.db.models import Count, Avg, Sum
-    rankings = qs.values('student__id', 'student__username', 'student__first_name', 'student__last_name').annotate(
-        tests_taken=Count('id'),
-        avg_score=Avg('score_percent'),
-        total_xp=models.Sum('correct_answers') * 10  # 10 XP per correct answer
-    ).order_by('-total_xp', '-avg_score', '-tests_taken')
-
-    # Get XP from DailyPracticeLog for richer totals
-    if start:
-        logs = DailyPracticeLog.objects.filter(date__gte=start)
+    # One XP source per view, so the ranking and the displayed XP always agree:
+    # board views count that board's tests only; period views use the practice log
+    # (which records every XP award); all-time uses each student's total XP.
+    if board:
+        xp_map = {
+            uid: (row['correct'] or 0) * XP_PER_CORRECT + row['tests_taken'] * XP_PER_TEST
+            for uid, row in stats.items()
+        }
+    elif start:
+        xp_map = dict(
+            DailyPracticeLog.objects.filter(date__gte=start)
+            .values('user_id').annotate(total=Sum('xp_earned')).values_list('user_id', 'total')
+        )
     else:
-        logs = DailyPracticeLog.objects.all()
-    log_map = {}
-    for log in logs.values('user_id').annotate(total_xp=Sum('xp_earned')):
-        log_map[log['user_id']] = log['total_xp'] or 0
+        xp_map = dict(Student.objects.filter(xp_points__gt=0).values_list('user_id', 'xp_points'))
 
-    result = []
-    for idx, r in enumerate(rankings[:50], start=1):
-        student_id = r['student__id']
-        xp = (r['total_xp'] or 0) + log_map.get(student_id, 0)
-        full_name = ' '.join(filter(None, [r['student__first_name'], r['student__last_name']])) or r['student__username']
-        result.append({
-            'rank': idx,
-            'username': r['student__username'],
-            'full_name': full_name,
-            'city': 'Pakistan',
-            'xp_points': xp,
-            'tests_taken': r['tests_taken'],
-            'avg_score': round(float(r['avg_score'] or 0), 1),
-        })
+    def sort_key(uid):
+        row = stats.get(uid, {})
+        return (-(xp_map.get(uid) or 0), -float(row.get('avg_score') or 0), -row.get('tests_taken', 0), uid)
 
-    # Current user's rank (if not in top 50)
-    current_user = None
-    user = request.user if request.user.is_authenticated else None
-    if user:
-        user_tests = TestResult.objects.filter(student=user)
-        if board:
-            user_tests = user_tests.filter(exam__slug__iexact=board)
-        if start:
-            user_tests = user_tests.filter(created_at__date__gte=start)
-        user_tests_count = user_tests.count()
-        user_avg = user_tests.aggregate(avg=Avg('score_percent'))['avg'] or 0
-        user_xp = (user_tests.aggregate(t=models.Sum('correct_answers'))['t'] or 0) * 10 + log_map.get(user.id, 0)
+    ranked_ids = sorted(
+        (uid for uid in set(xp_map) | set(stats) if xp_map.get(uid) or uid in stats),
+        key=sort_key,
+    )
+    top_ids = ranked_ids[:50]
+    current_id = request.user.id if request.user.is_authenticated else None
+    users = User.objects.select_related('student_profile').in_bulk(top_ids + ([current_id] if current_id else []))
 
-        # Compute rank by counting users with higher XP
-        higher = sum(1 for e in rankings if (e['total_xp'] or 0) > user_xp)
-        user_rank = higher + 1
-        current_user = {
-            'rank': user_rank,
+    def entry(rank, uid):
+        user = users[uid]
+        row = stats.get(uid, {})
+        student = getattr(user, 'student_profile', None)
+        return {
+            'rank': rank,
             'username': user.username,
             'full_name': user.get_full_name() or user.username,
-            'city': 'Pakistan',
-            'xp_points': user_xp,
-            'tests_taken': user_tests_count,
-            'avg_score': round(float(user_avg), 1),
+            'city': (student.city if student and student.city else 'Pakistan'),
+            'xp_points': xp_map.get(uid) or 0,
+            'tests_taken': row.get('tests_taken', 0),
+            'avg_score': round(float(row.get('avg_score') or 0), 1),
         }
+
+    result = [entry(idx, uid) for idx, uid in enumerate(top_ids, start=1) if uid in users]
+
+    # The signed-in user's own position (null when they have no activity in scope)
+    current_user = None
+    if current_id and current_id in ranked_ids:
+        current_user = entry(ranked_ids.index(current_id) + 1, current_id)
 
     return Response({
         'period': period,
@@ -2167,24 +2296,51 @@ def user_profile(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def change_password(request):
-    """Change user password."""
+    """Change the user's password (or set a first one for Google-only accounts).
+
+    The auth token is rotated so other devices are signed out; the new token
+    is returned for the current client.
+    """
     user = request.user
     current = request.data.get('current_password', '')
     new_pass = request.data.get('new_password', '')
     confirm = request.data.get('confirm_password', '')
 
-    if not user.check_password(current):
+    if user.has_usable_password() and not user.check_password(current):
         return Response({'error': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if len(new_pass) < 6:
-        return Response({'error': 'Password must be at least 6 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if new_pass != confirm:
         return Response({'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    password_error = _password_error(new_pass, user)
+    if password_error:
+        return Response({'error': password_error}, status=status.HTTP_400_BAD_REQUEST)
+
     user.set_password(new_pass)
-    user.save()
-    return Response({'message': 'Password changed successfully.'})
+    user.save(update_fields=['password'])
+    Token.objects.filter(user=user).delete()
+    token = Token.objects.create(user=user)
+    return Response({'message': 'Password changed successfully.', 'token': token.key})
+
+
+def _user_uploaded_files(user):
+    """Every stored file belonging to `user` (avatar, job profile, documents, payment proofs)."""
+    candidates = []
+    student = getattr(user, 'student_profile', None)
+    if student:
+        candidates.append(student.avatar)
+    profile = UserProfile.objects.filter(user=user).first()
+    if profile:
+        candidates.append(profile.profile_photo)
+    candidates += [e.certificate_file for e in user.educations.all()]
+    candidates += [e.experience_letter for e in user.experiences.all()]
+    candidates += [d.file for d in user.job_documents.all()]
+    subscription = AISubscription.objects.filter(user=user).first()
+    if subscription:
+        candidates.append(subscription.payment_screenshot)
+    for req in user.application_requests.all():
+        candidates += [req.payment_screenshot, req.submission_screenshot]
+    return [f for f in candidates if f]
 
 
 @api_view(['POST'])
@@ -2195,10 +2351,20 @@ def delete_account(request):
     user = request.user
     password = request.data.get('password', '')
 
-    if not user.check_password(password):
-        return Response({'error': 'Password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+    if user.has_usable_password():
+        if not user.check_password(password):
+            return Response({'error': 'Password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+    elif request.data.get('confirm_text', '').strip().upper() != 'DELETE':
+        return Response({'error': 'Type DELETE to confirm.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Rows cascade with the user, but Django leaves files on disk; remove them too.
+    files = _user_uploaded_files(user)
     user.delete()
+    for f in files:
+        try:
+            f.storage.delete(f.name)
+        except Exception:
+            logger.warning('Could not delete file %s for removed user', f.name)
     return Response({'message': 'Account deleted successfully.'})
 
 
@@ -2209,17 +2375,18 @@ def user_goals(request):
     """Get or update daily goal settings and return weekly progress."""
     user = request.user
     student, _ = Student.objects.get_or_create(user=user)
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     if request.method == 'POST':
         daily_goal = request.data.get('daily_goal')
         daily_test_goal = request.data.get('daily_test_goal')
         reminder_time = request.data.get('reminder_time')
 
+        daily_goal, daily_test_goal = _int_or_none(daily_goal), _int_or_none(daily_test_goal)
         if daily_goal is not None:
-            student.daily_goal = max(10, min(100, int(daily_goal)))
+            student.daily_goal = max(10, min(100, daily_goal))
         if daily_test_goal is not None:
-            student.daily_test_goal = max(0, min(3, int(daily_test_goal)))
+            student.daily_test_goal = max(0, min(3, daily_test_goal))
         if reminder_time:
             from django.utils.dateparse import parse_time
             parsed = parse_time(reminder_time)
@@ -2250,19 +2417,18 @@ def user_goals(request):
             'tests': tests,
         })
 
-    # Streak protection warning
-    streak_at_risk = False
-    if student.last_practice_date:
-        days_since = (today - student.last_practice_date).days
-        streak_at_risk = days_since >= 1 and student.streak_days > 0
+    # Streak protection warning: a live streak that today's practice hasn't extended yet
+    practiced_today = student.last_practice_date == today
+    streak_days = user_streak(user, today)
+    streak_at_risk = streak_days > 0 and not practiced_today
 
     return Response({
         'daily_goal': student.daily_goal,
         'daily_test_goal': student.daily_test_goal,
         'reminder_time': str(student.reminder_time) if student.reminder_time else None,
-        'mcqs_today': student.mcqs_today,
-        'tests_today': student.tests_today,
-        'streak_days': student.streak_days,
+        'mcqs_today': student.mcqs_today if practiced_today else 0,
+        'tests_today': student.tests_today if practiced_today else 0,
+        'streak_days': streak_days,
         'streak_at_risk': streak_at_risk,
         'weekly_summary': {
             'days_met': weekly_met,
@@ -2332,8 +2498,8 @@ def posts_list(request):
         )
 
     # Pagination
-    page = int(request.query_params.get('page', 1))
-    per_page = 10
+    page = max(1, _int_or_none(request.query_params.get('page')) or 1)
+    per_page = min(100, max(1, _int_or_none(request.query_params.get('per_page')) or 10))
     total = qs.count()
     start = (page - 1) * per_page
     end = start + per_page
@@ -2356,9 +2522,9 @@ def post_detail(request, slug):
     if not post:
         return Response({'error': 'Post not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Increment view count
+    # Increment view count atomically (concurrent requests must not lose increments)
+    Post.objects.filter(pk=post.pk).update(views_count=F('views_count') + 1)
     post.views_count += 1
-    post.save(update_fields=['views_count'])
 
     serializer = PostDetailSerializer(post)
     return Response(serializer.data)
@@ -2411,13 +2577,19 @@ def post_comments(request, slug):
     return Response({'comments': serializer.data})
 
 
+class CommentThrottle(AnonRateThrottle):
+    scope = 'comment'  # own cache key, not shared with the global anon limit
+    rate = '5/min'
+
+
 @api_view(['POST'])
+@throttle_classes([CommentThrottle])
 def create_comment(request, slug):
     """Submit a comment for moderation."""
     post = Post.objects.filter(slug=slug, status=Post.Status.PUBLISHED).first()
     if not post:
         return Response({'error': 'Post not found.'}, status=status.HTTP_404_NOT_FOUND)
-    serializer = CommentSerializer(data=request.data)
+    serializer = CommentCreateSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save(post=post)
         return Response(
@@ -2454,7 +2626,7 @@ def news_subscribe(request):
 
     return Response({
         'message': 'Subscribed successfully!',
-        'unsubscribe_url': f'/api/unsubscribe/{sub.unsubscribe_token}/',
+        'unsubscribe_url': request.build_absolute_uri(f'/api/unsubscribe/{sub.unsubscribe_token}/'),
     }, status=status.HTTP_201_CREATED)
 
 
@@ -2585,11 +2757,23 @@ def global_search(request):
     })
 
 
+class QuickPostThrottle(AnonRateThrottle):
+    scope = 'quick_post'  # limits guessing of the shared secret
+    rate = '20/min'
+
+
+def _quick_post_authorized(request):
+    """Constant-time check of the X-Admin-Token header; disabled when no secret is configured."""
+    expected = settings.QUICK_POST_SECRET
+    supplied = request.headers.get('X-Admin-Token', '')
+    return bool(expected) and hmac.compare_digest(supplied.encode(), expected.encode())
+
+
 @api_view(['POST'])
+@throttle_classes([QuickPostThrottle])
 def quick_post(request):
     """Create a post quickly from mobile. Requires admin token header."""
-    secret = request.headers.get('X-Admin-Token', '')
-    if secret != settings.QUICK_POST_SECRET:
+    if not _quick_post_authorized(request):
         return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
     data = request.data
@@ -2656,10 +2840,10 @@ def quick_post(request):
 
 
 @api_view(['GET'])
+@throttle_classes([QuickPostThrottle])
 def quick_post_recent(request):
     """Return last 5 posts for the quick-post page."""
-    secret = request.headers.get('X-Admin-Token', '')
-    if secret != settings.QUICK_POST_SECRET:
+    if not _quick_post_authorized(request):
         return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
     posts = Post.objects.select_related('category').prefetch_related('tags').order_by('-created_at')[:5]
@@ -2683,18 +2867,18 @@ def quick_post_recent(request):
 def quick_post_page(request):
     """Render the minimal quick-post HTML page."""
     from django.shortcuts import render
-    return render(request, 'quick_post.html', {
-        'api_url': settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else '',
-    })
+    return render(request, 'quick_post.html')
 
 
 # ─── AI Assistant ───────────────────────────────────────────────────────────
+
+MAX_AI_MESSAGE_CHARS = 4000
 
 
 def _get_or_create_ai_usage(user):
     """Get or create today's AIUsage record for a user, respecting their subscription plan."""
     from django.utils import timezone
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     # Determine max_questions from active subscription
     max_q = 5  # free tier default
@@ -2743,13 +2927,41 @@ def _get_ai_response(user_message, mcq=None, history=None, context_type=None):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def ai_chat(request):
-    """Main AI chat endpoint. Handles new and existing sessions."""
+    """Main AI chat endpoint. Handles new and existing sessions.
+
+    A question slot is reserved atomically before calling the AI and refunded if
+    every provider fails, so failures never cost the user a question.
+    """
+    from .ai_service import is_failure_response
+
     user = request.user
     data = request.data
 
-    # 1. Check daily usage
+    session_id = data.get('session_id')
+    mcq_id = _int_or_none(data.get('mcq_id'))
+    context_type = data.get('context_type', 'general')
+    user_message = str(data.get('message', '') or '').strip()
+
+    if not user_message:
+        return Response({'error': 'Message is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if len(user_message) > MAX_AI_MESSAGE_CHARS:
+        return Response({'error': f'Message is too long (max {MAX_AI_MESSAGE_CHARS} characters).'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    session = None
+    if session_id:
+        try:
+            session = ChatSession.objects.get(session_id=session_id, user=user, is_active=True)
+        except (ChatSession.DoesNotExist, DjangoValidationError, ValueError):
+            return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # 1. Reserve one question from today's allowance (atomic, so parallel requests can't overshoot)
     usage = _get_or_create_ai_usage(user)
-    if usage.questions_used >= usage.max_questions:
+    reserved = AIUsage.objects.filter(pk=usage.pk, questions_used__lt=F('max_questions')).update(
+        questions_used=F('questions_used') + 1
+    )
+    usage.refresh_from_db()
+    if not reserved:
         return Response({
             'error': 'Daily question limit reached.',
             'used': usage.questions_used,
@@ -2759,25 +2971,13 @@ def ai_chat(request):
         }, status=status.HTTP_403_FORBIDDEN)
 
     # 2. Resolve session
-    session_id = data.get('session_id')
-    mcq_id = data.get('mcq_id')
-    context_type = data.get('context_type', 'general')
-    user_message = data.get('message', '').strip()
-
-    if not user_message:
-        return Response({'error': 'Message is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    if session_id:
-        try:
-            session = ChatSession.objects.get(session_id=session_id, user=user, is_active=True)
-        except ChatSession.DoesNotExist:
-            return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
-    else:
+    new_session = session is None
+    if new_session:
         mcq = MCQ.objects.filter(id=mcq_id).first() if mcq_id else None
         session = ChatSession.objects.create(user=user, mcq=mcq)
 
     # 3. Save user message
-    ChatMessage.objects.create(session=session, role=ChatMessage.Role.USER, content=user_message)
+    user_msg = ChatMessage.objects.create(session=session, role=ChatMessage.Role.USER, content=user_message)
 
     # 4. Build context (last 10 messages)
     history = list(session.messages.order_by('-created_at')[:10].values('role', 'content'))
@@ -2786,16 +2986,22 @@ def ai_chat(request):
     # 5. Generate AI response (pass context_type from frontend)
     ai_text = _get_ai_response(user_message, mcq=session.mcq, history=history, context_type=context_type)
 
-    # 6. Save assistant message
-    ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content=ai_text)
+    failed = is_failure_response(ai_text)
+    if failed:
+        # Give the question back and drop the unanswered message so a retry starts clean.
+        AIUsage.objects.filter(pk=usage.pk, questions_used__gt=0).update(questions_used=F('questions_used') - 1)
+        user_msg.delete()
+        if new_session:
+            session.delete()
+    else:
+        # 6. Save assistant message
+        ChatMessage.objects.create(session=session, role=ChatMessage.Role.ASSISTANT, content=ai_text)
 
-    # 7. Increment usage
-    usage.questions_used += 1
-    usage.save(update_fields=['questions_used'])
-
+    usage.refresh_from_db()
     return Response({
-        'session_id': str(session.session_id),
+        'session_id': None if failed and new_session else str(session.session_id),
         'message': ai_text,
+        'failed': failed,
         'used': usage.questions_used,
         'remaining': usage.remaining(),
         'max': usage.max_questions,
@@ -2932,6 +3138,9 @@ def ai_session_detail(request, session_id):
     })
 
 
+AI_RENEWAL_WINDOW_DAYS = 3
+
+
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2959,6 +3168,24 @@ def ai_subscribe(request):
     if not payment_screenshot:
         return Response({'error': 'Payment screenshot is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    upload_error = _image_upload_error(payment_screenshot, 'Payment screenshot')
+    if upload_error:
+        return Response({'error': upload_error}, status=status.HTTP_400_BAD_REQUEST)
+
+    existing = AISubscription.objects.filter(user=request.user).first()
+    if _payment_reference_used(payment_reference, exclude_subscription=existing):
+        return Response({'error': 'This transaction reference has already been used.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # A running paid plan isn't reset to "pending" by a new request; renewals open
+    # in the last few days and approval extends from the current expiry date.
+    if (existing and existing.plan != AISubscription.Plan.FREE and existing.is_active_plan()
+            and existing.expires_at and existing.expires_at > timezone.now() + timedelta(days=AI_RENEWAL_WINDOW_DAYS)):
+        return Response(
+            {'error': f'Your {existing.plan.title()} plan is active until {existing.expires_at:%d %b %Y}. '
+                      f'You can renew it in the last {AI_RENEWAL_WINDOW_DAYS} days.'},
+            status=status.HTTP_409_CONFLICT,
+        )
+
     # Delete old screenshot if replacing
     old_screenshot = None
     sub, created = AISubscription.objects.get_or_create(
@@ -2970,7 +3197,6 @@ def ai_subscribe(request):
             'phone': phone,
             'payment_reference': payment_reference,
             'payment_screenshot': payment_screenshot,
-            'expires_at': timezone.now() + timedelta(days=30),
         }
     )
 
@@ -2982,7 +3208,7 @@ def ai_subscribe(request):
         sub.phone = phone
         sub.payment_reference = payment_reference
         sub.payment_screenshot = payment_screenshot
-        sub.expires_at = timezone.now() + timedelta(days=30)
+        # expires_at is (re)set when staff approve the payment.
         sub.save()
 
     # Delete old screenshot file after save
@@ -3096,15 +3322,20 @@ def user_education(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['DELETE'])
+@api_view(['PUT', 'PATCH', 'DELETE'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def user_education_detail(request, pk):
-    """Delete a specific education record."""
+    """Update or delete a specific education record."""
     try:
         record = request.user.educations.get(pk=pk)
     except UserEducation.DoesNotExist:
         return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method in ('PUT', 'PATCH'):
+        serializer = UserEducationSerializer(record, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
     record.delete()
     return Response({'message': 'Deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -3127,15 +3358,20 @@ def user_experience(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['DELETE'])
+@api_view(['PUT', 'PATCH', 'DELETE'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def user_experience_detail(request, pk):
-    """Delete a specific experience record."""
+    """Update or delete a specific experience record."""
     try:
         record = request.user.experiences.get(pk=pk)
     except UserExperience.DoesNotExist:
         return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method in ('PUT', 'PATCH'):
+        serializer = UserExperienceSerializer(record, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
     record.delete()
     return Response({'message': 'Deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -3340,6 +3576,35 @@ def generate_application_package(request, pk):
 
 # ─── Paid Application Service API ────────────────────────────────────────────
 
+MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_SERVICE_PAYMENT = Decimal('100000')
+
+
+def _image_upload_error(upload, label='Screenshot'):
+    """Return an error message unless `upload` is a real image of at most 5 MB."""
+    if upload.size > MAX_IMAGE_UPLOAD_BYTES:
+        return f'{label} must be 5 MB or smaller.'
+    try:
+        from PIL import Image
+        Image.open(upload).verify()
+    except Exception:
+        return f'{label} must be a valid image (JPG, PNG or WebP).'
+    finally:
+        upload.seek(0)
+    return None
+
+
+def _payment_reference_used(reference, exclude_request=None, exclude_subscription=None):
+    """A transaction reference may back only one payment across both paid products."""
+    requests_qs = ApplicationRequest.objects.filter(payment_reference__iexact=reference)
+    if exclude_request is not None:
+        requests_qs = requests_qs.exclude(pk=exclude_request.pk)
+    subs_qs = AISubscription.objects.filter(payment_reference__iexact=reference)
+    if exclude_subscription is not None:
+        subs_qs = subs_qs.exclude(pk=exclude_subscription.pk)
+    return requests_qs.exists() or subs_qs.exists()
+
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -3353,14 +3618,15 @@ def service_plans(request):
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def create_service_request(request):
     """User creates a new paid application submission request."""
-    job_id = request.data.get('job')
-    plan_id = request.data.get('plan')
-    special_instructions = request.data.get('special_instructions', '')
-    payment_method = request.data.get('payment_method', '')
-    payment_reference = request.data.get('payment_reference', '')
-    payment_amount = request.data.get('payment_amount')
+    job_id = _int_or_none(request.data.get('job'))
+    plan_id = _int_or_none(request.data.get('plan'))
+    special_instructions = str(request.data.get('special_instructions', '') or '')[:2000]
+    payment_method = str(request.data.get('payment_method', '') or '').strip()
+    payment_reference = str(request.data.get('payment_reference', '') or '').strip()[:100]
+    payment_screenshot = request.FILES.get('payment_screenshot')
 
     if not job_id:
         return Response({'error': 'job is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -3370,9 +3636,22 @@ def create_service_request(request):
     except JobListing.DoesNotExist:
         return Response({'error': 'Job not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Check for existing pending request
+    if payment_method not in ApplicationRequest.PaymentMethod.values:
+        return Response({'error': 'Invalid payment method.'}, status=status.HTTP_400_BAD_REQUEST)
+    if payment_screenshot:
+        upload_error = _image_upload_error(payment_screenshot, 'Payment screenshot')
+        if upload_error:
+            return Response({'error': upload_error}, status=status.HTTP_400_BAD_REQUEST)
+    if payment_reference and _payment_reference_used(payment_reference):
+        return Response({'error': 'This transaction reference has already been used.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # A failed, refunded or submitted request doesn't block a new one.
     existing = ApplicationRequest.objects.filter(user=request.user, job=job).exclude(
-        request_status__in=[ApplicationRequest.RequestStatus.SUBMITTED, ApplicationRequest.RequestStatus.REFUNDED]
+        request_status__in=[
+            ApplicationRequest.RequestStatus.SUBMITTED,
+            ApplicationRequest.RequestStatus.FAILED,
+            ApplicationRequest.RequestStatus.REFUNDED,
+        ]
     ).first()
     if existing:
         return Response(
@@ -3380,12 +3659,24 @@ def create_service_request(request):
             status=status.HTTP_409_CONFLICT,
         )
 
+    # The price comes from the plan, never from the client. Without configured
+    # plans the client's amount is accepted for staff to check against the payment.
     plan = None
     if plan_id:
         try:
             plan = ServicePlan.objects.get(pk=plan_id, is_active=True)
         except ServicePlan.DoesNotExist:
             return Response({'error': 'Service plan not found.'}, status=status.HTTP_404_NOT_FOUND)
+        payment_amount = plan.price
+    elif ServicePlan.objects.filter(is_active=True).exists():
+        return Response({'error': 'Please choose a service plan.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        try:
+            payment_amount = Decimal(str(request.data.get('payment_amount')))
+        except (InvalidOperation, TypeError, ValueError):
+            payment_amount = None
+        if payment_amount is None or not (0 < payment_amount <= MAX_SERVICE_PAYMENT):
+            return Response({'error': 'Invalid payment amount.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Snapshot user profile at request time
     profile_snapshot = {}
@@ -3424,6 +3715,12 @@ def create_service_request(request):
         payment_method=payment_method,
         payment_reference=payment_reference,
         payment_amount=payment_amount,
+        payment_screenshot=payment_screenshot,
+        request_status=(
+            ApplicationRequest.RequestStatus.PAYMENT_VERIFICATION
+            if payment_reference or payment_screenshot
+            else ApplicationRequest.RequestStatus.PAYMENT_PENDING
+        ),
     )
     serializer = ApplicationRequestSerializer(app_request)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -3474,8 +3771,9 @@ def admin_service_requests(request):
 @api_view(['PUT'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def admin_update_request(request, pk):
-    """Admin: update request status, assignment, submission details."""
+    """Admin: update request status, assignment, submission details and proof."""
     if not is_admin(request.user):
         return Response({'error': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -3483,6 +3781,16 @@ def admin_update_request(request, pk):
         app_request = ApplicationRequest.objects.select_related('job').get(pk=pk)
     except ApplicationRequest.DoesNotExist:
         return Response({'error': 'Request not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    choices = {
+        'request_status': ApplicationRequest.RequestStatus.values,
+        'payment_status': ApplicationRequest.PaymentStatus.values,
+    }
+    for field, valid in choices.items():
+        if field in request.data and request.data[field] not in valid:
+            return Response({'error': f'Invalid {field} "{request.data[field]}".'}, status=status.HTTP_400_BAD_REQUEST)
+
+    previous_status = app_request.request_status
 
     # Update fields
     allowed_fields = [
@@ -3492,19 +3800,25 @@ def admin_update_request(request, pk):
     for field in allowed_fields:
         if field in request.data:
             if field == 'assigned_to':
-                if request.data[field] is None:
+                if request.data[field] in (None, ''):
                     app_request.assigned_to = None
                 else:
-                    try:
-                        user = User.objects.get(pk=request.data[field])
-                        app_request.assigned_to = user
-                    except User.DoesNotExist:
-                        return Response({'error': f"User {request.data[field]} not found."}, status=status.HTTP_400_BAD_REQUEST)
+                    user = User.objects.filter(pk=_int_or_none(request.data[field]), is_staff=True).first()
+                    if not user:
+                        return Response({'error': f"Staff user {request.data[field]} not found."}, status=status.HTTP_400_BAD_REQUEST)
+                    app_request.assigned_to = user
             else:
                 setattr(app_request, field, request.data[field])
 
-    if request.data.get('request_status') == ApplicationRequest.RequestStatus.SUBMITTED:
-        from django.utils import timezone
+    submission_screenshot = request.FILES.get('submission_screenshot')
+    if submission_screenshot:
+        upload_error = _image_upload_error(submission_screenshot, 'Submission screenshot')
+        if upload_error:
+            return Response({'error': upload_error}, status=status.HTTP_400_BAD_REQUEST)
+        app_request.submission_screenshot = submission_screenshot
+
+    if (app_request.request_status == ApplicationRequest.RequestStatus.SUBMITTED
+            and previous_status != ApplicationRequest.RequestStatus.SUBMITTED):
         app_request.submitted_at = timezone.now()
 
     app_request.save()

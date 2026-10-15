@@ -764,6 +764,20 @@
 
     window.CSRF_TOKEN = '{{ csrf_token }}';
 
+    // Submit a CSRF-protected POST to a dashboard action URL (state changes never use GET).
+    function postAction(url) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = url;
+      const token = document.createElement('input');
+      token.type = 'hidden';
+      token.name = 'csrfmiddlewaretoken';
+      token.value = window.CSRF_TOKEN;
+      form.appendChild(token);
+      document.body.appendChild(form);
+      form.submit();
+    }
+
     let _confirmCallback = null;
 
     function showConfirmModal(message, callback, title, subtitle, opts) {

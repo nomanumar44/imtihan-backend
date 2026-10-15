@@ -30,14 +30,31 @@ if env_file.exists():
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
+def _env_list(name, default=''):
+    return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
+
+
+_INSECURE_SECRET_KEY = 'django-insecure-default-fallback-key'
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-fallback-key')
+SECRET_KEY = os.environ.get('SECRET_KEY', _INSECURE_SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '*')
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_raw.split(',') if h.strip()]
+if not DEBUG and SECRET_KEY == _INSECURE_SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('Set SECRET_KEY in the environment when DEBUG is off.')
+
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', '*')
+
+# Public site URL, used in emails and links back to the Next.js frontend.
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+# Public URL of this API, used for links in emails (e.g. unsubscribe).
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
+
+# HTTPS origins allowed to submit dashboard/admin forms, e.g. https://api.imtihanhub.com.pk
+CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -70,8 +87,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Change in production
+# CORS: list the frontend origins in CORS_ALLOWED_ORIGINS (comma-separated) to restrict
+# browser access, e.g. https://imtihanhub.com.pk,https://www.imtihanhub.com.pk.
+# Unset keeps the old allow-all behaviour (auth uses a header token, not cookies).
+CORS_ALLOWED_ORIGINS = _env_list('CORS_ALLOWED_ORIGINS')
+CORS_ALLOW_ALL_ORIGINS = not CORS_ALLOWED_ORIGINS
 
 ROOT_URLCONF = 'imtihanBackend.urls'
 
@@ -160,8 +180,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # REST Framework
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
@@ -173,6 +197,9 @@ REST_FRAMEWORK = {
         'anon': '60/min',
         'user': '120/min',
     },
+    # Number of trusted reverse proxies (e.g. 1 behind nginx). When set, client IPs
+    # for throttling come from X-Forwarded-For without trusting spoofed entries.
+    'NUM_PROXIES': int(os.environ['NUM_PROXIES']) if os.environ.get('NUM_PROXIES') else None,
 }
 
 
@@ -248,8 +275,8 @@ CKEDITOR_CONFIGS = {
     },
 }
 
-# Quick Post (mobile admin posting)
-QUICK_POST_SECRET = os.environ.get('QUICK_POST_SECRET', 'imtihanhub-quick-post-2025')
+# Quick Post (mobile admin posting). Disabled unless a secret is set in the environment.
+QUICK_POST_SECRET = os.environ.get('QUICK_POST_SECRET', '')
 
 # AI Assistant (Groq → Kimi → Gemini failover)
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')

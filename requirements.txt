@@ -68,7 +68,8 @@ protobuf==5.29.6
 cachetools==5.5.2
 
 # --- PDF Generation ---
-reportlab>=4.0.0
+reportlab>=4.0.0        # job application packages
+fpdf2>=2.7              # past paper MCQ downloads
 
 # --- Cloud Scraper (bypasses Cloudflare) ---
 cloudscraper>=1.2.71

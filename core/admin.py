@@ -621,3 +621,14 @@ class ApplicationRequestAdmin(admin.ModelAdmin):
     def assigned_to_name(self, obj):
         return obj.assigned_to.username if obj.assigned_to else 'Unassigned'
     assigned_to_name.short_description = 'Assigned'
+
+    def save_formset(self, request, form, formset, change):
+        """added_by is read-only in the inline, so stamp new notes with the current admin."""
+        instances = formset.save(commit=False)
+        for instance in instances:
+            if isinstance(instance, AdminNote) and not instance.added_by_id:
+                instance.added_by = request.user
+            instance.save()
+        for obj in formset.deleted_objects:
+            obj.delete()
+        formset.save_m2m()

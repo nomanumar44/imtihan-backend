@@ -55,6 +55,7 @@ urlpatterns = [
     path('frontend/current-affairs/', views.current_affairs_months, name='api-current-affairs-months'),
     path('frontend/current-affairs/topics/', views.frontend_current_affairs_topics, name='api-current-affairs-topics'),
     path('frontend/current-affairs/category/<str:slug>/', views.frontend_current_affairs_category_detail, name='api-current-affairs-category-detail'),
+    path('frontend/current-affairs/daily/<str:day>/', views.current_affairs_daily, name='api-current-affairs-daily'),
     path('frontend/current-affairs/<str:year>/<str:month>/', views.current_affairs_detail, name='api-current-affairs-detail'),
     path('frontend/mcq-tests/subjects/', views.frontend_mcq_subjects, name='api-frontend-mcq-subjects'),
     path('frontend/mcq-tests/subjects/<str:subject_slug>/', views.frontend_mcq_sets, name='api-frontend-mcq-sets'),

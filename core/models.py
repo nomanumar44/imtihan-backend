@@ -1,10 +1,31 @@
+import os
 import uuid
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.deconstruct import deconstructible
 from ckeditor_uploader.fields import RichTextUploadingField
+
+
+@deconstructible
+class RandomFilename:
+    """upload_to that stores files under an unguessable name, keeping the extension.
+
+    Media is served publicly, so personal documents and payment proofs must not
+    sit at predictable URLs like documents/cnic_front.jpg.
+    """
+
+    def __init__(self, prefix):
+        self.prefix = prefix.rstrip('/')
+
+    def __call__(self, instance, filename):
+        ext = os.path.splitext(filename)[1].lower()[:10]
+        return f'{self.prefix}/{uuid.uuid4().hex}{ext}'
+
+    def __eq__(self, other):
+        return isinstance(other, RandomFilename) and self.prefix == other.prefix
 
 
 class Exam(models.Model):
@@ -175,6 +196,17 @@ class CurrentAffairsCategory(models.Model):
         return [item.strip() for item in self.keywords.split(',') if item.strip()]
 
 
+def normalize_question_text(text):
+    """Lower-case words only, so trivially different copies of a question match."""
+    import re
+    return ' '.join(re.findall(r'[a-z0-9\u0600-\u06ff]+', (text or '').lower()))
+
+
+def question_hash(text):
+    import hashlib
+    return hashlib.sha1(normalize_question_text(text).encode('utf-8')).hexdigest()
+
+
 class MCQ(models.Model):
     """Multiple Choice Question"""
 
@@ -182,6 +214,12 @@ class MCQ(models.Model):
         DRAFT = 'draft', 'Draft'
         PUBLISHED = 'published', 'Published'
         FLAGGED = 'flagged', 'Flagged'
+        RETIRED = 'retired', 'Retired'
+
+    class Difficulty(models.TextChoices):
+        EASY = 'easy', 'Easy'
+        MEDIUM = 'medium', 'Medium'
+        HARD = 'hard', 'Hard'
 
     question_text = models.TextField()
     option_a = models.CharField(max_length=500)
@@ -207,7 +245,20 @@ class MCQ(models.Model):
         related_name='mcqs',
         help_text='Only used when subject is Current Affairs.'
     )
+    topic = models.CharField(
+        max_length=120, blank=True, default='', db_index=True,
+        help_text='Topic within the subject, e.g. "Mughal Empire" or "Synonyms".'
+    )
+    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, blank=True, default='')
+    event_date = models.DateField(
+        null=True, blank=True,
+        help_text='Current affairs only: when the event happened.'
+    )
     source_url = models.URLField(max_length=500, blank=True, default='')
+    normalized_hash = models.CharField(
+        max_length=40, blank=True, default='', db_index=True, editable=False,
+        help_text='Hash of the normalised question text, used to find duplicates.'
+    )
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True
     )
@@ -227,6 +278,13 @@ class MCQ(models.Model):
 
     def __str__(self):
         return self.question_text[:80]
+
+    def save(self, *args, **kwargs):
+        self.normalized_hash = question_hash(self.question_text)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'question_text' in update_fields:
+            kwargs['update_fields'] = set(update_fields) | {'normalized_hash'}
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.correct_option == 'D' and not self.option_d.strip():
@@ -342,6 +400,10 @@ class JobListing(models.Model):
     how_to_apply = models.JSONField(default=list, blank=True, help_text='List of how-to-apply steps (one per line in admin)')
     last_date = models.DateField(null=True, blank=True)
     apply_link = models.URLField(blank=True, default='')
+    advertisement_url = models.URLField(
+        max_length=500, blank=True, default='',
+        help_text='Link to the official advertisement (PDF or page) the listing is based on.'
+    )
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.ACTIVE, db_index=True
     )
@@ -418,11 +480,26 @@ class Student(models.Model):
     notify_papers = models.BooleanField(default=True)
     notify_jobs = models.BooleanField(default=True)
     notify_affairs = models.BooleanField(default=True)
+    display_name = models.CharField(
+        max_length=40, blank=True, default='',
+        help_text='Name shown on leaderboards. Blank shows first name and last initial.'
+    )
+    show_on_leaderboard = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
+
+    def public_name(self):
+        """Leaderboard-safe name: chosen display name, else "First L.", else "Student"."""
+        if self.display_name.strip():
+            return self.display_name.strip()
+        first = (self.user.first_name or '').strip()
+        last = (self.user.last_name or '').strip()
+        if first:
+            return f'{first} {last[0]}.' if last else first
+        return 'Student'
 
 
 class Bookmark(models.Model):
@@ -512,11 +589,45 @@ class TestResult(models.Model):
     subject = models.ForeignKey(
         Subject, on_delete=models.SET_NULL, null=True, related_name='test_results'
     )
+    class Mode(models.TextChoices):
+        PRACTICE = 'practice', 'Practice'
+        EXAM = 'exam', 'Exam'
+
+    class Source(models.TextChoices):
+        SET = 'set', 'Subject set'
+        MOCK = 'mock', 'Mock test'
+        CUSTOM = 'custom', 'Custom test'
+        MISTAKES = 'mistakes', 'Mistakes review'
+        PAPER = 'paper', 'Past paper'
+        QUICK = 'quick', 'Quick practice'
+        BOOKMARKS = 'bookmarks', 'Bookmarks'
+        CURRENT_AFFAIRS = 'current_affairs', 'Current affairs quiz'
+        OTHER = 'other', 'Other'
+
     total_questions = models.PositiveIntegerField()
     correct_answers = models.PositiveIntegerField()
     wrong_answers = models.PositiveIntegerField(default=0)
+    unanswered = models.PositiveIntegerField(default=0)
     score_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    negative_marks = models.DecimalField(
+        max_digits=7, decimal_places=2, default=0,
+        help_text='Marks deducted for wrong answers (negative marking).'
+    )
+    net_score = models.DecimalField(
+        max_digits=7, decimal_places=2, default=0,
+        help_text='Correct answers minus negative marks.'
+    )
     time_taken_seconds = models.PositiveIntegerField(default=0)
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.PRACTICE)
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.OTHER)
+    source_ref = models.CharField(
+        max_length=120, blank=True, default='',
+        help_text='Which set/mock/paper the test came from, e.g. "english/3" or a mock slug.'
+    )
+    question_set_hash = models.CharField(
+        max_length=40, blank=True, default='', db_index=True,
+        help_text='Hash of the question ids, to compare attempts of the same test.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -914,7 +1025,7 @@ class AISubscription(models.Model):
     payment_method = models.CharField(max_length=20, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     payment_reference = models.CharField(max_length=100, blank=True, default='', help_text='Transaction ID / reference number')
-    payment_screenshot = models.ImageField(upload_to='ai_payments/', blank=True, null=True, help_text='Payment proof screenshot')
+    payment_screenshot = models.ImageField(upload_to=RandomFilename('ai_payments'), blank=True, null=True, help_text='Payment proof screenshot')
     started_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -978,7 +1089,7 @@ class UserProfile(models.Model):
     current_address = models.TextField(blank=True, default='')
     phone = models.CharField(max_length=30, blank=True, default='')
     whatsapp_number = models.CharField(max_length=30, blank=True, default='')
-    profile_photo = models.ImageField(upload_to='job_profiles/photos/', blank=True, null=True)
+    profile_photo = models.ImageField(upload_to=RandomFilename('job_profiles/photos'), blank=True, null=True)
     is_profile_complete = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1008,7 +1119,7 @@ class UserEducation(models.Model):
     total_marks = models.PositiveIntegerField(null=True, blank=True)
     obtained_marks = models.PositiveIntegerField(null=True, blank=True)
     grade = models.CharField(max_length=20, blank=True, default='')
-    certificate_file = models.FileField(upload_to='job_profiles/education/', blank=True, null=True)
+    certificate_file = models.FileField(upload_to=RandomFilename('job_profiles/education'), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1032,7 +1143,7 @@ class UserExperience(models.Model):
     from_date = models.DateField()
     to_date = models.DateField(null=True, blank=True)
     is_current = models.BooleanField(default=False)
-    experience_letter = models.FileField(upload_to='job_profiles/experience/', blank=True, null=True)
+    experience_letter = models.FileField(upload_to=RandomFilename('job_profiles/experience'), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1048,13 +1159,21 @@ class UserDocument(models.Model):
     class DocType(models.TextChoices):
         CNIC_FRONT = 'cnic_front', 'CNIC Front'
         CNIC_BACK = 'cnic_back', 'CNIC Back'
+        PHOTO = 'photo', 'Passport Size Photo'
+        MATRIC = 'matric_certificate', 'Matric Certificate'
+        INTERMEDIATE = 'intermediate_certificate', 'Intermediate Certificate'
+        GRADUATION = 'graduation_degree', 'Graduation Degree'
+        MASTERS = 'masters_degree', 'Masters Degree'
         DOMICILE = 'domicile', 'Domicile Certificate'
         CHARACTER = 'character', 'Character Certificate'
+        EXPERIENCE = 'experience_letter', 'Experience Letter'
+        NOC = 'noc', 'NOC'
+        DISABILITY = 'disability_certificate', 'Disability Certificate'
         OTHER = 'other', 'Other'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='job_documents')
-    doc_type = models.CharField(max_length=20, choices=DocType.choices)
-    file = models.FileField(upload_to='job_profiles/documents/')
+    doc_type = models.CharField(max_length=30, choices=DocType.choices)
+    file = models.FileField(upload_to=RandomFilename('job_profiles/documents'))
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1147,12 +1266,12 @@ class ApplicationRequest(models.Model):
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, blank=True, default='')
     payment_reference = models.CharField(max_length=100, blank=True, default='', help_text='Transaction ID / reference number')
     payment_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    payment_screenshot = models.ImageField(upload_to='service_payments/', blank=True, null=True, help_text='Payment proof screenshot')
+    payment_screenshot = models.ImageField(upload_to=RandomFilename('service_payments'), blank=True, null=True, help_text='Payment proof screenshot')
 
     # Request tracking
     request_status = models.CharField(max_length=20, choices=RequestStatus.choices, default=RequestStatus.PAYMENT_PENDING)
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_requests')
-    submission_screenshot = models.ImageField(upload_to='service_submissions/', blank=True, null=True, help_text='Proof of submission')
+    submission_screenshot = models.ImageField(upload_to=RandomFilename('service_submissions'), blank=True, null=True, help_text='Proof of submission')
     submission_reference = models.CharField(max_length=100, blank=True, default='', help_text='Application number after submission')
     submitted_at = models.DateTimeField(null=True, blank=True)
     failure_reason = models.TextField(blank=True, default='', help_text='Reason if submission failed')
@@ -1180,3 +1299,107 @@ class AdminNote(models.Model):
 
     def __str__(self):
         return f"Note on {self.request.id} by {self.added_by.username}"
+
+
+# ─── Question quality ───
+
+class QuestionReport(models.Model):
+    """A student's report that an MCQ is wrong or unclear."""
+
+    class Reason(models.TextChoices):
+        WRONG_ANSWER = 'wrong_answer', 'Wrong answer'
+        TYPO = 'typo', 'Typo or formatting'
+        UNCLEAR = 'unclear', 'Unclear question'
+        OUTDATED = 'outdated', 'Outdated fact'
+        DUPLICATE = 'duplicate', 'Duplicate'
+        OTHER = 'other', 'Other'
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        RESOLVED = 'resolved', 'Resolved'
+        DISMISSED = 'dismissed', 'Dismissed'
+
+    mcq = models.ForeignKey(MCQ, on_delete=models.CASCADE, related_name='reports')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='question_reports')
+    reason = models.CharField(max_length=20, choices=Reason.choices, default=Reason.WRONG_ANSWER)
+    message = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_reports')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Report on MCQ #{self.mcq_id}: {self.get_reason_display()}"
+
+
+class MCQRevision(models.Model):
+    """Change history for an MCQ: who changed which fields, from what to what."""
+    mcq = models.ForeignKey(MCQ, on_delete=models.CASCADE, related_name='revisions')
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=20, default='updated')
+    changes = models.JSONField(default=dict, blank=True, help_text='{field: [old, new]}')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"MCQ #{self.mcq_id} {self.action} {self.created_at:%d %b %Y}"
+
+
+# ─── Mock tests ───
+
+class MockTestTemplate(models.Model):
+    """Staff-defined mock test: duration, marking and subject mix."""
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=120, unique=True)
+    exam = models.ForeignKey(Exam, on_delete=models.SET_NULL, null=True, blank=True, related_name='mock_templates')
+    description = models.CharField(max_length=300, blank=True, default='')
+    duration_minutes = models.PositiveIntegerField(default=100)
+    negative_marking = models.DecimalField(
+        max_digits=4, decimal_places=2, default=0,
+        help_text='Marks deducted per wrong answer, e.g. 0.25. Zero for none.'
+    )
+    breakdown = models.JSONField(
+        default=dict,
+        help_text='Questions per subject slug, e.g. {"english": 20, "general-knowledge": 30}.'
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['title']
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def total_questions(self):
+        return sum(int(v) for v in (self.breakdown or {}).values())
+
+
+# ─── Testimonials ───
+
+class Testimonial(models.Model):
+    """A real student testimonial, shown on the homepage once approved."""
+    name = models.CharField(max_length=100)
+    city = models.CharField(max_length=100, blank=True, default='')
+    exam = models.CharField(max_length=40, blank=True, default='', help_text='e.g. PPSC, FPSC')
+    quote = models.TextField()
+    rating = models.PositiveSmallIntegerField(default=5)
+    consent_confirmed = models.BooleanField(
+        default=False, help_text='The student agreed to their words and name being published.'
+    )
+    is_approved = models.BooleanField(default=False)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['sort_order', '-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.exam})"

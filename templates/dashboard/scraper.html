@@ -51,7 +51,7 @@
   <button class="sc-tab"        onclick="switchTab(this,'t2')">TestPointPK</button>
   <button class="sc-tab"        onclick="switchTab(this,'t3')">GoTest.pk</button>
   <button class="sc-tab"        onclick="switchTab(this,'t4')">PastPapersPDF</button>
-  <button class="sc-tab"        onclick="switchTab(this,'t5')">Scrapy CLI</button>
+  <button class="sc-tab"        onclick="switchTab(this,'t5')">Command line</button>
 </div>
 
 <!-- ── Tab 1: scrape_data ─────────────────────────────────────────────────── -->
@@ -247,39 +247,35 @@
   </form>
 </div>
 
-<!-- ── Tab 5: Scrapy CLI ──────────────────────────────────────────────────── -->
+<!-- ── Tab 5: Command line ─────────────────────────────────────────────────── -->
 <div id="t5" class="sc-panel card-box" style="display:none; border-radius:0 8px 8px 8px;">
   <p class="sc-desc">
-    Run <strong>Scrapy</strong> spiders from a terminal. The <code>DjangoPipeline</code> saves items directly into Django models
-    (MCQ + PastPaper). No browser required — Scrapy handles concurrency and retries.
+    The same scrapers can be run from a terminal with <code>manage.py</code>. New questions are saved; questions that
+    already exist are left as they are, and placeholder questions are saved as drafts for review.
   </p>
   <div style="background:#1F2937; color:#E5E7EB; border-radius:8px; padding:20px; font-family:'Courier New',monospace; font-size:13px; line-height:2.2;">
-    <div style="color:#6EE7B7; margin-bottom:6px;"># Run from: c:\laragon\www\imtihanBackend\</div>
+    <div style="color:#6EE7B7; margin-bottom:6px;"># Run from the imtihan-backend folder</div>
 
     <div style="color:#93C5FD; margin-top:12px;"># TestPointPK — PPSC, first 10 papers</div>
-    <div>scrapy crawl testpoint -s EXAM=ppsc -s MAX_PAPERS=10 --project scraper</div>
+    <div>python manage.py scrape_testpoint_v2 --mode past-papers --exam ppsc --max-papers 10</div>
 
     <div style="color:#93C5FD; margin-top:12px;"># TestPointPK — FPSC English only</div>
-    <div>scrapy crawl testpoint -s EXAM=fpsc -s SUBJECT_KW=english --project scraper</div>
+    <div>python manage.py scrape_testpoint_v2 --mode past-papers --exam fpsc --subject english</div>
 
-    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — All subjects</div>
-    <div>scrapy crawl gotest --project scraper</div>
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — all subjects (saved as drafts)</div>
+    <div>python manage.py scrape_gotest</div>
 
-    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — English only, max 10 tests</div>
-    <div>scrapy crawl gotest -s SUBJECT_KW=english -s MAX_TESTS=10 --project scraper</div>
+    <div style="color:#93C5FD; margin-top:12px;"># GoTest.pk — English only, max 10 tests, preview without saving</div>
+    <div>python manage.py scrape_gotest --subject english --max-tests 10 --dry-run</div>
 
     <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — PMS, max 20 posts</div>
-    <div>scrapy crawl pastpapers -s EXAM=pms -s MAX_POSTS=20 --project scraper</div>
+    <div>python manage.py scrape_pastpapers --exam pms --max-posts 20</div>
 
-    <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — PPSC GK subject filter</div>
-    <div>scrapy crawl pastpapers -s EXAM=ppsc -s SUBJECT_KW=gk --project scraper</div>
-
-    <div style="color:#93C5FD; margin-top:12px;"># All exams, all posts</div>
-    <div>scrapy crawl pastpapers --project scraper</div>
+    <div style="color:#93C5FD; margin-top:12px;"># PastPapersPDF — all exams</div>
+    <div>python manage.py scrape_pastpapers --exam all</div>
   </div>
   <div style="margin-top:14px; padding:12px 16px; background:#FEF3C7; border-radius:6px; border-left:4px solid #F59E0B; font-size:13px; color:#78350F;">
-    <strong>Tip:</strong> Set <code>DJANGO_SETTINGS_MODULE=imtihanBackend.settings</code> in your environment before running Scrapy
-    so the pipeline can access Django models.
+    <strong>Tip:</strong> Add <code>--engine curl</code> when Playwright isn't installed, and <code>--debug</code> to log each page.
   </div>
 </div>
 

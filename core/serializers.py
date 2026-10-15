@@ -88,6 +88,14 @@ class JobListingSerializer(serializers.ModelSerializer):
     exam_name = serializers.CharField(source='exam.name', read_only=True)
     syllabus_title = serializers.CharField(source='syllabus.title', read_only=True)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # A job whose last date has passed is closed, even before staff update it.
+        from django.utils import timezone
+        if instance.last_date and instance.last_date < timezone.localdate() and data.get('status') != 'closed':
+            data['status'] = 'closed'
+        return data
+
     class Meta:
         model = JobListing
         fields = [
@@ -95,7 +103,7 @@ class JobListingSerializer(serializers.ModelSerializer):
             'department', 'location', 'bps_grade', 'description', 'qualifications',
             'vacancies', 'salary_range', 'experience', 'age_limit',
             'responsibilities', 'how_to_apply',
-            'last_date', 'apply_link', 'status',
+            'last_date', 'apply_link', 'status', 'created_at', 'updated_at',
             # Eligibility requirements
             'min_age', 'max_age', 'min_education',
             'domicile_requirement', 'gender_requirement', 'min_experience_years',
@@ -129,6 +137,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     full_name = serializers.SerializerMethodField()
     member_since = serializers.DateTimeField(source='created_at', read_only=True)
+    has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -136,11 +145,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'phone', 'city', 'province', 'avatar',
             'target_exam', 'notify_papers', 'notify_jobs', 'notify_affairs',
-            'member_since', 'xp_points', 'level', 'daily_goal', 'streak_days'
+            'member_since', 'xp_points', 'level', 'daily_goal', 'streak_days',
+            'has_password',
         ]
+        # Gamification counters are earned server-side, never set by the client.
+        read_only_fields = ['xp_points', 'level', 'streak_days']
 
     def get_full_name(self, obj):
         return obj.user.get_full_name() or obj.user.username
+
+    def get_has_password(self, obj):
+        return obj.user.has_usable_password()
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
@@ -325,6 +340,15 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'content', 'created_at']
 
 
+class CommentCreateSerializer(serializers.ModelSerializer):
+    """Public comment submission; the email is kept for moderation, never shown."""
+
+    class Meta:
+        model = Comment
+        fields = ['name', 'email', 'content']
+        extra_kwargs = {'email': {'write_only': True}}
+
+
 class PostDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
@@ -335,7 +359,7 @@ class PostDetailSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source='get_status_display', read_only=True)
     read_time = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
-    comments = CommentSerializer(many=True, read_only=True)
+    comments = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -346,6 +370,10 @@ class PostDetailSerializer(serializers.ModelSerializer):
             'views_count', 'author_name', 'author_post_count', 'author_bio', 'read_time',
             'created_at', 'published_at', 'comments',
         ]
+
+    def get_comments(self, obj):
+        # Only moderated comments are public.
+        return CommentSerializer(obj.comments.filter(is_approved=True), many=True).data
 
     def get_read_time(self, obj):
         words = len(obj.content.split())
@@ -440,8 +468,25 @@ class JobProfileSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
+MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
+DOCUMENT_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.pdf')
+
+
+def validate_document_upload(upload):
+    """Personal documents: images or PDF, at most 5 MB."""
+    if upload is None:
+        return upload
+    name = (upload.name or '').lower()
+    if not name.endswith(DOCUMENT_EXTENSIONS):
+        raise serializers.ValidationError('Upload a JPG, PNG, WebP or PDF file.')
+    if upload.size > MAX_DOCUMENT_BYTES:
+        raise serializers.ValidationError('File must be 5 MB or smaller.')
+    return upload
+
+
 class UserEducationSerializer(serializers.ModelSerializer):
     percentage = serializers.ReadOnlyField()
+    certificate_file = serializers.FileField(required=False, allow_null=True, validators=[validate_document_upload])
 
     class Meta:
         model = UserEducation
@@ -454,6 +499,8 @@ class UserEducationSerializer(serializers.ModelSerializer):
 
 
 class UserExperienceSerializer(serializers.ModelSerializer):
+    experience_letter = serializers.FileField(required=False, allow_null=True, validators=[validate_document_upload])
+
     class Meta:
         model = UserExperience
         fields = [
@@ -465,6 +512,8 @@ class UserExperienceSerializer(serializers.ModelSerializer):
 
 
 class UserDocumentSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(validators=[validate_document_upload])
+
     class Meta:
         model = UserDocument
         fields = ['id', 'user', 'doc_type', 'file', 'uploaded_at']

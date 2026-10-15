@@ -19,8 +19,8 @@ import json
 import subprocess
 from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
-from django.utils.text import slugify
-from core.models import Exam, Subject, MCQ, PastPaper, ActivityLog
+from core.utils.scrape_store import save_scraped_mcq, save_scraped_paper
+from core.models import Exam, Subject, MCQ, ActivityLog
 from core.utils import scraper_control
 
 CURL_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -331,14 +331,6 @@ def _extract_year(text: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def _unique_pp_slug(title: str) -> str:
-    base = slugify(title)[:300] or 'paper'
-    slug = base
-    i = 1
-    while PastPaper.objects.filter(slug=slug).exists():
-        slug = f'{base}-{i}'
-        i += 1
-    return slug
 
 
 def _scrape_post_mcqs(url: str, engine: str = 'playwright', debug: bool = False) -> list[dict]:
@@ -502,17 +494,8 @@ class Command(BaseCommand):
 
                 # ── Auto-create PastPaper record ──────────────────────────────
                 year = _extract_year(post['title'])
-                pp_slug = _unique_pp_slug(post['title'])
-                past_paper_obj, pp_created = PastPaper.objects.update_or_create(
-                    source_url=post['url'],
-                    defaults={
-                        'title':   post['title'] or 'Untitled',
-                        'slug':    pp_slug,
-                        'exam':    exam_obj,
-                        'subject': subj_obj,
-                        'year':    year,
-                        'status':  PastPaper.Status.PUBLISHED,
-                    }
+                past_paper_obj, pp_created = save_scraped_paper(
+                    post['url'], post['title'], exam_obj, subj_obj, year,
                 )
                 self._safe(
                     f'     PastPaper {"created" if pp_created else "updated"}: {past_paper_obj.title[:50]}',
@@ -529,22 +512,20 @@ class Command(BaseCommand):
                     if not mcq_data['question'] or not mcq_data['option_a']:
                         continue
                     try:
-                        _, created = MCQ.objects.update_or_create(
-                            question_text=mcq_data['question'],
-                            defaults={
-                                'option_a':       mcq_data['option_a'],
-                                'option_b':       mcq_data['option_b'],
-                                'option_c':       mcq_data['option_c'],
-                                'option_d':       '',
-                                'correct_option': mcq_data['correct'],
-                                'explanation':    mcq_data['explanation'],
-                                'exam':           exam_obj,
-                                'subject':        subj_obj,
-                                'past_paper':     past_paper_obj,
-                                'source_url':     post['url'],
-                                'status':         MCQ.Status.PUBLISHED,
-                            },
-                        )
+                        # These posts only give question + answer; the other options are
+                        # generated, so the MCQ waits in drafts for a human check.
+                        _, created = save_scraped_mcq(mcq_data['question'], {
+                            'option_a':       mcq_data['option_a'],
+                            'option_b':       mcq_data['option_b'],
+                            'option_c':       mcq_data['option_c'],
+                            'option_d':       '',
+                            'correct_option': mcq_data['correct'],
+                            'explanation':    mcq_data['explanation'],
+                            'exam':           exam_obj,
+                            'subject':        subj_obj,
+                            'source_url':     post['url'],
+                            'status':         MCQ.Status.DRAFT,
+                        }, past_paper=past_paper_obj)
                         if created:
                             total_created += 1
                         else:

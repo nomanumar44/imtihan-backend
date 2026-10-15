@@ -8,9 +8,10 @@ Schedule via cron (e.g., twice daily at 9am and 6pm):
     0 9,18 * * * cd /path/to/project && python manage.py send_deadline_reminders
 """
 
+from datetime import datetime, time, timedelta
+
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from datetime import timedelta
 from core.models import ApplicationRequest, Notification
 from core.signals import _create_notification, _send_email
 
@@ -20,8 +21,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         now = timezone.now()
-        window_start = now
-        window_end = now + timedelta(hours=24)
+        today = timezone.localdate()
+        # last_date is a date: applications close at the end of that day (local time),
+        # so "within 24 hours" means a last date of today or tomorrow that hasn't passed.
+        window_start = today
+        window_end = today + timedelta(days=1)
 
         # Find requests that are NOT submitted/failed/refunded and whose job last_date
         # falls within the next 24 hours
@@ -43,7 +47,10 @@ class Command(BaseCommand):
             user = req.user
             job = req.job
             req_id = f'#REQ-{req.id:04d}'
-            hours_left = int((job.last_date - now).total_seconds() / 3600)
+            closes_at = timezone.make_aware(datetime.combine(job.last_date, time.max))
+            hours_left = int((closes_at - now).total_seconds() // 3600)
+            if hours_left > 24:
+                continue
 
             # Avoid duplicate reminders: check if a reminder was sent recently
             recent = Notification.objects.filter(
@@ -66,7 +73,7 @@ class Command(BaseCommand):
                 body = (
                     f"Hi {user.username},\n\n"
                     f"This is a friendly reminder that your application for {job.title} "
-                    f"has a deadline in {hours_left} hours ({job.last_date.strftime('%d %b %Y, %I:%M %p')}).\n\n"
+                    f"has a deadline in {hours_left} hours (last date: {job.last_date.strftime('%d %b %Y')}).\n\n"
                     f"Current status: {status_label}\n"
                     f"Request ID: {req_id}\n\n"
                     f"Please ensure all required documents and information are ready.\n\n"

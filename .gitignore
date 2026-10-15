@@ -1,2 +1,13 @@
 .env
 .env.*
+
+# Local database (production uses PostgreSQL)
+db.sqlite3
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# User uploads (payment proofs, CNIC scans, ...). Files committed before this
+# rule stay tracked until removed with `git rm --cached`.
+media/

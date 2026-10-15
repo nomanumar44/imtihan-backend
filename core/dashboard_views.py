@@ -3,7 +3,8 @@ from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db.models import Count, Avg
@@ -31,6 +32,14 @@ from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
 
 
+def staff_required(view):
+    """Dashboard views are for active staff only (a plain login is not enough)."""
+    return login_required(
+        user_passes_test(lambda u: u.is_active and u.is_staff, login_url='/dashboard/login/')(view),
+        login_url='/dashboard/login/',
+    )
+
+
 def dashboard_login(request):
     """Custom login page for the admin dashboard."""
     if request.user.is_authenticated and request.user.is_staff:
@@ -54,7 +63,7 @@ def dashboard_logout(request):
     return redirect('dashboard_login')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_home(request):
     """Main dashboard page with stats, recent MCQs, activity, quick actions."""
     now = timezone.now()
@@ -113,7 +122,7 @@ def dashboard_home(request):
     return render(request, 'dashboard/home.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcqs(request):
     """MCQ bank listing page."""
     mcqs = MCQ.objects.select_related('exam', 'subject', 'current_affairs_category').all()
@@ -163,7 +172,7 @@ def dashboard_mcqs(request):
     return render(request, 'dashboard/mcqs.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_create(request):
     """MCQ creation and Excel upload page."""
     exams = Exam.objects.all()
@@ -183,7 +192,7 @@ def dashboard_mcq_create(request):
     return render(request, 'dashboard/mcq_create.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_create_with_paper(request, paper_pk):
     """Create an MCQ pre-linked to a specific past paper."""
     paper = get_object_or_404(PastPaper, pk=paper_pk)
@@ -208,7 +217,7 @@ def dashboard_mcq_create_with_paper(request, paper_pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_paper_mcqs(request, paper_pk):
     """Manage all MCQs linked to a specific past paper — add, view, edit, delete."""
     paper = get_object_or_404(PastPaper.objects.select_related('exam', 'subject'), pk=paper_pk)
@@ -252,7 +261,7 @@ def dashboard_paper_mcqs(request, paper_pk):
     return render(request, 'dashboard/paper_mcqs.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_bulk_upload(request):
     """Import MCQs into the dashboard from pasted text."""
     exams = Exam.objects.all()
@@ -350,7 +359,7 @@ def dashboard_mcq_bulk_upload(request):
     return render(request, 'dashboard/mcq_bulk_upload.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_edit(request, pk):
     mcq = get_object_or_404(MCQ, pk=pk)
     if request.method == 'POST':
@@ -370,7 +379,7 @@ def dashboard_mcq_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_current_affairs_categories(request):
     """Create and manage Current Affairs category buckets."""
     categories = (
@@ -407,7 +416,7 @@ def dashboard_current_affairs_categories(request):
     return render(request, 'dashboard/current_affairs_categories.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_current_affairs_category_edit(request, pk):
     category = get_object_or_404(CurrentAffairsCategory, pk=pk)
     if request.method == 'POST':
@@ -427,7 +436,7 @@ def dashboard_current_affairs_category_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_current_affairs_category_delete(request, pk):
     category = get_object_or_404(CurrentAffairsCategory, pk=pk)
     if request.method == 'POST':
@@ -444,7 +453,7 @@ def dashboard_current_affairs_category_delete(request, pk):
     return redirect('dashboard_current_affairs_categories')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_past_papers(request):
     """Past papers listing page."""
     papers = PastPaper.objects.select_related('exam', 'subject').all()
@@ -468,7 +477,7 @@ def dashboard_past_papers(request):
     return render(request, 'dashboard/past_papers.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_syllabus(request):
     """Syllabus listing page."""
     syllabi = Syllabus.objects.select_related('exam').all()
@@ -492,7 +501,7 @@ def dashboard_syllabus(request):
     return render(request, 'dashboard/syllabus.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_jobs(request):
     """Job listings page."""
     jobs = JobListing.objects.select_related('exam', 'syllabus').all()
@@ -516,7 +525,7 @@ def dashboard_jobs(request):
     return render(request, 'dashboard/jobs.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_students(request):
     """Students listing page."""
     students = Student.objects.select_related('user').all()
@@ -540,7 +549,7 @@ def dashboard_students(request):
     return render(request, 'dashboard/students.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_test_results(request):
     """Test results listing page."""
     results = TestResult.objects.select_related('student', 'exam', 'subject').all()
@@ -566,7 +575,7 @@ def dashboard_test_results(request):
 
 # ─── Page sections CRUD ────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_sections(request):
     """List and create editable frontend section headings."""
     if request.method == 'POST':
@@ -588,7 +597,7 @@ def dashboard_sections(request):
     return render(request, 'dashboard/sections.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_section_edit(request, pk):
     section = get_object_or_404(SectionContent, pk=pk)
     if request.method == 'POST':
@@ -608,7 +617,7 @@ def dashboard_section_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_section_delete(request, pk):
     section = get_object_or_404(SectionContent, pk=pk)
     if request.method == 'POST':
@@ -619,7 +628,7 @@ def dashboard_section_delete(request, pk):
 
 # ─── Exam boards CRUD ─────────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_exams(request):
     """List and create exam boards."""
     if request.method == 'POST':
@@ -645,7 +654,7 @@ def dashboard_exams(request):
     return render(request, 'dashboard/exams.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_exam_edit(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if request.method == 'POST':
@@ -665,7 +674,7 @@ def dashboard_exam_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_exam_delete(request, pk):
     exam = get_object_or_404(Exam, pk=pk)
     if request.method == 'POST':
@@ -677,7 +686,7 @@ def dashboard_exam_delete(request, pk):
 
 # ─── Subjects CRUD ────────────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_subjects(request):
     """List and create subjects."""
     if request.method == 'POST':
@@ -699,7 +708,7 @@ def dashboard_subjects(request):
     return render(request, 'dashboard/subjects.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_subject_edit(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
@@ -719,20 +728,22 @@ def dashboard_subject_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_subject_delete(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     if request.method == 'POST':
         name = subject.name
-        mcq_count = subject.mcqs.count()
-        subject.delete()
+        # MCQ.subject is PROTECT, so remove the linked MCQs first (the confirm dialog says so).
+        with transaction.atomic():
+            mcq_count, _ = subject.mcqs.all().delete()
+            subject.delete()
         messages.success(request, f'Deleted "{name}" and its {mcq_count} linked MCQs.')
     return redirect('dashboard_subjects')
 
 
 # ─── Announcements CRUD ───────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_announcements(request):
     """List and create announcement-bar items."""
     if request.method == 'POST':
@@ -754,7 +765,7 @@ def dashboard_announcements(request):
     return render(request, 'dashboard/announcements.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_announcement_edit(request, pk):
     announcement = get_object_or_404(Announcement, pk=pk)
     if request.method == 'POST':
@@ -774,7 +785,7 @@ def dashboard_announcement_edit(request, pk):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_announcement_delete(request, pk):
     announcement = get_object_or_404(Announcement, pk=pk)
     if request.method == 'POST':
@@ -783,7 +794,7 @@ def dashboard_announcement_delete(request, pk):
     return redirect('dashboard_announcements')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_settings(request):
     """Settings page placeholder."""
     context = {'active_page': 'settings'}
@@ -792,7 +803,7 @@ def dashboard_settings(request):
 
 # ─── Job listings CRUD ────────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_job_create(request):
     if request.method == 'POST':
         form = JobListingForm(request.POST)
@@ -811,7 +822,7 @@ def dashboard_job_create(request):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_job_edit(request, pk):
     job = get_object_or_404(JobListing, pk=pk)
     if request.method == 'POST':
@@ -833,7 +844,7 @@ def dashboard_job_edit(request, pk):
 
 # ─── Syllabus CRUD ────────────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_syllabus_create(request):
     if request.method == 'POST':
         form = SyllabusForm(request.POST, request.FILES)
@@ -852,7 +863,7 @@ def dashboard_syllabus_create(request):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_syllabus_edit(request, pk):
     syllabus = get_object_or_404(Syllabus, pk=pk)
     if request.method == 'POST':
@@ -874,7 +885,7 @@ def dashboard_syllabus_edit(request, pk):
 
 # ─── Past Papers CRUD ─────────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_past_paper_create(request):
     if request.method == 'POST':
         form = PastPaperForm(request.POST, request.FILES)
@@ -895,7 +906,7 @@ def dashboard_past_paper_create(request):
     return render(request, 'dashboard/form.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_past_paper_edit(request, pk):
     paper = get_object_or_404(PastPaper, pk=pk)
     if request.method == 'POST':
@@ -938,7 +949,7 @@ class ScraperLogStream:
     def flush(self):
         pass
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_scraper(request):
     """Scraper control panel — supports scrape_data, scrape_testpoint, scrape_pastpapers."""
     from django.core.management import call_command
@@ -1060,7 +1071,7 @@ def dashboard_scraper(request):
     }
     return render(request, 'dashboard/scraper.html', context)
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_scraper_status(request):
     """Returns JSON of the current scraper status and logs for the live UI."""
     from django.http import JsonResponse
@@ -1070,13 +1081,13 @@ def dashboard_scraper_status(request):
         'logs': SCRAPER_STATE['logs']
     })
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_trigger_scrape(request):
     """Legacy quick-run — kept for backward compat; redirects to scraper panel."""
     return redirect('dashboard_scraper')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_contact_messages(request):
     """List all contact form submissions."""
     status_filter = request.GET.get('status', '')
@@ -1100,7 +1111,8 @@ def dashboard_contact_messages(request):
     })
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
+@require_POST
 def dashboard_contact_mark_read(request, pk):
     """Mark a contact message as read."""
     msg = get_object_or_404(ContactMessage, pk=pk)
@@ -1109,7 +1121,8 @@ def dashboard_contact_mark_read(request, pk):
     return redirect('dashboard_contact_messages')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
+@require_POST
 def dashboard_contact_delete(request, pk):
     """Delete a contact message."""
     msg = get_object_or_404(ContactMessage, pk=pk)
@@ -1139,7 +1152,7 @@ HEADER_NOTES = [
 ]
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_export(request):
     """Download MCQs as an Excel file. Filters: subject, exam, from_row, to_row."""
     exam_slug    = request.GET.get('exam', '')
@@ -1157,6 +1170,7 @@ def dashboard_mcq_export(request):
     mcq_list = list(qs)
     total = len(mcq_list)
 
+    fr = 0
     try:
         fr = max(1, int(from_row)) - 1 if from_row else 0
         tr = int(to_row) if to_row else total
@@ -1244,7 +1258,7 @@ def dashboard_mcq_export(request):
     return response
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_mcq_import(request):
     """Upload an edited Excel file and bulk-update MCQs by ID."""
     if request.method != 'POST':
@@ -1335,7 +1349,7 @@ def dashboard_mcq_import(request):
 
 # ─── Service Requests Dashboard ──────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_service_requests(request):
     """Admin dashboard for paid application service requests."""
     now = timezone.now()
@@ -1393,7 +1407,7 @@ def dashboard_service_requests(request):
     return render(request, 'dashboard/service_requests.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_service_request_detail(request, pk):
     """Admin: view single service request details."""
     req = get_object_or_404(
@@ -1408,7 +1422,7 @@ def dashboard_service_request_detail(request, pk):
 
 # ─── Job Profiles Dashboard ──────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_job_profiles(request):
     """Admin dashboard for user job profiles."""
     profiles = UserProfile.objects.select_related('user').prefetch_related(
@@ -1461,7 +1475,7 @@ def dashboard_job_profiles(request):
     return render(request, 'dashboard/job_profiles.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_job_profile_detail(request, pk):
     """Admin: view single user job profile details."""
     profile = get_object_or_404(
@@ -1479,7 +1493,7 @@ def dashboard_job_profile_detail(request, pk):
 
 # ─── Blog Posts Dashboard ────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_posts(request):
     """Admin dashboard for blog posts."""
     posts = Post.objects.select_related('author', 'category').prefetch_related('tags').order_by('-created_at')
@@ -1526,7 +1540,7 @@ def dashboard_posts(request):
     return render(request, 'dashboard/posts.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_post_detail(request, pk):
     """Admin: view single blog post details."""
     post = get_object_or_404(
@@ -1541,7 +1555,7 @@ def dashboard_post_detail(request, pk):
 
 # ─── News Subscribers Dashboard ──────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_news_subscribers(request):
     """Admin dashboard for news subscribers."""
     subscribers = NewsSubscriber.objects.prefetch_related('boards').order_by('-subscribed_at')
@@ -1581,7 +1595,7 @@ def dashboard_news_subscribers(request):
 
 # ─── Blog Post Create/Edit ───────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_post_create(request):
     """Admin: create a new blog post in the custom dashboard."""
     if request.method == 'POST':
@@ -1602,7 +1616,7 @@ def dashboard_post_create(request):
     })
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_post_edit(request, pk):
     """Admin: edit an existing blog post in the custom dashboard."""
     post = get_object_or_404(Post, pk=pk)
@@ -1623,7 +1637,7 @@ def dashboard_post_edit(request, pk):
 
 # ─── Categories & Tags Dashboard ───────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_categories(request):
     """List and create categories for blog/news."""
     if request.method == 'POST':
@@ -1647,7 +1661,7 @@ def dashboard_categories(request):
     return render(request, 'dashboard/categories.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_category_edit(request, pk):
     """Edit an existing category."""
     category = get_object_or_404(Category, pk=pk)
@@ -1667,7 +1681,7 @@ def dashboard_category_edit(request, pk):
     })
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_category_delete(request, pk):
     """Delete a category."""
     category = get_object_or_404(Category, pk=pk)
@@ -1678,7 +1692,7 @@ def dashboard_category_delete(request, pk):
     return redirect('dashboard_categories')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_tags(request):
     """List and create tags."""
     if request.method == 'POST':
@@ -1700,7 +1714,7 @@ def dashboard_tags(request):
     return render(request, 'dashboard/tags.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_tag_edit(request, pk):
     """Edit an existing tag."""
     tag = get_object_or_404(Tag, pk=pk)
@@ -1720,7 +1734,7 @@ def dashboard_tag_edit(request, pk):
     })
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_tag_delete(request, pk):
     """Delete a tag."""
     tag = get_object_or_404(Tag, pk=pk)
@@ -1733,7 +1747,7 @@ def dashboard_tag_delete(request, pk):
 
 # ─── Service Plans Dashboard ─────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_service_plans(request):
     """Admin dashboard for service plans."""
     plans = ServicePlan.objects.order_by('-created_at')
@@ -1761,7 +1775,7 @@ def dashboard_service_plans(request):
 
 # ─── Comments Dashboard ──────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_comments(request):
     """Admin dashboard for blog post comments."""
     comments_list = Comment.objects.select_related('post').order_by('-created_at')
@@ -1796,7 +1810,7 @@ def dashboard_comments(request):
 
 # ─── Activity Logs Dashboard ─────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_activity_logs(request):
     """Admin dashboard for activity logs."""
     logs = ActivityLog.objects.select_related('user').order_by('-created_at')
@@ -1820,7 +1834,7 @@ def dashboard_activity_logs(request):
 
 # ─── AI Usage Dashboard ──────────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_ai_usage(request):
     """Admin dashboard for AI usage tracking."""
     usage = AIUsage.objects.select_related('user').order_by('-date')
@@ -1847,7 +1861,7 @@ def dashboard_ai_usage(request):
 
 # ─── Chat Sessions Dashboard ─────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_chat_sessions(request):
     """Admin dashboard for chat sessions."""
     sessions = ChatSession.objects.select_related('user', 'mcq').order_by('-created_at')
@@ -1873,7 +1887,7 @@ def dashboard_chat_sessions(request):
 
 # ─── Chat Messages Dashboard ─────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_chat_messages(request):
     """Admin dashboard for chat messages."""
     messages_list = ChatMessage.objects.select_related('session').order_by('-created_at')
@@ -1901,7 +1915,7 @@ def dashboard_chat_messages(request):
 
 # ─── Django Users Dashboard ──────────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_django_users(request):
     """Admin dashboard for Django auth users."""
     users = User.objects.annotate(
@@ -1932,7 +1946,7 @@ def dashboard_django_users(request):
 
 # ─── AI Subscriptions Dashboard ──────────────────────────────────────────────
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
 def dashboard_ai_subscriptions(request):
     """Admin dashboard for AI plan subscription requests."""
     subs = AISubscription.objects.select_related('user').exclude(plan='free')
@@ -1972,13 +1986,16 @@ def dashboard_ai_subscriptions(request):
     return render(request, 'dashboard/ai_subscriptions.html', context)
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
+@require_POST
 def dashboard_ai_subscription_approve(request, pk):
     """Admin approves a pending AI subscription — sets status to active."""
     sub = get_object_or_404(AISubscription, pk=pk)
     if sub.status == 'pending':
+        # Renewals extend from the current expiry so paid days aren't lost.
+        start = max(timezone.now(), sub.expires_at) if sub.expires_at else timezone.now()
         sub.status = 'active'
-        sub.expires_at = timezone.now() + timedelta(days=30)
+        sub.expires_at = start + timedelta(days=30)
         sub.save(update_fields=['status', 'expires_at', 'updated_at'])
         messages.success(request, f'Approved {sub.plan} plan for {sub.user.username}.')
         # Send confirmation email to user
@@ -2008,7 +2025,8 @@ def dashboard_ai_subscription_approve(request, pk):
     return redirect('dashboard_ai_subscriptions')
 
 
-@login_required(login_url='/dashboard/login/')
+@staff_required
+@require_POST
 def dashboard_ai_subscription_reject(request, pk):
     """Admin rejects a pending AI subscription — sets status to cancelled."""
     sub = get_object_or_404(AISubscription, pk=pk)

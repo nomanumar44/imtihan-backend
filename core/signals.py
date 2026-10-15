@@ -1,17 +1,13 @@
-import json
-from django.db import models
+from django.db import models, transaction
+from django.db.models import F
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from django.contrib.auth.models import User
+from .gamification import (
+    STREAK_BONUS_DAYS, XP_DAILY_FIRST_TEST, XP_PER_CORRECT, XP_PER_TEST,
+    XP_PERFECT_SCORE, XP_STREAK_BONUS, level_for_xp, user_streak,
+)
 from .models import TestResult, Student, DailyPracticeLog, Achievement, UserAchievement
-
-
-XP_PER_MCQ = 2
-XP_PER_TEST = 10
-XP_DAILY_LOGIN = 5
-XP_PERFECT_SCORE = 20
-XP_7_DAY_STREAK = 50
 
 
 def _get_or_create_student(user):
@@ -20,44 +16,27 @@ def _get_or_create_student(user):
 
 
 def _award_xp(user, xp_amount, reason=''):
-    """Add XP to user's student profile and handle level ups."""
+    """Add XP to the user's cumulative total and derive their level from it."""
     student = _get_or_create_student(user)
-    student.xp_points += xp_amount
-
-    # Level up logic
-    while student.xp_points >= student.level * 500:
-        student.xp_points -= student.level * 500
-        student.level += 1
-
-    student.save(update_fields=['xp_points', 'level'])
+    if xp_amount:
+        Student.objects.filter(pk=student.pk).update(xp_points=F('xp_points') + xp_amount)
+        student.refresh_from_db(fields=['xp_points'])
+    level = level_for_xp(student.xp_points)
+    if level != student.level:
+        student.level = level
+        student.save(update_fields=['level'])
     return student
 
 
 def _check_achievements(user):
     """Check and award achievements based on user stats."""
-    student = _get_or_create_student(user)
-    today = timezone.now().date()
-    now = timezone.now()
-
     # Gather stats
     total_tests = TestResult.objects.filter(student=user).count()
     total_mcqs = TestResult.objects.filter(student=user).aggregate(
         total=models.Sum('total_questions')
     )['total'] or 0
 
-    # Streak calculation
-    test_dates = sorted(
-        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
-        reverse=True
-    )
-    streak = 0
-    if test_dates:
-        streak = 1
-        for i in range(1, len(test_dates)):
-            if (test_dates[i - 1] - test_dates[i]).days == 1:
-                streak += 1
-            else:
-                break
+    streak = user_streak(user)
 
     # Perfect score count
     perfect_tests = TestResult.objects.filter(student=user, score_percent=100).count()
@@ -94,79 +73,61 @@ def _check_achievements(user):
         if current >= ach.condition_value:
             UserAchievement.objects.create(user=user, achievement=ach)
             _award_xp(user, ach.xp_reward, f'achievement: {ach.name}')
+            DailyPracticeLog.objects.filter(user=user, date=timezone.localdate()).update(
+                xp_earned=F('xp_earned') + ach.xp_reward
+            )
             unlocked.append(ach.name)
 
     return unlocked
 
 
+def xp_for_test(test_result, first_test_today, streak):
+    """XP for one completed test: correct answers plus completion bonuses."""
+    xp = test_result.correct_answers * XP_PER_CORRECT + XP_PER_TEST
+    if test_result.total_questions and float(test_result.score_percent) >= 100:
+        xp += XP_PERFECT_SCORE
+    if first_test_today:
+        xp += XP_DAILY_FIRST_TEST
+        # The streak bonus is paid once per day while the streak is alive.
+        if streak >= STREAK_BONUS_DAYS:
+            xp += XP_STREAK_BONUS
+    return xp
+
+
 @receiver(post_save, sender=TestResult)
-def on_test_completed(sender, instance, created, **kwargs):
-    """Award XP and check achievements after a test is saved."""
-    if not created:
+def on_test_completed(sender, instance, created, raw=False, **kwargs):
+    """Single source of truth for XP, streaks, daily counters and achievements."""
+    if not created or raw:
         return
 
     user = instance.student
-    today = timezone.now().date()
+    today = timezone.localdate()
 
-    # Base XP for MCQs answered
-    mcq_xp = instance.total_questions * XP_PER_MCQ
-    # Bonus for completing a test
-    test_xp = XP_PER_TEST
-    total_xp = mcq_xp + test_xp
-
-    # Perfect score bonus
-    if float(instance.score_percent) >= 100:
-        total_xp += XP_PERFECT_SCORE
-
-    # 7-day streak bonus
-    test_dates = sorted(
-        set(TestResult.objects.filter(student=user).values_list('created_at__date', flat=True)),
-        reverse=True
-    )
-    streak = 0
-    if test_dates:
-        streak = 1
-        for i in range(1, len(test_dates)):
-            if (test_dates[i - 1] - test_dates[i]).days == 1:
-                streak += 1
-            else:
-                break
-    if streak >= 7:
-        # Check if this is the first time hitting 7-day streak today
-        log, _ = DailyPracticeLog.objects.get_or_create(
+    with transaction.atomic():
+        log, first_test_today = DailyPracticeLog.objects.select_for_update().get_or_create(
             user=user, date=today,
             defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0}
         )
-        if not log.xp_earned >= XP_7_DAY_STREAK:
-            total_xp += XP_7_DAY_STREAK
+        streak = user_streak(user, today)
+        total_xp = xp_for_test(instance, first_test_today, streak)
 
-    # Daily login bonus (only once per day)
-    log, created_log = DailyPracticeLog.objects.get_or_create(
-        user=user, date=today,
-        defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0}
-    )
-    if created_log:
-        total_xp += XP_DAILY_LOGIN
+        log.mcqs_answered += instance.total_questions
+        log.tests_completed += 1
+        log.xp_earned += total_xp
+        log.save(update_fields=['mcqs_answered', 'tests_completed', 'xp_earned'])
 
-    # Update practice log
-    log.mcqs_answered += instance.total_questions
-    log.tests_completed += 1
-    log.xp_earned += total_xp
-    log.save()
+        _award_xp(user, total_xp, 'test_completed')
 
-    # Award XP
-    _award_xp(user, total_xp, 'test_completed')
-
-    # Update student counters
-    student = _get_or_create_student(user)
-    student.mcqs_today += instance.total_questions
-    student.tests_today += 1
-    if not student.last_practice_date or student.last_practice_date != today:
+        student = _get_or_create_student(user)
+        if student.last_practice_date != today:
+            student.mcqs_today = 0
+            student.tests_today = 0
+        student.mcqs_today += instance.total_questions
+        student.tests_today += 1
         student.last_practice_date = today
         student.streak_days = streak
-    student.save(update_fields=['mcqs_today', 'tests_today', 'last_practice_date', 'streak_days'])
+        student.save(update_fields=['mcqs_today', 'tests_today', 'last_practice_date', 'streak_days'])
 
-    # Check achievements
     _check_achievements(user)
 
 
@@ -248,7 +209,7 @@ def on_application_request_change(sender, instance, created, **kwargs):
         admin_body = (
             f"New request from {user.username} ({user.email})\n"
             f"Job: {job.title}\n"
-            f"Payment: Rs.{req.payment_amount or req.plan.price if req.plan else '0'} via {pay_method}\n"
+            f"Payment: Rs.{req.payment_amount or (req.plan.price if req.plan else 0)} via {pay_method}\n"
             f"Reference: {req.payment_reference or 'N/A'}\n"
             f"Request ID: {req_id}\n"
             f"Instructions: {req.special_instructions or 'None'}"
@@ -279,7 +240,7 @@ def on_application_request_change(sender, instance, created, **kwargs):
             f"Application Reference: {ref}\n"
             f"Submission Date: {req.submitted_at.strftime('%d %b %Y, %I:%M %p') if req.submitted_at else 'N/A'}\n\n"
             f"You can view the submission proof screenshot in your dashboard:\n"
-            f"https://imtihanhub.com/dashboard/my-requests\n\n"
+            f"{settings.FRONTEND_URL}/dashboard/my-requests\n\n"
             f"— ImtihanHub Team"
         )
         _send_email(f"Application Submitted — {req_id}", email_body, user.email)
@@ -302,7 +263,7 @@ def on_application_request_change(sender, instance, created, **kwargs):
             f"Reason: {reason}\n"
             f"{refund_msg}\n\n"
             f"You can submit a new request here:\n"
-            f"https://imtihanhub.com/jobs\n\n"
+            f"{settings.FRONTEND_URL}/jobs\n\n"
             f"— ImtihanHub Team"
         )
         _send_email(f"Application Failed — {req_id}", email_body, user.email)

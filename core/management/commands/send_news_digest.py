@@ -15,6 +15,8 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 
+from django.db.models import Q
+
 from core.models import NewsSubscriber, Post
 
 
@@ -55,21 +57,29 @@ class Command(BaseCommand):
         # Group subscribers by boards
         subscribers = NewsSubscriber.objects.filter(is_active=True).prefetch_related('boards')
 
-        site_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        site_url = settings.FRONTEND_URL
         sent_count = 0
 
         for sub in subscribers:
-            # Filter posts by subscriber's selected boards
-            board_ids = list(sub.boards.values_list('id', flat=True))
-            if board_ids:
-                posts = new_posts.filter(category__id__in=board_ids)
+            # Boards are exams; posts are tied to them through category/tag slugs or the title.
+            boards = list(sub.boards.all())
+            if boards:
+                board_q = Q()
+                for board in boards:
+                    board_q |= (
+                        Q(category__slug__iexact=board.slug)
+                        | Q(tags__slug__iexact=board.slug)
+                        | Q(title__icontains=board.name)
+                    )
+                posts = new_posts.filter(board_q).distinct()
             else:
                 posts = new_posts  # No boards selected = all posts
 
             if not posts.exists():
                 continue
 
-            unsubscribe_url = f"{site_url}/api/unsubscribe/{sub.unsubscribe_token}/"
+            # The unsubscribe endpoint is served by this backend, not the frontend.
+            unsubscribe_url = f"{settings.BACKEND_URL}/api/unsubscribe/{sub.unsubscribe_token}/"
 
             context = {
                 'posts': posts,

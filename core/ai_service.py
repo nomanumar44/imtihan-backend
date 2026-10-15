@@ -281,6 +281,11 @@ def _try_keys(func, messages, system_instruction, keys_raw: str) -> str:
     return last_error
 
 
+def is_failure_response(text: str) -> bool:
+    """True when get_ai_response returned a fallback message instead of an answer."""
+    return text in (QUOTA_EXCEEDED_MSG, API_KEY_MISSING, GENERIC_ERROR_MSG)
+
+
 def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general") -> str:
     """
     Generate AI response. Tries Groq → Kimi → Gemini.

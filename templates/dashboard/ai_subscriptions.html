@@ -113,14 +113,14 @@
           {% if sub.status == 'pending' %}
             <button onclick="showConfirmModal(
               'Approve this {{ sub.plan }} plan subscription for {{ sub.user.username }}?',
-              function() { window.location.href = '{% url 'dashboard_ai_subscription_approve' sub.id %}'; },
+              function() { postAction('{% url 'dashboard_ai_subscription_approve' sub.id %}'); },
               'Approve Subscription',
               'This will activate the plan for 30 days.',
               { iconClass: 'ti-check', iconColor: '#10b981', iconBg: '#ecfdf5', okText: 'Approve', okColor: '#10b981', okHover: '#059669' }
             );" class="action-btn" style="color:#10b981; border-color:#10b981; background:transparent; cursor:pointer; font-family:inherit;">Approve</button>
             <button onclick="showConfirmModal(
               'Reject this {{ sub.plan }} plan subscription for {{ sub.user.username }}?',
-              function() { window.location.href = '{% url 'dashboard_ai_subscription_reject' sub.id %}'; },
+              function() { postAction('{% url 'dashboard_ai_subscription_reject' sub.id %}'); },
               'Reject Subscription',
               'This will cancel the subscription request.',
               { iconClass: 'ti-x', iconColor: '#ef4444', iconBg: '#fef2f2', okText: 'Reject', okColor: '#ef4444', okHover: '#dc2626' }
