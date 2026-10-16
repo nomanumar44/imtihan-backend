@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% block title %}AI question tools{% endblock %}
+{% block content %}
+<style>
+  .ai-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-top:16px; }
+  .ai-card { background:#fff; border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:20px; }
+  .ai-card h3 { font-size:15px; margin:0 0 6px; }
+  .ai-card p { font-size:13px; color:var(--color-text-secondary); margin:0 0 14px; }
+  .ai-card label { display:block; font-size:12px; font-weight:600; margin:10px 0 4px; }
+  .ai-card select, .ai-card input { width:100%; padding:9px 12px; border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); font-size:13px; font-family:inherit; }
+  .ai-note { font-size:12px; background:#FAEEDA; color:#854F0B; border-radius:8px; padding:10px 12px; margin-top:14px; }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">AI question tools</div>
+    <div class="page-subtitle">AI output is a starting point: nothing goes live until a person checks it in the review queue</div>
+  </div>
+  {% if ai_drafts %}<a class="btn-add" href="{% url 'dashboard_review_queue' %}?tab=drafts">{{ ai_drafts }} AI draft{{ ai_drafts|pluralize }} to review</a>{% endif %}
+</div>
+
+<div class="ai-grid">
+  <div class="ai-card">
+    <h3>Generate draft MCQs</h3>
+    <p>Creates up to 10 questions as <strong>drafts</strong> marked "AI-generated".</p>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="generate">
+      <label for="ai-exam">Board</label>
+      <select id="ai-exam" name="exam" required>{% for e in exams %}<option value="{{ e.pk }}">{{ e.name }}</option>{% endfor %}</select>
+      <label for="ai-subject">Subject</label>
+      <select id="ai-subject" name="subject" required>{% for s in subjects %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}</select>
+      <label for="ai-topic">Topic (optional)</label>
+      <input id="ai-topic" name="topic" maxlength="120" placeholder="e.g. Mughal Empire">
+      <label for="ai-count">How many</label>
+      <input id="ai-count" name="count" type="number" min="1" max="10" value="5">
+      <button class="btn-add" type="submit" style="margin-top:14px;">Generate drafts</button>
+    </form>
+    <div class="ai-note">AI can state wrong facts confidently. Check every answer against a reliable source before publishing.</div>
+  </div>
+
+  <div class="ai-card">
+    <h3>Suggest topics</h3>
+    <p>Fills in empty topics (up to 40 questions per run). Topics power the topic filter and weak-area analysis.</p>
+    {% if untagged %}
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="tag">
+        <label for="tag-subject">Subject</label>
+        <select id="tag-subject" name="subject">{% for s in untagged %}<option value="{{ s.pk }}">{{ s.name }} — {{ s.n }} without a topic</option>{% endfor %}</select>
+        <button class="btn-add" type="submit" style="margin-top:14px;">Suggest topics</button>
+      </form>
+    {% else %}
+      <p>Every question already has a topic.</p>
+    {% endif %}
+    <div class="ai-note">Each tag is recorded in the question's change history and can be edited like any other field.
+      For large batches use <code>python manage.py tag_mcq_topics --subject &lt;slug&gt;</code>.</div>
+  </div>
+</div>
+{% endblock %}

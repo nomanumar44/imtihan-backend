@@ -1,0 +1,107 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block content %}
+<style>
+  .rq-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .rq-tab { padding:7px 14px; border-radius:999px; border:0.5px solid var(--color-border-secondary); font-size:13px; text-decoration:none; color:var(--color-text-primary); background:#fff; }
+  .rq-tab.active { background:var(--brand-green); color:#fff; border-color:var(--brand-green); }
+  .rq-card { background:#fff; border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:16px 18px; margin-bottom:12px; }
+  .rq-q { font-weight:600; font-size:14px; margin-bottom:8px; }
+  .rq-opts { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px 16px; font-size:13px; color:var(--color-text-secondary); }
+  .rq-opts .correct { color:#0F6E56; font-weight:600; }
+  .rq-meta { font-size:12px; color:var(--color-text-secondary); margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .rq-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+  .rq-actions form { display:inline; }
+  .rq-report { font-size:12px; border-left:3px solid #e57373; padding:4px 10px; margin-top:8px; background:#fffafa; }
+  @media (max-width:640px) { .rq-opts { grid-template-columns:1fr; } }
+</style>
+
+<div class="top-bar">
+  <div>
+    <div class="page-title">Review queue</div>
+    <div class="page-subtitle">Check reported questions, approve drafts and clear duplicates before students see them</div>
+  </div>
+</div>
+
+<div class="rq-tabs">
+  <a href="?tab=reported" class="rq-tab {% if tab == 'reported' %}active{% endif %}">Reported ({{ counts.reported }})</a>
+  <a href="?tab=drafts" class="rq-tab {% if tab == 'drafts' %}active{% endif %}">Drafts ({{ counts.drafts }})</a>
+  <a href="?tab=flagged" class="rq-tab {% if tab == 'flagged' %}active{% endif %}">Flagged ({{ counts.flagged }})</a>
+  <a href="?tab=duplicates" class="rq-tab {% if tab == 'duplicates' %}active{% endif %}">Duplicates{% if counts.duplicates is not None %} ({{ counts.duplicates }}){% endif %}</a>
+</div>
+
+{% if tab == 'duplicates' %}
+  {% for group in groups %}
+    <div class="rq-card">
+      <div class="rq-q">{{ group.0.question_text|truncatechars:200 }}</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">{{ group|length }} copies — keep one, the others are retired (hidden, history kept).</div>
+      {% for mcq in group %}
+        <div class="rq-meta" style="border-top:0.5px solid var(--color-border-tertiary);padding-top:8px;">
+          <strong>#{{ mcq.pk }}</strong>
+          <span>{{ mcq.exam.name }} · {{ mcq.subject.name }}</span>
+          <span class="badge {% if mcq.status == 'published' %}badge-blue{% elif mcq.status == 'draft' %}badge-amber{% else %}badge-red{% endif %}">{{ mcq.get_status_display }}</span>
+          <span>Answer {{ mcq.correct_option }}</span>
+          <a class="action-btn" href="{% url 'dashboard_mcq_edit' mcq.pk %}?next={{ request.get_full_path|urlencode }}">Edit</a>
+          <form method="post" action="{% url 'dashboard_duplicate_keep' mcq.pk %}">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="action-btn" type="submit">Keep this one</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <div class="rq-card">No duplicate questions found.</div>
+  {% endfor %}
+{% else %}
+  {% for mcq in page_obj %}
+    <div class="rq-card">
+      <div class="rq-q">#{{ mcq.pk }} · {{ mcq.question_text|truncatechars:240 }}</div>
+      <div class="rq-opts">
+        <div class="{% if mcq.correct_option == 'A' %}correct{% endif %}">A. {{ mcq.option_a }}</div>
+        <div class="{% if mcq.correct_option == 'B' %}correct{% endif %}">B. {{ mcq.option_b }}</div>
+        <div class="{% if mcq.correct_option == 'C' %}correct{% endif %}">C. {{ mcq.option_c }}</div>
+        {% if mcq.option_d %}<div class="{% if mcq.correct_option == 'D' %}correct{% endif %}">D. {{ mcq.option_d }}</div>{% endif %}
+      </div>
+      {% if mcq.explanation %}<div style="font-size:12px;margin-top:8px;color:var(--color-text-secondary);">Explanation: {{ mcq.explanation|truncatechars:240 }}</div>{% endif %}
+      <div class="rq-meta">
+        <span>{{ mcq.exam.name }} · {{ mcq.subject.name }}{% if mcq.topic %} · {{ mcq.topic }}{% endif %}</span>
+        <span class="badge {% if mcq.status == 'published' %}badge-blue{% elif mcq.status == 'draft' %}badge-amber{% else %}badge-red{% endif %}">{{ mcq.get_status_display }}</span>
+        {% if mcq.open_reports %}<span class="badge badge-red">{{ mcq.open_reports }} open report{{ mcq.open_reports|pluralize }}</span>{% endif %}
+        {% if mcq.origin == 'ai' %}<span class="badge badge-purple">AI-generated — verify every fact</span>{% elif mcq.origin == 'scraped' %}<span class="badge">Scraped</span>{% endif %}
+        {% if mcq.source_url %}<a href="{{ mcq.source_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--brand-green)">Source</a>{% endif %}
+      </div>
+      {% for r in mcq.open_report_list %}
+        <div class="rq-report"><strong>{{ r.get_reason_display }}</strong> — {{ r.user.username|default:"Guest" }}, {{ r.created_at|date:"d M" }}{% if r.message %}: {{ r.message|truncatechars:200 }}{% endif %}</div>
+      {% endfor %}
+      <div class="rq-actions">
+        <a class="action-btn" href="{% url 'dashboard_mcq_edit' mcq.pk %}?next={{ request.get_full_path|urlencode }}">Edit</a>
+        {% if mcq.status != 'published' %}
+          <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="publish"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="action-btn" type="submit" style="color:#0F6E56;border-color:#0F6E56;">Publish</button>
+          </form>
+        {% endif %}
+        {% if mcq.status == 'published' %}
+          <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="flag"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="action-btn" type="submit">Hide (flag)</button>
+          </form>
+        {% endif %}
+        <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="retire"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="action-btn danger" type="submit">Retire</button>
+        </form>
+        {% if mcq.open_reports %}
+          <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="dismiss"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="action-btn" type="submit">Dismiss reports</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <div class="rq-card">Nothing to review here.</div>
+  {% endfor %}
+  <div style="margin-top:16px;">{% include "dashboard/pagination.html" with page_obj=page_obj %}</div>
+{% endif %}
+{% endblock %}

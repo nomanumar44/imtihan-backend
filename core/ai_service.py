@@ -56,6 +56,33 @@ BLOG_NEWS_PROMPT = (
     "and mention which boards test this area."
 )
 
+# What the student asked the tutor to do with an MCQ (MCQAIChat quick actions).
+MCQ_MODE_INSTRUCTIONS = {
+    'explain': "Explain why the correct answer is right and give short background on the topic.",
+    'wrong-options': "Go through each wrong option one by one and explain why it is wrong.",
+    'simplify': "Explain the idea behind this question in very simple words, as if to a beginner.",
+    'notes': (
+        "Write short revision notes on the topic of this question: 5 to 7 bullet points "
+        "with the key facts a candidate should remember."
+    ),
+    'practice': (
+        "Write 3 new practice MCQs on the same topic, each with options A-D and the answer "
+        "on its own line. Begin with the line: 'AI-generated practice - not checked by ImtihanHub.'"
+    ),
+}
+
+ACCURACY_RULE = (
+    "Accuracy matters more than confidence: if you are not sure of a fact, date or figure, "
+    "say so instead of guessing, and tell the student to confirm it from an official source."
+)
+
+LANGUAGE_RULES = {
+    'ur': (
+        "Reply in clear, simple Urdu (Urdu script). Keep names, official exam terms and "
+        "English abbreviations (PPSC, BPS, CNIC, etc.) exactly as they appear in the exam."
+    ),
+}
+
 # ── Error Messages ──
 
 API_KEY_MISSING = (
@@ -81,19 +108,24 @@ GENERIC_ERROR_MSG = (
 
 # ── Helpers ──
 
-def _get_system_prompt(mcq, context_type: str) -> str:
-    """Return the appropriate system prompt for the context."""
+def _base_prompt(mcq, context_type: str, mode: str | None) -> str:
     if mcq and context_type in ("mcq", "mcq-practice"):
         options = []
         if mcq.option_a: options.append(f"A. {mcq.option_a}")
         if mcq.option_b: options.append(f"B. {mcq.option_b}")
         if mcq.option_c: options.append(f"C. {mcq.option_c}")
         if mcq.option_d: options.append(f"D. {mcq.option_d}")
-        return MCQ_SYSTEM_PROMPT.format(
+        prompt = MCQ_SYSTEM_PROMPT.format(
             question_text=mcq.question_text,
             options="\n".join(options),
             correct_option=mcq.correct_option,
         )
+        if mcq.explanation:
+            # Ground the tutor in the staff-reviewed explanation.
+            prompt += f"\n\nImtihanHub's own explanation for this question: {mcq.explanation}"
+        if mode in MCQ_MODE_INSTRUCTIONS:
+            prompt += f"\n\nTask: {MCQ_MODE_INSTRUCTIONS[mode]}"
+        return prompt
     if context_type == "exam-board":
         return EXAM_BOARD_PROMPT
     if context_type == "past-papers":
@@ -101,6 +133,14 @@ def _get_system_prompt(mcq, context_type: str) -> str:
     if context_type in ("blog", "news"):
         return BLOG_NEWS_PROMPT
     return GENERAL_SYSTEM_PROMPT
+
+
+def _get_system_prompt(mcq, context_type: str, mode: str | None = None, language: str | None = None) -> str:
+    """Return the system prompt for the context, task and reply language."""
+    prompt = _base_prompt(mcq, context_type, mode) + "\n\n" + ACCURACY_RULE
+    if language in LANGUAGE_RULES:
+        prompt += "\n\n" + LANGUAGE_RULES[language]
+    return prompt
 
 
 def _to_gemini_history(messages: list[dict]) -> list[dict]:
@@ -286,12 +326,15 @@ def is_failure_response(text: str) -> bool:
     return text in (QUOTA_EXCEEDED_MSG, API_KEY_MISSING, GENERIC_ERROR_MSG)
 
 
-def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general") -> str:
+def get_ai_response(messages: list[dict], mcq=None, context_type: str = "general",
+                    mode: str | None = None, language: str | None = None,
+                    system_instruction: str | None = None) -> str:
     """
     Generate AI response. Tries Groq → Kimi → Gemini.
-    Supports multiple comma-separated keys per provider.
+    Supports multiple comma-separated keys per provider. `system_instruction`
+    replaces the built-in tutor prompt (used for staff tools such as topic tagging).
     """
-    system_instruction = _get_system_prompt(mcq, context_type)
+    system_instruction = system_instruction or _get_system_prompt(mcq, context_type, mode, language)
 
     # Log which keys are configured (without revealing the actual keys)
     groq_keys = getattr(settings, 'GROQ_API_KEY', '')

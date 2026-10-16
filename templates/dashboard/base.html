@@ -589,6 +589,18 @@
         <a href="{% url 'dashboard_mcqs' %}" class="nav-item {% if active_page == 'mcqs' %}active{% endif %}">
           <i class="ti ti-checkbox"></i> MCQ bank
         </a>
+        <a href="{% url 'dashboard_review_queue' %}" class="nav-item {% if active_page == 'review_queue' %}active{% endif %}">
+          <i class="ti ti-shield-check"></i> Review queue
+        </a>
+        <a href="{% url 'dashboard_ai_tools' %}" class="nav-item {% if active_page == 'ai_tools' %}active{% endif %}">
+          <i class="ti ti-sparkles"></i> AI question tools
+        </a>
+        <a href="{% url 'dashboard_mock_templates' %}" class="nav-item {% if active_page == 'mock_templates' %}active{% endif %}">
+          <i class="ti ti-clock-check"></i> Mock tests
+        </a>
+        <a href="{% url 'dashboard_testimonials' %}" class="nav-item {% if active_page == 'testimonials' %}active{% endif %}">
+          <i class="ti ti-quote"></i> Testimonials
+        </a>
         <a href="{% url 'dashboard_current_affairs_categories' %}" class="nav-item {% if active_page == 'ca_categories' %}active{% endif %}">
           <i class="ti ti-category"></i> CA categories
         </a>

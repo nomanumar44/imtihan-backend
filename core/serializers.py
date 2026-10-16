@@ -52,7 +52,8 @@ class MCQListSerializer(serializers.ModelSerializer):
             'correct_option', 'exam', 'exam_name', 'exam_badge_color',
             'subject', 'subject_name', 'current_affairs_category',
             'current_affairs_category_name', 'current_affairs_category_slug',
-            'current_affairs_category_region', 'status', 'created_at'
+            'current_affairs_category_region', 'topic', 'difficulty', 'explanation',
+            'status', 'created_at'
         ]
 
 
@@ -103,7 +104,7 @@ class JobListingSerializer(serializers.ModelSerializer):
             'department', 'location', 'bps_grade', 'description', 'qualifications',
             'vacancies', 'salary_range', 'experience', 'age_limit',
             'responsibilities', 'how_to_apply',
-            'last_date', 'apply_link', 'status', 'created_at', 'updated_at',
+            'last_date', 'apply_link', 'advertisement_url', 'status', 'created_at', 'updated_at',
             # Eligibility requirements
             'min_age', 'max_age', 'min_education',
             'domicile_requirement', 'gender_requirement', 'min_experience_years',
@@ -146,7 +147,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'phone', 'city', 'province', 'avatar',
             'target_exam', 'notify_papers', 'notify_jobs', 'notify_affairs',
             'member_since', 'xp_points', 'level', 'daily_goal', 'streak_days',
-            'has_password',
+            'display_name', 'show_on_leaderboard', 'has_password',
         ]
         # Gamification counters are earned server-side, never set by the client.
         read_only_fields = ['xp_points', 'level', 'streak_days']
@@ -262,8 +263,9 @@ class TestResultDetailSerializer(serializers.ModelSerializer):
         model = TestResult
         fields = [
             'id', 'exam_name', 'exam_slug', 'subject_name', 'subject_slug',
-            'total_questions', 'correct_answers', 'wrong_answers',
-            'score_percent', 'time_taken_seconds', 'created_at', 'answers'
+            'total_questions', 'correct_answers', 'wrong_answers', 'unanswered',
+            'score_percent', 'negative_marks', 'net_score', 'mode', 'source', 'source_ref',
+            'time_taken_seconds', 'created_at', 'answers'
         ]
 
 

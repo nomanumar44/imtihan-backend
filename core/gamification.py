@@ -14,6 +14,8 @@ XP_DAILY_FIRST_TEST = 5
 XP_PERFECT_SCORE = 20
 XP_STREAK_BONUS = 50
 STREAK_BONUS_DAYS = 7
+# Re-taking an identical question set within this many days earns reduced XP.
+REPEAT_WINDOW_DAYS = 7
 
 
 def level_for_xp(xp):

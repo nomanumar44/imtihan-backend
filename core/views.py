@@ -21,12 +21,12 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.text import slugify
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, throttle_classes, authentication_classes, permission_classes, parser_classes
+from rest_framework.decorators import action, api_view, throttle_classes, authentication_classes, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 from .gamification import (
@@ -43,6 +43,7 @@ from .models import (
     AIUsage, ChatSession, ChatMessage,
     UserProfile, UserEducation, UserExperience, UserDocument, JobApplication,
     ServicePlan, ApplicationRequest, AdminNote, AISubscription,
+    QuestionReport, MockTestTemplate, Testimonial,
 )
 from .serializers import (
     ExamSerializer, SubjectSerializer,
@@ -62,6 +63,11 @@ from .serializers import (
 
 
 # ─── ViewSets ───────────────────────────────────────────────────────────────
+
+
+class ReportThrottle(AnonRateThrottle):
+    scope = 'question_report'  # own cache key, not shared with the global anon limit
+    rate = '20/hour'
 
 
 class ExamViewSet(viewsets.ModelViewSet):
@@ -94,10 +100,34 @@ class MCQViewSet(viewsets.ModelViewSet):
             return MCQListSerializer
         return MCQDetailSerializer
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.instance._changed_by = self.request.user  # attributed change history
+        serializer.save()
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny], throttle_classes=[ReportThrottle])
+    def report(self, request, pk=None):
+        """Anyone can report a published question as wrong, unclear or outdated."""
+        from .quality import file_report
+        reason = request.data.get('reason', QuestionReport.Reason.WRONG_ANSWER)
+        if reason not in QuestionReport.Reason.values:
+            return Response({'error': 'Invalid reason.'}, status=status.HTTP_400_BAD_REQUEST)
+        message = str(request.data.get('message', '') or '').strip()[:1000]
+        file_report(self.get_object(), request.user, reason, message)
+        return Response({'message': 'Thanks — our team will review this question.'}, status=status.HTTP_201_CREATED)
+
     def get_queryset(self):
         qs = super().get_queryset()
         if not is_staff_request(self.request):
             qs = qs.filter(status=MCQ.Status.PUBLISHED)
+        difficulty = self.request.query_params.get('difficulty')
+        topic = self.request.query_params.get('topic')
+        if difficulty:
+            qs = qs.filter(difficulty=difficulty)
+        if topic:
+            qs = qs.filter(topic__iexact=topic)
         exam = self.request.query_params.get('exam')
         subject = self.request.query_params.get('subject')
         current_affairs_category = self.request.query_params.get('current_affairs_category')
@@ -274,11 +304,21 @@ def _current_affairs_category_filter(category):
 
 def _serialize_current_affairs_question(question, index):
     opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+    event_date = (getattr(question, 'effective_date', None) or question.event_date
+                  or (timezone.localdate(question.created_at) if question.created_at else None))
+    options = [question.option_a, question.option_b, question.option_c]
+    if question.option_d:
+        options.append(question.option_d)
     return {
         'id': index,
+        'mcq_id': question.id,
         'question': question.question_text,
-        'options': [question.option_a, question.option_b, question.option_c, question.option_d],
+        'options': options,
         'correct': opt_map.get(question.correct_option, 0),
+        'explanation': question.explanation,
+        'date': event_date.isoformat() if event_date else None,
+        'source_url': question.source_url,
+        'source_name': _source_name(question.source_url),
     }
 
 
@@ -429,9 +469,12 @@ def bulk_upload_mcqs(request):
                 option_d=options['d'],
                 correct_option=correct,
                 explanation=q.get('explanation', '') or '',
+                topic=str(q.get('topic') or '').strip()[:120],
+                difficulty=str(q.get('difficulty') or '').strip().lower() if str(q.get('difficulty') or '').strip().lower() in MCQ.Difficulty.values else '',
                 current_affairs_category=item_category if subject.slug == 'current-affairs' else None,
                 source_url=data.get('source', '') or '',
                 status=status_val,
+                origin=MCQ.Origin.UPLOAD,
                 created_by=request.user,
             )
 
@@ -518,12 +561,19 @@ def frontend_home(request):
         for s in SectionContent.objects.filter(is_active=True)
     }
 
+    # 6. Testimonials: only approved ones with recorded consent
+    testimonials = [
+        {'name': t.name, 'city': t.city, 'exam': t.exam, 'quote': t.quote, 'rating': t.rating}
+        for t in Testimonial.objects.filter(is_approved=True, consent_confirmed=True)[:12]
+    ]
+
     data = {
         'subjects': subjects_data,
         'jobs': jobs_data,
         'stats': stats,
         'exams': exams_data,
         'sections': sections,
+        'testimonials': testimonials,
     }
     cache.set(cache_key, data, timeout=300)
     return Response(data)
@@ -693,7 +743,7 @@ def current_affairs_months(request):
 
     rows = (
         _published_current_affairs()
-        .annotate(month=TruncMonth('created_at'))
+        .annotate(month=TruncMonth('effective_date'))
         .values('month', 'current_affairs_category__region')
         .annotate(n=Count('id'))
         .order_by('-month')
@@ -729,7 +779,7 @@ def _current_affairs_payload(mcqs, title, region_filter):
     intl_questions = []
     general_questions = []
 
-    for index, q in enumerate(mcqs.select_related('current_affairs_category').order_by('created_at', 'id'), start=1):
+    for index, q in enumerate(mcqs.select_related('current_affairs_category').order_by('effective_date', 'id'), start=1):
         serialized = _serialize_current_affairs_question(q, index)
         category = q.current_affairs_category
         if category and category.region == CurrentAffairsCategory.Region.PAKISTAN:
@@ -758,7 +808,11 @@ def _current_affairs_payload(mcqs, title, region_filter):
 
 
 def _published_current_affairs():
-    return MCQ.objects.filter(subject__slug='current-affairs', status='published')
+    """Published current-affairs MCQs with `effective_date`: the event date, else the day it was added."""
+    from django.db.models.functions import Coalesce, TruncDate
+    return MCQ.objects.filter(subject__slug='current-affairs', status='published').annotate(
+        effective_date=Coalesce('event_date', TruncDate('created_at')),
+    )
 
 
 @api_view(['GET'])
@@ -773,9 +827,30 @@ def current_affairs_detail(request, year, month):
         return Response({'error': 'Unknown month.'}, status=status.HTTP_404_NOT_FOUND)
     month_num = month_names.index(month.lower())
 
-    mcqs = _published_current_affairs().filter(created_at__year=int(year), created_at__month=month_num)
+    mcqs = _published_current_affairs().filter(effective_date__year=int(year), effective_date__month=month_num)
     title = f"{month.title()} {year} Current Affairs"
     return Response(_current_affairs_payload(mcqs, title, request.query_params.get('region', '').lower()))
+
+
+CA_QUIZ_PERIODS = {'week': (7, 20, "This week's current affairs quiz"),
+                   'month': (31, 50, "This month's current affairs quiz")}
+
+
+@api_view(['GET'])
+def current_affairs_quiz(request):
+    """Revision quiz from recent current affairs: ?period=week|month&region=pakistan|world&mode=exam."""
+    days, count, title = CA_QUIZ_PERIODS.get(request.query_params.get('period'), CA_QUIZ_PERIODS['week'])
+    qs = _published_current_affairs().filter(effective_date__gte=timezone.localdate() - timedelta(days=days))
+    region = request.query_params.get('region', '').lower()
+    if region in CurrentAffairsCategory.Region.values:
+        qs = qs.filter(current_affairs_category__region=region)
+    if not qs.exists():
+        return Response({'error': 'No current affairs questions in this period yet.'}, status=status.HTTP_404_NOT_FOUND)
+    include_answers = not _exam_mode(request)
+    return Response({
+        'title': title,
+        'questions': [_serialize_test_question(q, include_answers) for q in _random_mcqs(qs, count)],
+    })
 
 
 @api_view(['GET'])
@@ -789,7 +864,7 @@ def current_affairs_daily(request, day):
     if not parsed:
         return Response({'error': 'Use a date in YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    mcqs = _published_current_affairs().filter(created_at__date=parsed)
+    mcqs = _published_current_affairs().filter(effective_date=parsed)
     title = f"{parsed:%d %B %Y} Current Affairs"
     return Response(_current_affairs_payload(mcqs, title, request.query_params.get('region', '').lower()))
 
@@ -912,25 +987,18 @@ def frontend_mcq_set_detail(request, subject_slug, set_id):
     if not mcqs:
         return Response({'error': 'Set not found or no published MCQs'}, status=404)
 
-    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-    questions_list = []
-    
-    for q in mcqs:
-        questions_list.append({
-            'id': q.id,
-            'question': q.question_text,
-            'options': [q.option_a, q.option_b, q.option_c, q.option_d],
-            'correct': opt_map.get(q.correct_option, 0),
-            'explanation': q.explanation
-        })
-
+    include_answers = not _exam_mode(request)
     return Response({
         'title': subject.name,
-        'questions': questions_list
+        'subject_id': subject.id,
+        'questions': [_serialize_test_question(q, include_answers, subject.slug) for q in mcqs],
     })
 
 def _mock_test_title(job_slug):
-    """Jobs link to their mock test by id; show the job title rather than the number."""
+    """A template's own title, else the job title for job-id slugs, else the slug."""
+    template = MockTestTemplate.objects.filter(slug=job_slug).only('title').first()
+    if template:
+        return template.title
     if job_slug.isdigit():
         job = JobListing.objects.filter(pk=int(job_slug)).only('title').first()
         if job:
@@ -938,144 +1006,82 @@ def _mock_test_title(job_slug):
     return f'Mock Test ({job_slug.replace("-", " ").title()})'
 
 
+def _serialize_test_question(q, include_answers=True, subject=None):
+    """One MCQ in the shape the test player expects; exam mode leaves the answer out."""
+    data = {
+        'id': q.id,
+        'question': q.question_text,
+        'options': [q.option_a, q.option_b, q.option_c, q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
+        'subject': subject or (q.subject.slug if q.subject_id else ''),
+        'topic': q.topic,
+    }
+    if include_answers:
+        data['correct'] = {'A': 0, 'B': 1, 'C': 2, 'D': 3}.get(q.correct_option, 0)
+        data['explanation'] = q.explanation
+    return data
+
+
+def _exam_mode(request):
+    return request.query_params.get('mode') == 'exam'
+
+
+def _random_mcqs(qs, count):
+    """Up to `count` random MCQs from `qs` without ORDER BY RANDOM() on the whole table."""
+    ids = list(qs.values_list('id', flat=True))
+    chosen = random.sample(ids, min(count, len(ids)))
+    by_id = MCQ.objects.select_related('subject').in_bulk(chosen)
+    return [by_id[i] for i in chosen if i in by_id]
+
+
 @api_view(['GET'])
 def frontend_mock_test(request, job_slug):
-    """Generate a dynamic 100-question mock test based on specific syllabus weightages.
+    """Full-length mock test.
 
-    Predefined configs exist for known job slugs.
-    For unknown slugs:
-      1. Check query param `?breakdown={"english":20,"math":30,...}` for user-provided weightages.
-      2. If no breakdown given, auto-distribute 100 questions equally across all subjects
-         that have published MCQs in the database.
+    A staff-defined MockTestTemplate (matched by slug) sets the duration, negative
+    marking and subject mix. Other slugs (usually a job id) accept
+    ?breakdown={"english": 20, ...} or spread 100 questions evenly over every subject
+    with published MCQs. ?mode=exam leaves answers out; they come back after submission.
     """
-
-    # Predefined mock test configurations (known job slugs)
-    mock_configs = {
-        'ppsc-patwari': {
-            'title': 'PPSC Patwari Mock Test',
-            'total': 100,
-            'breakdown': {
-                'english': 20,
-                'general-knowledge': 20,
-                'pakistan-studies': 20,
-                'islamic-studies': 10,
-                'computer-science': 20,
-                'mathematics': 10,
-            }
-        },
-        'fpsc-inspector-customs': {
-            'title': 'FPSC Inspector Customs Mock Test',
-            'total': 100,
-            'breakdown': {
-                'english': 20,
-                'general-knowledge': 20,
-                'current-affairs': 20,
-                'pakistan-studies': 10,
-                'islamic-studies': 10,
-                'everyday-science': 20,
-            }
-        },
-        'ppsc-sub-inspector': {
-            'title': 'PPSC Sub Inspector Mock Test',
-            'total': 100,
-            'breakdown': {
-                'english': 40,
-                'computer-science': 40,
-                'general-knowledge': 20,
-            }
-        },
-        'ppsc-assistant': {
-            'title': 'PPSC Assistant Mock Test',
-            'total': 100,
-            'breakdown': {
-                'english': 20,
-                'pakistan-studies': 10,
-                'general-knowledge': 30,
-                'islamic-studies': 10,
-                'mathematics': 10,
-                'computer-science': 20,
-            }
-        }
-    }
-
-    config = mock_configs.get(job_slug)
-
-    if not config:
-        # ── Unknown slug: try user-provided breakdown first ──
+    template = MockTestTemplate.objects.filter(slug=job_slug, is_active=True).first()
+    duration, negative = 100, Decimal('0')
+    breakdown = None
+    if template:
+        title, breakdown = template.title, dict(template.breakdown)
+        duration, negative = template.duration_minutes, template.negative_marking
+    else:
+        title = _mock_test_title(job_slug)
         user_breakdown = request.query_params.get('breakdown')
         if user_breakdown:
             try:
                 parsed = json.loads(user_breakdown)
                 if isinstance(parsed, dict) and parsed:
-                    breakdown ={str(k): max(0, min(int(v), MAX_TEST_QUESTIONS)) for k, v in parsed.items()}
-                    config = {
-                        'title': _mock_test_title(job_slug),
-                        'total': min(sum(breakdown.values()) or 100, MAX_TEST_QUESTIONS),
-                        'breakdown': breakdown,
-                    }
+                    breakdown = {str(k): max(0, min(int(v), MAX_TEST_QUESTIONS)) for k, v in parsed.items()}
             except (json.JSONDecodeError, ValueError, TypeError):
-                pass  # fall through to auto-distribution
-
-        # ── Auto-distribute across all subjects with published MCQs ──
-        if not config:
-            # Find every subject slug that has at least 1 published MCQ
-            active_subjects = (
-                Subject.objects
-                .filter(mcqs__status='published')
-                .annotate(mcq_count=Count('mcqs'))
-                .filter(mcq_count__gt=0)
-                .values_list('slug', flat=True)
-                .distinct()
-                .order_by('slug')
+                breakdown = None
+        if not breakdown:
+            subject_slugs = list(
+                Subject.objects.filter(mcqs__status='published')
+                .values_list('slug', flat=True).distinct().order_by('slug')
             )
-            subject_slugs = list(active_subjects)
-
             if not subject_slugs:
-                return Response(
-                    {'error': 'No subjects with published MCQs found.'},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+                return Response({'error': 'No subjects with published MCQs found.'}, status=status.HTTP_404_NOT_FOUND)
+            per_subject, extra = divmod(100, len(subject_slugs))
+            breakdown = {slug: per_subject + (1 if i < extra else 0) for i, slug in enumerate(subject_slugs)}
 
-            total_questions = 100
-            count_per_subject = total_questions // len(subject_slugs)
-            remainder = total_questions % len(subject_slugs)
-
-            breakdown = {}
-            for i, subj_slug in enumerate(subject_slugs):
-                breakdown[subj_slug] = count_per_subject + (1 if i < remainder else 0)
-
-            config = {
-                'title': _mock_test_title(job_slug),
-                'total': total_questions,
-                'breakdown': breakdown,
-            }
-
-    questions_list = []
-    opt_map = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-
-    for subj_slug, count in config['breakdown'].items():
-        # Fetch up to `count` random questions for this subject
-        mcqs = list(MCQ.objects.filter(subject__slug=subj_slug, status='published').order_by('?')[:count])
-
-        for q in mcqs:
-            questions_list.append({
-                'id': q.id,
-                'question': q.question_text,
-                'options': [q.option_a, q.option_b, q.option_c, q.option_d] if q.option_d else [q.option_a, q.option_b, q.option_c],
-                'correct': opt_map.get(q.correct_option, 0),
-                'explanation': q.explanation,
-                'subject': subj_slug
-            })
-
-    # Shuffle the combined list so subjects are mixed
-    random.shuffle(questions_list)
-
-    # Ensure exactly total number of questions if possible (or less if not enough questions in DB)
-    questions_list = questions_list[:config['total']]
+    include_answers = not _exam_mode(request)
+    questions = []
+    for subj_slug, count in breakdown.items():
+        pool = MCQ.objects.filter(subject__slug=subj_slug, status=MCQ.Status.PUBLISHED)
+        questions += [_serialize_test_question(q, include_answers, subj_slug) for q in _random_mcqs(pool, count)]
+    random.shuffle(questions)
+    questions = questions[:min(sum(breakdown.values()), MAX_TEST_QUESTIONS)]
 
     return Response({
-        'title': config['title'],
-        'questions': questions_list
+        'title': title,
+        'slug': job_slug,
+        'duration_minutes': duration,
+        'negative_marking': float(negative),
+        'questions': questions,
     })
 
 @api_view(['GET'])
@@ -1158,21 +1164,33 @@ def frontend_past_papers_menu(request):
 def frontend_past_papers_list(request):
     """
     Returns a numbered list of past papers.
-    Query params: exam=<slug>  subject=<slug>  page=<n>
+    Query params: exam=<slug>  subject=<slug>  year=<yyyy>  post=<text>  page=<n>
     """
     exam_slug    = request.query_params.get('exam', '')
     subject_slug = request.query_params.get('subject', '')
+    year         = _int_or_none(request.query_params.get('year'))
+    post         = request.query_params.get('post', '').strip()
     page_num     = _query_int(request, 'page', 1)
     page_size    = 20
 
-    qs = PastPaper.objects.select_related('exam', 'subject').filter(
+    base = PastPaper.objects.select_related('exam', 'subject').filter(
         status=PastPaper.Status.PUBLISHED
     )
     if exam_slug:
-        qs = qs.filter(exam__slug=exam_slug)
+        base = base.filter(exam__slug=exam_slug)
     if subject_slug:
-        qs = qs.filter(subject__slug=subject_slug)
-    qs = qs.order_by('-year', '-created_at')
+        base = base.filter(subject__slug=subject_slug)
+    # Year/post options reflect the board/subject filter so empty choices aren't offered.
+    years = sorted({y for y in base.values_list('year', flat=True) if y}, reverse=True)
+    posts = sorted({p for p in base.values_list('post_name', flat=True) if p})
+    qs = base
+    if year:
+        qs = qs.filter(year=year)
+    if post:
+        qs = qs.filter(post_name__iexact=post)
+    qs = qs.annotate(
+        published_mcqs=Count('mcqs', filter=Q(mcqs__status='published'), distinct=True)
+    ).order_by('-year', '-created_at')
 
     from django.core.paginator import Paginator
     paginator  = Paginator(qs, page_size)
@@ -1190,7 +1208,8 @@ def frontend_past_papers_list(request):
             'exam_slug':   p.exam.slug,
             'subject_name': p.subject.name if p.subject else '',
             'subject_slug': p.subject.slug if p.subject else '',
-            'mcq_count':   p.mcqs.count(),
+            'post_name':   p.post_name,
+            'mcq_count':   p.published_mcqs,
             'source_url':  p.source_url,
             'has_pdf':     bool(p.pdf_file),
         })
@@ -1198,7 +1217,9 @@ def frontend_past_papers_list(request):
     return Response({
         'count':      paginator.count,
         'num_pages':  paginator.num_pages,
-        'page':       page_num,
+        'page':       page_obj.number,
+        'years':      years,
+        'posts':      posts,
         'papers':     papers,
     })
 
@@ -1238,12 +1259,22 @@ def frontend_past_paper_detail(request, slug):
         'exam_slug':    paper.exam.slug,
         'subject_name': paper.subject.name if paper.subject else '',
         'subject_slug': paper.subject.slug if paper.subject else '',
+        'post_name':    paper.post_name,
         'source_url':   paper.source_url,
+        'source_name':  _source_name(paper.source_url),
+        'updated_at':   paper.updated_at.isoformat(),
         'has_pdf':      bool(paper.pdf_file),
         'pdf_url':      paper.pdf_file.url if paper.pdf_file else None,
         'mcq_count':    len(questions),
         'questions':    questions,
     })
+
+
+def _source_name(url):
+    """Site name for attribution, e.g. 'testpointpk.com'."""
+    from urllib.parse import urlparse
+    host = urlparse(url or '').netloc.lower()
+    return host.removeprefix('www.')
 
 
 def _latin1(text):
@@ -1844,7 +1875,31 @@ def user_progress(request):
         'total_correct': total_c,
         'study_time_this_week': this_week_time,
         'study_time_last_week': last_week_time,
+        'personal_bests': _personal_bests(user),
     })
+
+
+def _personal_bests(user):
+    """Best score per subject and per mock test, with when it was set."""
+    bests = []
+    results = TestResult.objects.filter(student=user).select_related('subject').order_by('-score_percent', 'created_at')
+    seen = set()
+    for r in results:
+        if r.source == TestResult.Source.MOCK and r.source_ref:
+            key, label = ('mock', r.source_ref), _mock_test_title(r.source_ref)
+        elif r.subject_id:
+            key, label = ('subject', r.subject.slug), r.subject.name
+        else:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        bests.append({
+            'kind': key[0], 'ref': key[1], 'label': label,
+            'score_percent': float(r.score_percent), 'test_id': r.id,
+            'date': timezone.localtime(r.created_at).date().isoformat(),
+        })
+    return bests[:12]
 
 
 @api_view(['GET'])
@@ -2048,10 +2103,81 @@ def submit_test(request):
     data = request.data
     user = request.user
 
-    answers_data = data.get('answers')
+    graded = _grade_answers(data.get('answers'))
+    if isinstance(graded, Response):
+        return graded
+    rows, mcqs, correct_answers, wrong_answers = graded
+    total_questions = len(rows)
+
+    try:
+        time_taken_seconds = int(data.get('time_taken_seconds') or 0)
+    except (ValueError, TypeError):
+        time_taken_seconds = 0
+    time_taken_seconds = min(max(time_taken_seconds, 0), MAX_TEST_SECONDS)
+
+    mode = data.get('mode') if data.get('mode') in TestResult.Mode.values else TestResult.Mode.PRACTICE
+    source = data.get('source') if data.get('source') in TestResult.Source.values else TestResult.Source.OTHER
+    source_ref = str(data.get('source_ref') or '')[:120]
+    totals = _score_totals(total_questions, correct_answers, wrong_answers, _negative_marking_for(source, source_ref))
+
+    def single_value(ids):
+        ids = set(ids)
+        return ids.pop() if len(ids) == 1 else None
+
+    exam_id, subject_id = _int_or_none(data.get('exam_id')), _int_or_none(data.get('subject_id'))
+    exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
+    subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
+    if exam is None:
+        exam_id = single_value(m.exam_id for m in mcqs.values())
+        exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
+    if subject is None:
+        subject_id = single_value(m.subject_id for m in mcqs.values())
+        subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
+
+    try:
+        with transaction.atomic():
+            test_result = TestResult.objects.create(
+                student=user,
+                exam=exam,
+                subject=subject,
+                total_questions=total_questions,
+                correct_answers=correct_answers,
+                wrong_answers=wrong_answers,
+                unanswered=totals['unanswered'],
+                score_percent=totals['score_percent'],
+                negative_marks=totals['negative_marks'],
+                net_score=totals['net_score'],
+                time_taken_seconds=time_taken_seconds,
+                mode=mode,
+                source=source,
+                source_ref=source_ref,
+                question_set_hash=_question_set_hash(r.question_id for r in rows),
+            )
+            for row in rows:
+                row.test_result = test_result
+            TestAnswer.objects.bulk_create(rows)
+
+        logger.info(f"Test submitted: id={test_result.id} user={user.id} questions={total_questions} score={totals['score_percent']}%")
+        return Response({
+            'test_id': test_result.id,
+            'message': 'Test submitted successfully.',
+            'correct_answers': correct_answers,
+            'wrong_answers': wrong_answers,
+            **{k: float(v) if isinstance(v, Decimal) else v for k, v in totals.items()},
+        })
+    except Exception as e:
+        logger.exception(f"Test submission failed for user {user.id}: {e}")
+        return Response({'error': 'Failed to save test result. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _grade_answers(answers_data):
+    """Score submitted answers against the stored MCQs.
+
+    Returns (rows, mcqs, correct, wrong) with unsaved TestAnswer rows, or a 400
+    Response. The client's own is_correct / score fields are never trusted.
+    """
     if not isinstance(answers_data, list) or not answers_data:
         return Response({'error': 'A test must include at least one answer.'}, status=status.HTTP_400_BAD_REQUEST)
-
     # One entry per question; ignore repeats and anything beyond a full-length mock.
     unique_answers = {}
     for ans in answers_data:
@@ -2065,12 +2191,6 @@ def submit_test(request):
     answers = list(unique_answers.items())[:MAX_TEST_QUESTIONS]
     if not answers:
         return Response({'error': 'No valid answers in submission.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        time_taken_seconds = int(data.get('time_taken_seconds') or 0)
-    except (ValueError, TypeError):
-        time_taken_seconds = 0
-    time_taken_seconds = min(max(time_taken_seconds, 0), MAX_TEST_SECONDS)
 
     mcqs = MCQ.objects.in_bulk([question_id for question_id, _ in answers])
 
@@ -2107,50 +2227,65 @@ def submit_test(request):
             is_correct=is_correct,
         ))
 
-    total_questions = len(rows)
-    score_percent = round(correct_answers * 100 / total_questions, 2)
+    return rows, mcqs, correct_answers, wrong_answers
 
-    def single_value(ids):
-        ids = set(ids)
-        return ids.pop() if len(ids) == 1 else None
 
-    exam_id, subject_id = _int_or_none(data.get('exam_id')), _int_or_none(data.get('subject_id'))
-    exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
-    subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
-    if exam is None:
-        exam_id = single_value(m.exam_id for m in mcqs.values())
-        exam = Exam.objects.filter(id=exam_id).first() if exam_id else None
-    if subject is None:
-        subject_id = single_value(m.subject_id for m in mcqs.values())
-        subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
+def _negative_marking_for(source, source_ref):
+    """Negative marking comes from the mock template on the server, never the client."""
+    if source == TestResult.Source.MOCK and source_ref:
+        template = MockTestTemplate.objects.filter(slug=source_ref).first()
+        if template:
+            return template.negative_marking
+    return Decimal('0')
 
-    try:
-        with transaction.atomic():
-            test_result = TestResult.objects.create(
-                student=user,
-                exam=exam,
-                subject=subject,
-                total_questions=total_questions,
-                correct_answers=correct_answers,
-                wrong_answers=wrong_answers,
-                score_percent=score_percent,
-                time_taken_seconds=time_taken_seconds,
-            )
-            for row in rows:
-                row.test_result = test_result
-            TestAnswer.objects.bulk_create(rows)
 
-        logger.info(f"Test submitted: id={test_result.id} user={user.id} questions={total_questions} score={score_percent}%")
-        return Response({
-            'test_id': test_result.id,
-            'message': 'Test submitted successfully.',
-            'correct_answers': correct_answers,
-            'wrong_answers': wrong_answers,
-            'score_percent': score_percent,
-        })
-    except Exception as e:
-        logger.exception(f"Test submission failed for user {user.id}: {e}")
-        return Response({'error': 'Failed to save test result. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+def _score_totals(total, correct, wrong, negative_per_wrong):
+    negative = (Decimal(wrong) * Decimal(negative_per_wrong)).quantize(Decimal('0.01'))
+    net = Decimal(correct) - negative
+    percent = (max(net, Decimal('0')) * 100 / total).quantize(Decimal('0.01')) if total else Decimal('0')
+    return {
+        'unanswered': total - correct - wrong,
+        'negative_marks': negative,
+        'net_score': net,
+        'score_percent': percent,
+    }
+
+
+def _question_set_hash(ids):
+    import hashlib
+    return hashlib.sha1(','.join(str(i) for i in sorted(ids)).encode()).hexdigest()
+
+
+class TestCheckThrottle(AnonRateThrottle):
+    scope = 'test_check'  # own cache key, not shared with the global anon limit
+    rate = '30/hour'
+
+
+@api_view(['POST'])
+@throttle_classes([TestCheckThrottle])
+def check_test(request):
+    """Grade a test without saving it (guests, or exam mode before sign-in)."""
+    graded = _grade_answers(request.data.get('answers'))
+    if isinstance(graded, Response):
+        return graded
+    rows, mcqs, correct, wrong = graded
+    source = request.data.get('source') if request.data.get('source') in TestResult.Source.values else ''
+    totals = _score_totals(len(rows), correct, wrong, _negative_marking_for(source, str(request.data.get('source_ref') or '')))
+    return Response({
+        'total_questions': len(rows),
+        'correct_answers': correct,
+        'wrong_answers': wrong,
+        **{k: float(v) if isinstance(v, Decimal) else v for k, v in totals.items()},
+        'answers': [
+            {
+                'question_id': r.question_id, 'question_text': r.question_text,
+                'option_a': r.option_a, 'option_b': r.option_b, 'option_c': r.option_c, 'option_d': r.option_d,
+                'correct_option': r.correct_option, 'selected_option': r.selected_option,
+                'explanation': r.explanation, 'is_correct': r.is_correct,
+            }
+            for r in rows
+        ],
+    })
 
 
 @api_view(['GET'])
@@ -2161,8 +2296,40 @@ def test_detail(request, test_id):
     test = TestResult.objects.filter(id=test_id, student=request.user).select_related('exam', 'subject').prefetch_related('answers').first()
     if not test:
         return Response({'error': 'Test not found.'}, status=status.HTTP_404_NOT_FOUND)
-    serializer = TestResultDetailSerializer(test)
-    return Response(serializer.data)
+    data = TestResultDetailSerializer(test).data
+    data['comparison'] = _score_comparison(test)
+    return Response(data)
+
+
+MIN_COMPARISON_STUDENTS = 5
+
+
+def _score_comparison(test):
+    """How this score compares with other students' first attempts at the same test.
+
+    Same mock template, else the identical question set. Staff and students who
+    opted out of leaderboards are left out; nothing is shown for small groups.
+    """
+    from django.db.models import Min
+    if test.source == TestResult.Source.MOCK and test.source_ref:
+        cohort = TestResult.objects.filter(source=TestResult.Source.MOCK, source_ref=test.source_ref)
+    elif test.question_set_hash:
+        cohort = TestResult.objects.filter(question_set_hash=test.question_set_hash)
+    else:
+        return None
+    cohort = (cohort.exclude(student=test.student).exclude(student__is_staff=True)
+              .exclude(student__student_profile__show_on_leaderboard=False))
+    first_ids = cohort.values('student').annotate(first=Min('id')).values_list('first', flat=True)
+    scores = [float(x) for x in TestResult.objects.filter(id__in=list(first_ids)).values_list('score_percent', flat=True)]
+    if len(scores) < MIN_COMPARISON_STUDENTS:
+        return None
+    mine = float(test.score_percent)
+    below = sum(1 for x in scores if x < mine) + 0.5 * sum(1 for x in scores if x == mine)
+    return {
+        'sample_size': len(scores),
+        'percentile': round(below * 100 / len(scores)),
+        'average_score': round(sum(scores) / len(scores), 1),
+    }
 
 
 @api_view(['GET'])
@@ -2170,6 +2337,7 @@ def leaderboard(request):
     """Return leaderboard rankings. Supports period (weekly, monthly, all_time) and board filter."""
     period = request.query_params.get('period', 'weekly')
     board = request.query_params.get('board', '')
+    subject_slug = request.query_params.get('subject', '')
     today = timezone.localdate()
 
     if period == 'weekly':
@@ -2183,6 +2351,8 @@ def leaderboard(request):
     qs = TestResult.objects.all()
     if board:
         qs = qs.filter(exam__slug__iexact=board)
+    if subject_slug:
+        qs = qs.filter(subject__slug=subject_slug)
     if start:
         qs = qs.filter(created_at__date__gte=start)
     stats = {
@@ -2195,7 +2365,7 @@ def leaderboard(request):
     # One XP source per view, so the ranking and the displayed XP always agree:
     # board views count that board's tests only; period views use the practice log
     # (which records every XP award); all-time uses each student's total XP.
-    if board:
+    if board or subject_slug:
         xp_map = {
             uid: (row['correct'] or 0) * XP_PER_CORRECT + row['tests_taken'] * XP_PER_TEST
             for uid, row in stats.items()
@@ -2212,8 +2382,11 @@ def leaderboard(request):
         row = stats.get(uid, {})
         return (-(xp_map.get(uid) or 0), -float(row.get('avg_score') or 0), -row.get('tests_taken', 0), uid)
 
+    # Staff accounts and students who opted out are not ranked.
+    hidden = set(Student.objects.filter(show_on_leaderboard=False).values_list('user_id', flat=True))
+    hidden |= set(User.objects.filter(is_staff=True).values_list('id', flat=True))
     ranked_ids = sorted(
-        (uid for uid in set(xp_map) | set(stats) if xp_map.get(uid) or uid in stats),
+        (uid for uid in set(xp_map) | set(stats) if (xp_map.get(uid) or uid in stats) and uid not in hidden),
         key=sort_key,
     )
     top_ids = ranked_ids[:50]
@@ -2221,14 +2394,14 @@ def leaderboard(request):
     users = User.objects.select_related('student_profile').in_bulk(top_ids + ([current_id] if current_id else []))
 
     def entry(rank, uid):
+        # Public fields only: a chosen display name or "First L." — no username, email or city.
         user = users[uid]
         row = stats.get(uid, {})
         student = getattr(user, 'student_profile', None)
         return {
             'rank': rank,
-            'username': user.username,
-            'full_name': user.get_full_name() or user.username,
-            'city': (student.city if student and student.city else 'Pakistan'),
+            'full_name': student.public_name() if student else 'Student',
+            'is_you': uid == current_id,
             'xp_points': xp_map.get(uid) or 0,
             'tests_taken': row.get('tests_taken', 0),
             'avg_score': round(float(row.get('avg_score') or 0), 1),
@@ -2244,8 +2417,10 @@ def leaderboard(request):
     return Response({
         'period': period,
         'board': board,
+        'subject': subject_slug,
         'leaderboard': result,
         'user_rank': current_user,
+        'you_are_hidden': bool(current_id and current_id in hidden),
     })
 
 
@@ -2903,8 +3078,8 @@ def _get_or_create_ai_usage(user):
     return usage
 
 
-def _get_ai_response(user_message, mcq=None, history=None, context_type=None):
-    """Generate AI assistant response via Gemini API."""
+def _get_ai_response(user_message, mcq=None, history=None, context_type=None, mode=None, language=None):
+    """Generate an AI tutor reply (provider chain in ai_service)."""
     from .ai_service import get_ai_response as _ai_get_response
 
     # Normalize history to ai_service format
@@ -2920,7 +3095,7 @@ def _get_ai_response(user_message, mcq=None, history=None, context_type=None):
         normalized.append({'role': 'user', 'content': user_message})
 
     ctx_type = context_type if context_type else ("mcq" if mcq else "general")
-    return _ai_get_response(messages=normalized, mcq=mcq, context_type=ctx_type)
+    return _ai_get_response(messages=normalized, mcq=mcq, context_type=ctx_type, mode=mode, language=language)
 
 
 @api_view(['POST'])
@@ -2984,7 +3159,11 @@ def ai_chat(request):
     history.reverse()
 
     # 5. Generate AI response (pass context_type from frontend)
-    ai_text = _get_ai_response(user_message, mcq=session.mcq, history=history, context_type=context_type)
+    from .ai_service import LANGUAGE_RULES, MCQ_MODE_INSTRUCTIONS
+    mode = data.get('mode') if data.get('mode') in MCQ_MODE_INSTRUCTIONS else None
+    language = data.get('language') if data.get('language') in LANGUAGE_RULES else None
+    ai_text = _get_ai_response(user_message, mcq=session.mcq, history=history, context_type=context_type,
+                               mode=mode, language=language)
 
     failed = is_failure_response(ai_text)
     if failed:
@@ -3532,7 +3711,7 @@ def job_eligibility(request, pk):
         return Response({'error': 'Job not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     result = check_eligibility(request.user, job)
-    badge = get_eligibility_badge(request.user, job)
+    badge = get_eligibility_badge(request.user, job, result)
 
     return Response({
         'job_id': job.id,
@@ -3850,3 +4029,375 @@ def admin_add_note(request, pk):
     )
     serializer = AdminNoteSerializer(note)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ─── Custom tests & mistakes review ──────────────────────────────────────────
+
+CUSTOM_TEST_POOLS = ('all', 'mistakes', 'unanswered', 'unseen', 'bookmarks')
+MAX_CUSTOM_QUESTIONS = 100
+
+
+def _latest_answers(user):
+    """{question_id: latest TestAnswer} for everything the user has answered."""
+    latest = {}
+    for ans in (TestAnswer.objects.filter(test_result__student=user)
+                .order_by('test_result__created_at', 'id')
+                .only('question_id', 'is_correct', 'selected_option')):
+        latest[ans.question_id] = ans
+    return latest
+
+
+def _pool_ids(user, pool):
+    """MCQ ids in one of the personal pools (None means no restriction)."""
+    if pool == 'all':
+        return None
+    if pool == 'bookmarks':
+        return set(Bookmark.objects.filter(user=user).values_list('mcq_id', flat=True))
+    latest = _latest_answers(user)
+    if pool == 'mistakes':
+        return {qid for qid, a in latest.items() if a.selected_option and not a.is_correct}
+    if pool == 'unanswered':
+        return {qid for qid, a in latest.items() if not a.selected_option}
+    if pool == 'unseen':
+        return ('exclude', set(latest))
+    return set()
+
+
+def _filtered_mcqs(params):
+    qs = MCQ.objects.filter(status=MCQ.Status.PUBLISHED)
+    if params.get('exam'):
+        qs = qs.filter(exam__slug=params['exam'])
+    if params.get('subject'):
+        qs = qs.filter(subject__slug=params['subject'])
+    if params.get('topic'):
+        qs = qs.filter(topic__iexact=params['topic'])
+    if params.get('difficulty') in MCQ.Difficulty.values:
+        qs = qs.filter(difficulty=params['difficulty'])
+    return qs
+
+
+@api_view(['GET'])
+def custom_test(request):
+    """Build a test from filters and a question pool.
+
+    ?exam=&subject=&topic=&difficulty=&count=20&pool=all|mistakes|unanswered|unseen|bookmarks&mode=exam
+    Personal pools need a signed-in user. Exam mode leaves the answers out.
+    """
+    params = request.query_params
+    pool = params.get('pool', 'all')
+    if pool not in CUSTOM_TEST_POOLS:
+        return Response({'error': 'Unknown question pool.'}, status=status.HTTP_400_BAD_REQUEST)
+    if pool != 'all' and not request.user.is_authenticated:
+        return Response({'error': 'Sign in to practise your own questions.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    qs = _filtered_mcqs(params)
+    ids = _pool_ids(request.user, pool) if pool != 'all' else None
+    if isinstance(ids, tuple):  # ('exclude', ids)
+        qs = qs.exclude(id__in=ids[1])
+    elif ids is not None:
+        qs = qs.filter(id__in=ids)
+
+    count = _query_int(request, 'count', 20, maximum=MAX_CUSTOM_QUESTIONS)
+    available = qs.count()
+    if available == 0:
+        return Response({'error': 'No questions match these filters yet.', 'available': 0}, status=status.HTTP_404_NOT_FOUND)
+
+    include_answers = not _exam_mode(request)
+    questions = [_serialize_test_question(q, include_answers) for q in _random_mcqs(qs, count)]
+    labels = {'all': 'Custom test', 'mistakes': 'My mistakes', 'unanswered': 'Questions I skipped',
+              'unseen': 'New questions', 'bookmarks': 'My bookmarks'}
+    parts = [labels[pool]]
+    if params.get('subject'):
+        subject = Subject.objects.filter(slug=params['subject']).only('name').first()
+        if subject:
+            parts.append(subject.name)
+    if params.get('topic'):
+        parts.append(params['topic'])
+    return Response({
+        'title': ' · '.join(parts),
+        'pool': pool,
+        'available': available,
+        'questions': questions,
+    })
+
+
+@api_view(['GET'])
+def custom_test_options(request):
+    """Choices for the custom test builder, with counts (personal pools when signed in)."""
+    published = MCQ.objects.filter(status=MCQ.Status.PUBLISHED)
+    subjects = (Subject.objects.annotate(n=Count('mcqs', filter=Q(mcqs__status='published')))
+                .filter(n__gt=0).order_by('name'))
+    topics = {}
+    for row in (published.exclude(topic='').values('subject__slug', 'topic')
+                .annotate(n=Count('id')).order_by('subject__slug', 'topic')):
+        topics.setdefault(row['subject__slug'], []).append({'name': row['topic'], 'count': row['n']})
+    exams = (Exam.objects.annotate(n=Count('mcqs', filter=Q(mcqs__status='published')))
+             .filter(n__gt=0).order_by('name'))
+
+    pools = {'all': published.count()}
+    if request.user.is_authenticated:
+        latest = _latest_answers(request.user)
+        live = set(published.values_list('id', flat=True))
+        pools['mistakes'] = sum(1 for q, a in latest.items() if q in live and a.selected_option and not a.is_correct)
+        pools['unanswered'] = sum(1 for q, a in latest.items() if q in live and not a.selected_option)
+        pools['unseen'] = len(live - set(latest))
+        pools['bookmarks'] = Bookmark.objects.filter(user=request.user, mcq__status='published').count()
+
+    return Response({
+        'exams': [{'slug': e.slug, 'name': e.name, 'count': e.n} for e in exams],
+        'subjects': [{'slug': s.slug, 'name': s.name, 'count': s.n} for s in subjects],
+        'topics': topics,
+        'difficulties': [{'value': v, 'label': l} for v, l in MCQ.Difficulty.choices],
+        'pools': pools,
+    })
+
+
+# ─── Weak-area analysis ──────────────────────────────────────────────────────
+
+WEAK_MIN_ATTEMPTS = 5
+WEAK_ACCURACY = 60
+STRONG_ACCURACY = 80
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def weak_areas(request):
+    """Accuracy by subject and topic from individual answers, with weak and strong spots.
+
+    ?test_id= limits the analysis to one test (used on the review page).
+    """
+    answers = TestAnswer.objects.filter(test_result__student=request.user)
+    test_id = _int_or_none(request.query_params.get('test_id'))
+    min_attempts = WEAK_MIN_ATTEMPTS
+    if test_id:
+        answers = answers.filter(test_result_id=test_id)
+        min_attempts = 2
+    rows = list(answers.order_by('-id').values('question_id', 'is_correct', 'selected_option')[:3000])
+    info = {m['id']: m for m in MCQ.objects.filter(id__in={r['question_id'] for r in rows})
+            .values('id', 'subject__slug', 'subject__name', 'topic')}
+
+    subjects, topics = {}, {}
+
+    def tally(bucket, key, m, r):
+        entry = bucket.setdefault(key, {'subject': m['subject__slug'], 'subject_name': m['subject__name'],
+                                        'attempts': 0, 'correct': 0, 'skipped': 0})
+        entry['attempts'] += 1
+        entry['correct'] += 1 if r['is_correct'] else 0
+        entry['skipped'] += 0 if r['selected_option'] else 1
+
+    for r in rows:
+        m = info.get(r['question_id'])
+        if not m or not m['subject__slug']:
+            continue
+        tally(subjects, m['subject__slug'], m, r)
+        if m['topic']:
+            tally(topics, (m['subject__slug'], m['topic']), m, r)
+
+    def finish(entry, topic=''):
+        accuracy = round(entry['correct'] * 100 / entry['attempts'], 1)
+        return {
+            'subject': entry['subject'], 'subject_name': entry['subject_name'], 'topic': topic,
+            'attempts': entry['attempts'], 'correct': entry['correct'], 'skipped': entry['skipped'],
+            'accuracy': accuracy,
+        }
+
+    subject_list = sorted((finish(e) for e in subjects.values()), key=lambda x: x['accuracy'])
+    topic_list = [finish(e, key[1]) for key, e in topics.items()]
+    weak = sorted((t for t in topic_list if t['attempts'] >= min_attempts and t['accuracy'] < WEAK_ACCURACY),
+                  key=lambda x: (x['accuracy'], -x['attempts']))
+    # Subjects without topic tags still count as weak areas.
+    weak += [s for s in subject_list
+             if s['attempts'] >= min_attempts and s['accuracy'] < WEAK_ACCURACY
+             and not any(t['subject'] == s['subject'] for t in weak)]
+    strong = sorted((t for t in topic_list if t['attempts'] >= min_attempts and t['accuracy'] >= STRONG_ACCURACY),
+                    key=lambda x: -x['accuracy'])
+    return Response({
+        'answered': len(rows),
+        'subjects': subject_list,
+        'weak_areas': weak[:10],
+        'strong_areas': strong[:10],
+        'thresholds': {'min_attempts': min_attempts, 'weak_below': WEAK_ACCURACY, 'strong_from': STRONG_ACCURACY},
+    })
+
+
+# ─── Study planner ───────────────────────────────────────────────────────────
+
+def _plan_payload(plan):
+    from .study import build_schedule, ensure_topics
+    from .models import TopicProgress
+    topics = ensure_topics(plan.syllabus)
+    statuses = dict(TopicProgress.objects.filter(user=plan.user, topic__in=topics).values_list('topic_id', 'status'))
+    weeks, focus = build_schedule(plan, topics, statuses)
+    published = MCQ.objects.filter(status=MCQ.Status.PUBLISHED)
+    topic_rows = []
+    for t in topics:
+        practice = {}
+        mcq_count = 0
+        if t.subject_id:
+            practice['subject'] = t.subject.slug
+            pool = published.filter(subject_id=t.subject_id)
+            if t.mcq_topic:
+                practice['topic'] = t.mcq_topic
+                pool = pool.filter(topic__iexact=t.mcq_topic)
+            mcq_count = pool.count()
+        topic_rows.append({
+            'id': t.id, 'name': t.name, 'weight': t.weight,
+            'subject': t.subject.name if t.subject_id else '',
+            'status': statuses.get(t.id, TopicProgress.Status.NOT_STARTED),
+            'practice': practice,
+            'mcq_count': mcq_count,
+        })
+    done = sum(1 for t in topic_rows if t['status'] == TopicProgress.Status.DONE)
+    return {
+        'syllabus': {'id': plan.syllabus_id, 'title': plan.syllabus.title, 'slug': plan.syllabus.slug,
+                     'exam': plan.syllabus.exam.name, 'post_name': plan.syllabus.post_name},
+        'exam_date': plan.exam_date.isoformat(),
+        'hours_per_week': plan.hours_per_week,
+        'days_left': (plan.exam_date - timezone.localdate()).days,
+        'topics': topic_rows,
+        'progress': {'done': done, 'total': len(topic_rows),
+                     'percent': round(done * 100 / len(topic_rows)) if topic_rows else 0},
+        'weeks': weeks,
+        'focus_topic_ids': focus,
+    }
+
+
+@api_view(['GET'])
+def study_syllabi(request):
+    """Syllabi a student can build a plan for."""
+    rows = Syllabus.objects.select_related('exam').annotate(topic_count=Count('topics')).order_by('exam__name', 'title')
+    return Response([
+        {'id': s.id, 'title': s.title, 'exam': s.exam.name, 'post_name': s.post_name, 'topic_count': s.topic_count}
+        for s in rows
+    ])
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def study_plan(request):
+    """The student's study plan: GET it, POST {syllabus, exam_date, hours_per_week} to set it, DELETE to reset."""
+    from django.utils.dateparse import parse_date
+    from .models import StudyPlan, TopicProgress
+    plan = StudyPlan.objects.filter(user=request.user).select_related('syllabus__exam').first()
+
+    if request.method == 'DELETE':
+        if plan:
+            TopicProgress.objects.filter(user=request.user, topic__syllabus=plan.syllabus).delete()
+            plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    if request.method == 'POST':
+        syllabus = Syllabus.objects.filter(pk=_int_or_none(request.data.get('syllabus'))).first()
+        try:
+            exam_date = parse_date(str(request.data.get('exam_date') or ''))
+        except ValueError:
+            exam_date = None
+        hours = _int_or_none(request.data.get('hours_per_week')) or 10
+        if not syllabus:
+            return Response({'error': 'Choose a syllabus.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not exam_date or exam_date <= timezone.localdate():
+            return Response({'error': 'Choose an exam date in the future.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not 1 <= hours <= 80:
+            return Response({'error': 'Hours per week must be between 1 and 80.'}, status=status.HTTP_400_BAD_REQUEST)
+        plan, _ = StudyPlan.objects.update_or_create(
+            user=request.user, defaults={'syllabus': syllabus, 'exam_date': exam_date, 'hours_per_week': hours},
+        )
+        plan = StudyPlan.objects.select_related('syllabus__exam').get(pk=plan.pk)
+
+    if not plan:
+        return Response({'plan': None})
+    return Response({'plan': _plan_payload(plan)})
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def study_topic_status(request, pk):
+    """Mark a syllabus topic not started / in progress / done."""
+    from .models import SyllabusTopic, TopicProgress
+    topic = SyllabusTopic.objects.filter(pk=pk).first()
+    new_status = request.data.get('status')
+    if not topic:
+        return Response({'error': 'Topic not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if new_status not in TopicProgress.Status.values:
+        return Response({'error': 'Invalid status.'}, status=status.HTTP_400_BAD_REQUEST)
+    TopicProgress.objects.update_or_create(user=request.user, topic=topic, defaults={'status': new_status})
+    return Response({'id': topic.id, 'status': new_status})
+
+
+# ─── Flashcards ──────────────────────────────────────────────────────────────
+
+MAX_FLASHCARDS = 2000
+
+
+def _card_json(card):
+    return {'id': card.id, 'mcq_id': card.mcq_id, 'front': card.front, 'back': card.back,
+            'due_date': card.due_date.isoformat(), 'interval_days': card.interval_days,
+            'repetitions': card.repetitions, 'lapses': card.lapses}
+
+
+@api_view(['GET', 'POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def flashcards(request):
+    """GET ?due=1 for today's reviews (plus deck stats); POST {mcq_id} or {front, back} to add a card."""
+    from .models import Flashcard
+    from .study import MASTERED_INTERVAL, card_from_mcq
+    cards = Flashcard.objects.filter(user=request.user)
+    today = timezone.localdate()
+
+    if request.method == 'POST':
+        if cards.count() >= MAX_FLASHCARDS:
+            return Response({'error': f'You can keep up to {MAX_FLASHCARDS} cards.'}, status=status.HTTP_400_BAD_REQUEST)
+        mcq_id = _int_or_none(request.data.get('mcq_id'))
+        if mcq_id:
+            mcq = MCQ.objects.filter(pk=mcq_id, status=MCQ.Status.PUBLISHED).first()
+            if not mcq:
+                return Response({'error': 'Question not found.'}, status=status.HTTP_404_NOT_FOUND)
+            existing = cards.filter(mcq=mcq).first()
+            if existing:
+                return Response(_card_json(existing), status=status.HTTP_200_OK)
+            front, back = card_from_mcq(mcq)
+        else:
+            mcq = None
+            front = str(request.data.get('front') or '').strip()[:2000]
+            back = str(request.data.get('back') or '').strip()[:4000]
+            if not front or not back:
+                return Response({'error': 'Write both sides of the card.'}, status=status.HTTP_400_BAD_REQUEST)
+        card = Flashcard.objects.create(user=request.user, mcq=mcq, front=front, back=back, due_date=today)
+        return Response(_card_json(card), status=status.HTTP_201_CREATED)
+
+    due = cards.filter(due_date__lte=today)
+    listing = due if request.query_params.get('due') else cards.order_by('-created_at')
+    return Response({
+        'cards': [_card_json(c) for c in listing[:200]],
+        'stats': {
+            'total': cards.count(),
+            'due': due.count(),
+            'mastered': cards.filter(interval_days__gte=MASTERED_INTERVAL).count(),
+            'learning': cards.filter(interval_days__lt=MASTERED_INTERVAL, repetitions__gt=0).count(),
+            'new': cards.filter(repetitions=0, lapses=0).count(),
+            'difficult': cards.filter(lapses__gte=3).count(),
+        },
+    })
+
+
+@api_view(['POST', 'DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def flashcard_detail(request, pk):
+    """POST {grade: again|hard|good|easy} to review a card; DELETE to remove it."""
+    from .models import Flashcard
+    from .study import GRADES, review
+    card = Flashcard.objects.filter(pk=pk, user=request.user).first()
+    if not card:
+        return Response({'error': 'Card not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'DELETE':
+        card.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    grade = request.data.get('grade')
+    if grade not in GRADES:
+        return Response({'error': 'Grade must be again, hard, good or easy.'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(_card_json(review(card, grade)))

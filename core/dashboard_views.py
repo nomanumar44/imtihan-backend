@@ -7,7 +7,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, Q
+from django.urls import reverse
 from django.db import transaction
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpResponse
@@ -30,6 +31,15 @@ from .forms import (
 )
 from .mcq_parser import parse_mcq_text
 from .utils import scraper_control
+
+
+def _safe_next(request):
+    """A same-site path from ?next= / POST next, or '' (never an external URL)."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    target = request.POST.get('next') or request.GET.get('next') or ''
+    if target and url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
+        return target
+    return ''
 
 
 def staff_required(view):
@@ -299,7 +309,7 @@ def dashboard_mcq_bulk_upload(request):
             'selected_current_affairs_category': category_slug,
         })
 
-        if status not in ('draft', 'published', 'flagged'):
+        if status not in MCQ.Status.values:
             status = 'draft'
 
         exam = Exam.objects.filter(pk=exam_id).first()
@@ -350,6 +360,7 @@ def dashboard_mcq_bulk_upload(request):
                     status=status,
                     source_url=source_url,
                     created_by=request.user,
+                    origin=MCQ.Origin.UPLOAD,
                 )
                 created_count += 1
 
@@ -365,16 +376,21 @@ def dashboard_mcq_edit(request, pk):
     if request.method == 'POST':
         form = MCQForm(request.POST, instance=mcq)
         if form.is_valid():
+            form.instance._changed_by = request.user
             form.save()
             messages.success(request, 'MCQ updated successfully!')
-            return redirect('dashboard_mcqs')
+            return redirect(_safe_next(request) or 'dashboard_mcqs')
     else:
         form = MCQForm(instance=mcq)
-    
+
     context = {
         'form': form,
         'title': 'Edit MCQ',
-        'active_page': 'mcqs'
+        'active_page': 'mcqs',
+        'mcq': mcq,
+        'revisions': mcq.revisions.select_related('changed_by')[:30],
+        'reports': mcq.reports.select_related('user').filter(status='open'),
+        'next': request.GET.get('next', ''),
     }
     return render(request, 'dashboard/form.html', context)
 
@@ -1135,6 +1151,7 @@ def dashboard_contact_delete(request, pk):
 HEADER = [
     'id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
     'correct_option', 'explanation', 'exam_slug', 'subject_slug', 'status',
+    'topic', 'difficulty',
 ]
 
 HEADER_NOTES = [
@@ -1149,6 +1166,8 @@ HEADER_NOTES = [
     'Exam slug (e.g. ppsc) — DO NOT CHANGE',
     'Subject slug — DO NOT CHANGE',
     'draft / published / flagged',
+    'Topic within the subject (optional)',
+    'easy / medium / hard (optional)',
 ]
 
 
@@ -1227,6 +1246,8 @@ def dashboard_mcq_export(request):
             mcq.exam.slug,
             mcq.subject.slug,
             mcq.status,
+            mcq.topic,
+            mcq.difficulty,
         ]
         for col_idx, val in enumerate(row, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=val)
@@ -1234,7 +1255,7 @@ def dashboard_mcq_export(request):
             cell.border = border
 
     # Column widths
-    widths = [8, 60, 35, 35, 35, 35, 10, 45, 14, 20, 12]
+    widths = [8, 60, 35, 35, 35, 35, 10, 45, 14, 20, 12, 24, 12]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -1306,6 +1327,9 @@ def dashboard_mcq_import(request):
             correct      = str(row_vals[6] or '').strip().upper()
             explanation  = str(row_vals[7] or '').strip()
             status       = str(row_vals[10] or 'draft').strip().lower()
+            # Topic/difficulty columns are optional: older exports don't have them.
+            topic        = None if row_vals[11] is None else str(row_vals[11]).strip()[:120]
+            difficulty   = None if row_vals[12] is None else str(row_vals[12]).strip().lower()
         except (ValueError, TypeError) as e:
             errors.append(f'Row {row_num}: bad data — {e}')
             skipped += 1
@@ -1316,7 +1340,7 @@ def dashboard_mcq_import(request):
             skipped += 1
             continue
 
-        if status not in ('draft', 'published', 'flagged'):
+        if status not in MCQ.Status.values:
             status = 'draft'
 
         try:
@@ -1329,6 +1353,12 @@ def dashboard_mcq_import(request):
             mcq.correct_option = correct
             mcq.explanation    = explanation
             mcq.status         = status
+            if topic is not None:
+                mcq.topic = topic
+            if difficulty is not None:
+                mcq.difficulty = difficulty if difficulty in MCQ.Difficulty.values else ''
+            mcq._changed_by    = request.user
+            mcq._change_action = 'excel-import'
             mcq.save()
             updated += 1
         except MCQ.DoesNotExist:
@@ -2056,3 +2086,273 @@ def dashboard_ai_subscription_reject(request, pk):
     else:
         messages.warning(request, f'Subscription is not pending (current: {sub.status}).')
     return redirect('dashboard_ai_subscriptions')
+
+
+# ─── Question quality: review queue ──────────────────────────────────────────
+
+REVIEW_TABS = ['reported', 'drafts', 'flagged', 'duplicates']
+
+
+@staff_required
+def dashboard_review_queue(request):
+    """One place to check reported, draft, flagged and duplicated questions."""
+    from .models import QuestionReport
+    from .quality import duplicate_groups
+
+    tab = request.GET.get('tab', 'reported')
+    if tab not in REVIEW_TABS:
+        tab = 'reported'
+
+    open_reports = QuestionReport.objects.filter(status=QuestionReport.Status.OPEN)
+    counts = {
+        'reported': open_reports.values('mcq').distinct().count(),
+        'drafts': MCQ.objects.filter(status=MCQ.Status.DRAFT).count(),
+        'flagged': MCQ.objects.filter(status=MCQ.Status.FLAGGED).count(),
+    }
+
+    context = {'active_page': 'review_queue', 'tab': tab, 'counts': counts}
+    if tab == 'duplicates':
+        context['groups'] = duplicate_groups()
+        counts['duplicates'] = len(context['groups'])
+    else:
+        if tab == 'reported':
+            qs = (MCQ.objects.filter(reports__status=QuestionReport.Status.OPEN)
+                  .annotate(open_reports=Count('reports', filter=Q(reports__status='open'), distinct=True))
+                  .order_by('-open_reports', '-updated_at'))
+        else:
+            status_value = MCQ.Status.DRAFT if tab == 'drafts' else MCQ.Status.FLAGGED
+            qs = (MCQ.objects.filter(status=status_value)
+                  .annotate(open_reports=Count('reports', filter=Q(reports__status='open'), distinct=True))
+                  .order_by('-updated_at'))
+        page = Paginator(qs.select_related('exam', 'subject').distinct(), 25).get_page(request.GET.get('page'))
+        for mcq in page:
+            mcq.open_report_list = list(mcq.reports.filter(status='open').select_related('user')[:5])
+        context['page_obj'] = page
+    return render(request, 'dashboard/review_queue.html', context)
+
+
+@staff_required
+@require_POST
+def dashboard_mcq_review_action(request, pk):
+    """Publish / retire / flag / unpublish an MCQ, or close its reports."""
+    from .models import QuestionReport
+    from .quality import close_reports, set_status
+
+    mcq = get_object_or_404(MCQ, pk=pk)
+    action = request.POST.get('action')
+    statuses = {'publish': MCQ.Status.PUBLISHED, 'retire': MCQ.Status.RETIRED,
+                'flag': MCQ.Status.FLAGGED, 'draft': MCQ.Status.DRAFT}
+    if action in statuses:
+        if action == 'publish' and mcq.correct_option == 'D' and not mcq.option_d.strip():
+            messages.error(request, f'MCQ #{mcq.pk} points to an empty option D — fix it before publishing.')
+        else:
+            set_status(mcq, statuses[action], request.user)
+            if action in ('publish', 'retire'):
+                close_reports(mcq, request.user)
+            messages.success(request, f'MCQ #{mcq.pk}: {statuses[action].label}.')
+    elif action in ('resolve', 'dismiss'):
+        closed = close_reports(
+            mcq, request.user,
+            QuestionReport.Status.RESOLVED if action == 'resolve' else QuestionReport.Status.DISMISSED,
+        )
+        messages.success(request, f'{closed} report(s) {action}d on MCQ #{mcq.pk}.')
+    else:
+        messages.error(request, 'Unknown action.')
+    return redirect(_safe_next(request) or 'dashboard_review_queue')
+
+
+@staff_required
+@require_POST
+def dashboard_duplicate_keep(request, pk):
+    """Keep this MCQ and retire the other copies of the same question."""
+    from .quality import set_status
+
+    keep = get_object_or_404(MCQ, pk=pk)
+    others = MCQ.objects.filter(normalized_hash=keep.normalized_hash).exclude(pk=keep.pk).exclude(status=MCQ.Status.RETIRED)
+    retired = 0
+    for mcq in others:
+        if set_status(mcq, MCQ.Status.RETIRED, request.user, action='retired-duplicate'):
+            retired += 1
+    messages.success(request, f'Kept MCQ #{keep.pk}; retired {retired} duplicate(s).')
+    return redirect(_safe_next(request) or f"{reverse('dashboard_review_queue')}?tab=duplicates")
+
+
+# ─── Mock test templates & testimonials ──────────────────────────────────────
+
+@staff_required
+def dashboard_mock_templates(request):
+    from .models import MockTestTemplate
+    templates = MockTestTemplate.objects.select_related('exam').order_by('title')
+    return render(request, 'dashboard/mock_templates.html', {'templates': templates, 'active_page': 'mock_templates'})
+
+
+@staff_required
+def dashboard_mock_template_edit(request, pk=None):
+    from .forms import MockTestTemplateForm
+    from .models import MockTestTemplate
+    instance = get_object_or_404(MockTestTemplate, pk=pk) if pk else None
+    form = MockTestTemplateForm(request.POST or None, instance=instance)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Mock test saved.')
+        return redirect('dashboard_mock_templates')
+    return render(request, 'dashboard/form.html', {
+        'form': form, 'title': 'Edit mock test' if instance else 'New mock test', 'active_page': 'mock_templates',
+    })
+
+
+@staff_required
+@require_POST
+def dashboard_mock_template_delete(request, pk):
+    from .models import MockTestTemplate
+    get_object_or_404(MockTestTemplate, pk=pk).delete()
+    messages.success(request, 'Mock test deleted.')
+    return redirect('dashboard_mock_templates')
+
+
+@staff_required
+def dashboard_testimonials(request):
+    from .models import Testimonial
+    return render(request, 'dashboard/testimonials.html', {
+        'testimonials': Testimonial.objects.all(), 'active_page': 'testimonials',
+    })
+
+
+@staff_required
+def dashboard_testimonial_edit(request, pk=None):
+    from django.core.cache import cache
+    from .forms import TestimonialForm
+    from .models import Testimonial
+    instance = get_object_or_404(Testimonial, pk=pk) if pk else None
+    form = TestimonialForm(request.POST or None, instance=instance)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        cache.delete('frontend_home')
+        messages.success(request, 'Testimonial saved.')
+        return redirect('dashboard_testimonials')
+    return render(request, 'dashboard/form.html', {
+        'form': form, 'title': 'Edit testimonial' if instance else 'New testimonial', 'active_page': 'testimonials',
+    })
+
+
+@staff_required
+@require_POST
+def dashboard_testimonial_delete(request, pk):
+    from django.core.cache import cache
+    from .models import Testimonial
+    get_object_or_404(Testimonial, pk=pk).delete()
+    cache.delete('frontend_home')
+    messages.success(request, 'Testimonial deleted.')
+    return redirect('dashboard_testimonials')
+
+
+# ─── AI question tools ───────────────────────────────────────────────────────
+
+@staff_required
+def dashboard_ai_tools(request):
+    """Generate draft MCQs with AI (for review) and fill missing topics."""
+    from .ai_tools import AIToolError, generate_draft_mcqs, suggest_topics
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        try:
+            if action == 'generate':
+                exam = get_object_or_404(Exam, pk=request.POST.get('exam'))
+                subject = get_object_or_404(Subject, pk=request.POST.get('subject'))
+                created = generate_draft_mcqs(
+                    exam, subject, request.POST.get('topic', '').strip(),
+                    request.POST.get('count') or 5, request.user,
+                )
+                messages.success(request, f'Created {len(created)} AI draft(s). Check each one before publishing.')
+                return redirect(f"{reverse('dashboard_review_queue')}?tab=drafts")
+            if action == 'tag':
+                subject = get_object_or_404(Subject, pk=request.POST.get('subject'))
+                batch = list(MCQ.objects.filter(subject=subject, topic='').exclude(status=MCQ.Status.RETIRED)
+                             .select_related('subject')[:40])
+                tagged = suggest_topics(batch)
+                messages.success(request, f'Tagged {tagged} question(s) in {subject.name}.')
+                return redirect('dashboard_ai_tools')
+            messages.error(request, 'Unknown action.')
+        except AIToolError as e:
+            messages.error(request, str(e))
+        except (TypeError, ValueError):
+            messages.error(request, 'Check the form values and try again.')
+
+    untagged = (Subject.objects.annotate(n=Count('mcqs', filter=Q(mcqs__topic='') & ~Q(mcqs__status='retired')))
+                .filter(n__gt=0).order_by('-n'))
+    return render(request, 'dashboard/ai_tools.html', {
+        'active_page': 'ai_tools',
+        'exams': Exam.objects.order_by('name'),
+        'subjects': Subject.objects.order_by('name'),
+        'untagged': untagged,
+        'ai_drafts': MCQ.objects.filter(origin=MCQ.Origin.AI, status=MCQ.Status.DRAFT).count(),
+    })
+
+
+# ─── Syllabus topics (study planner) ─────────────────────────────────────────
+
+def _parse_topic_lines(text, subjects):
+    """Lines "Topic | subject-slug | mcq topic | weight%" → list of dicts, plus errors."""
+    rows, errors = [], []
+    for line_no, line in enumerate((text or '').splitlines(), start=1):
+        if not line.strip():
+            continue
+        parts = [p.strip() for p in line.split('|')]
+        name = parts[0][:200]
+        subject_slug = parts[1] if len(parts) > 1 else ''
+        mcq_topic = parts[2][:120] if len(parts) > 2 else ''
+        weight_text = parts[3].rstrip('%').strip() if len(parts) > 3 else ''
+        if not name:
+            errors.append(f'Line {line_no}: topic name is missing.')
+            continue
+        if subject_slug and subject_slug not in subjects:
+            errors.append(f'Line {line_no}: unknown subject "{subject_slug}".')
+            continue
+        if weight_text and (not weight_text.isdigit() or not 0 < int(weight_text) <= 100):
+            errors.append(f'Line {line_no}: weight must be 1–100.')
+            continue
+        rows.append({'name': name, 'subject': subjects.get(subject_slug), 'mcq_topic': mcq_topic,
+                     'weight': int(weight_text) if weight_text else None})
+    return rows, errors
+
+
+@staff_required
+def dashboard_syllabus_topics(request, pk):
+    """Edit the topic list students track in their study plans."""
+    from .models import SyllabusTopic
+    from .study import parse_topics
+
+    syllabus = get_object_or_404(Syllabus, pk=pk)
+    subjects = {s.slug: s for s in Subject.objects.all()}
+    errors = []
+    if request.method == 'POST':
+        if request.POST.get('action') == 'regenerate':
+            text = '\n'.join(f"{name} | | | {weight or ''}".rstrip(' |') for name, weight in parse_topics(syllabus.content))
+        else:
+            text = request.POST.get('topics', '')
+        rows, errors = _parse_topic_lines(text, subjects)
+        if not errors:
+            with transaction.atomic():
+                # Keep ids for topics whose name is unchanged so students' progress survives edits.
+                existing = {t.name.lower(): t for t in syllabus.topics.all()}
+                keep = []
+                for order, row in enumerate(rows):
+                    topic = existing.pop(row['name'].lower(), None) or SyllabusTopic(syllabus=syllabus)
+                    topic.name, topic.subject, topic.mcq_topic = row['name'], row['subject'], row['mcq_topic']
+                    topic.weight, topic.order = row['weight'], order
+                    topic.save()
+                    keep.append(topic.pk)
+                syllabus.topics.exclude(pk__in=keep).delete()
+            messages.success(request, f'Saved {len(rows)} topic(s).')
+            return redirect('dashboard_syllabus_topics', pk=syllabus.pk)
+        current_text = request.POST.get('topics', '')
+    else:
+        current_text = '\n'.join(
+            ' | '.join([t.name, t.subject.slug if t.subject_id else '', t.mcq_topic,
+                        f'{t.weight}%' if t.weight else '']).rstrip(' |')
+            for t in syllabus.topics.select_related('subject')
+        )
+    return render(request, 'dashboard/syllabus_topics.html', {
+        'active_page': 'syllabus', 'syllabus': syllabus, 'topics_text': current_text, 'errors': errors,
+        'subjects': sorted(subjects),
+    })

@@ -125,6 +125,7 @@
     <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Published</option>
     <option value="draft"     {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
     <option value="flagged"   {% if request.GET.status == 'flagged' %}selected{% endif %}>Flagged</option>
+    <option value="retired"   {% if request.GET.status == 'retired' %}selected{% endif %}>Retired</option>
   </select>
 </div>
 
@@ -148,6 +149,7 @@
         <td>
           {% if mcq.status == 'published' %}<span class="badge badge-blue">Published</span>
           {% elif mcq.status == 'draft' %}<span class="badge badge-amber">Draft</span>
+          {% elif mcq.status == 'retired' %}<span class="badge">Retired</span>
           {% else %}<span class="badge badge-red">Flagged</span>{% endif %}
         </td>
         <td style="font-size:12px;color:var(--color-text-tertiary)">{{ mcq.created_at|date:"d M Y" }}</td>
@@ -213,6 +215,7 @@
               <option value="draft">Draft</option>
               <option value="published">Published</option>
               <option value="flagged">Flagged</option>
+              <option value="retired">Retired</option>
             </select>
           </div>
         </div>

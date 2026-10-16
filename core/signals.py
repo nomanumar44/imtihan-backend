@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from django.db import models, transaction
 from django.db.models import F
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from .gamification import (
-    STREAK_BONUS_DAYS, XP_DAILY_FIRST_TEST, XP_PER_CORRECT, XP_PER_TEST,
+    REPEAT_WINDOW_DAYS, STREAK_BONUS_DAYS, XP_DAILY_FIRST_TEST, XP_PER_CORRECT, XP_PER_TEST,
     XP_PERFECT_SCORE, XP_STREAK_BONUS, level_for_xp, user_streak,
 )
 from .models import TestResult, Student, DailyPracticeLog, Achievement, UserAchievement
@@ -81,8 +83,14 @@ def _check_achievements(user):
     return unlocked
 
 
-def xp_for_test(test_result, first_test_today, streak):
-    """XP for one completed test: correct answers plus completion bonuses."""
+def xp_for_test(test_result, first_test_today, streak, repeat=False):
+    """XP for one completed test: correct answers plus completion bonuses.
+
+    A repeat of an identical question set earns half the correct-answer XP and
+    no completion/perfect bonuses, so memorising one easy set can't farm XP.
+    """
+    if repeat:
+        return test_result.correct_answers * XP_PER_CORRECT // 2 + (XP_DAILY_FIRST_TEST if first_test_today else 0)
     xp = test_result.correct_answers * XP_PER_CORRECT + XP_PER_TEST
     if test_result.total_questions and float(test_result.score_percent) >= 100:
         xp += XP_PERFECT_SCORE
@@ -109,7 +117,11 @@ def on_test_completed(sender, instance, created, raw=False, **kwargs):
             defaults={'mcqs_answered': 0, 'tests_completed': 0, 'xp_earned': 0}
         )
         streak = user_streak(user, today)
-        total_xp = xp_for_test(instance, first_test_today, streak)
+        repeat = bool(instance.question_set_hash) and TestResult.objects.filter(
+            student=user, question_set_hash=instance.question_set_hash,
+            created_at__gte=timezone.now() - timedelta(days=REPEAT_WINDOW_DAYS),
+        ).exclude(pk=instance.pk).exists()
+        total_xp = xp_for_test(instance, first_test_today, streak, repeat)
 
         log.mcqs_answered += instance.total_questions
         log.tests_completed += 1

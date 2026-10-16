@@ -31,6 +31,7 @@ def save_scraped_mcq(question_text, fields, past_paper=None):
     """Create the MCQ if it's new; return (mcq, created)."""
     defaults = dict(fields)
     defaults['past_paper'] = past_paper
+    defaults.setdefault('origin', MCQ.Origin.SCRAPED)
     if needs_review(defaults):
         defaults['status'] = MCQ.Status.DRAFT
     mcq, created = MCQ.objects.get_or_create(question_text=question_text.strip(), defaults=defaults)

@@ -18,6 +18,7 @@
         <td style="font-size:12px;color:var(--color-text-tertiary)">{{ s.updated_at|date:"d M Y" }}</td>
         <td>
           <a href="{% url 'dashboard_syllabus_edit' s.id %}" class="action-btn">Edit</a>
+          <a href="{% url 'dashboard_syllabus_topics' s.pk %}" class="action-btn">Topics</a>
           <button onclick="apiDelete('/api/syllabus/{{ s.id }}/')" class="action-btn danger">Delete</button>
         </td>
       </tr>

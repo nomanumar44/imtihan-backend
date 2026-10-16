@@ -115,11 +115,62 @@
         <a href="{% url 'dashboard_past_papers' %}" class="btn-cancel">Cancel</a>
       {% elif active_page == 'ca_categories' %}
         <a href="{% url 'dashboard_current_affairs_categories' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'mcqs' %}
+        <a href="{{ next|default:'/dashboard/mcqs/' }}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'mock_templates' %}
+        <a href="{% url 'dashboard_mock_templates' %}" class="btn-cancel">Cancel</a>
+      {% elif active_page == 'testimonials' %}
+        <a href="{% url 'dashboard_testimonials' %}" class="btn-cancel">Cancel</a>
       {% else %}
         <a href="{% url 'dashboard_home' %}" class="btn-cancel">Cancel</a>
       {% endif %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
       <button type="submit" class="btn-add">Save changes</button>
     </div>
   </form>
 </div>
+
+{% if mcq %}
+<div class="form-container">
+  <div style="font-weight:600;margin-bottom:12px;">Open reports ({{ reports|length }})</div>
+  {% for r in reports %}
+    <div style="border-top:0.5px solid var(--color-border-tertiary);padding:10px 0;font-size:13px;">
+      <span class="badge badge-red">{{ r.get_reason_display }}</span>
+      <span style="color:var(--color-text-secondary);margin-left:6px;">{{ r.user.username|default:"Guest" }} · {{ r.created_at|date:"d M Y, H:i" }}</span>
+      {% if r.message %}<div style="margin-top:6px;">{{ r.message }}</div>{% endif %}
+    </div>
+  {% empty %}
+    <div style="font-size:13px;color:var(--color-text-secondary);">No open reports.</div>
+  {% endfor %}
+  {% if reports %}
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+        <input type="hidden" name="action" value="resolve"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="action-btn" type="submit">Mark reports resolved</button>
+      </form>
+      <form method="post" action="{% url 'dashboard_mcq_review_action' mcq.pk %}">{% csrf_token %}
+        <input type="hidden" name="action" value="dismiss"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="action-btn" type="submit">Dismiss reports</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
+<div class="form-container">
+  <div style="font-weight:600;margin-bottom:12px;">Change history</div>
+  {% for rev in revisions %}
+    <div style="border-top:0.5px solid var(--color-border-tertiary);padding:10px 0;font-size:13px;">
+      <strong>{{ rev.action|capfirst }}</strong>
+      <span style="color:var(--color-text-secondary);">by {{ rev.changed_by.username|default:"system" }} · {{ rev.created_at|date:"d M Y, H:i" }}</span>
+      {% for field, values in rev.changes.items %}
+        <div style="margin-top:4px;color:var(--color-text-secondary);">
+          {{ field }}: <span style="text-decoration:line-through;">{{ values.0|default:"—"|truncatechars:80 }}</span> → {{ values.1|default:"—"|truncatechars:80 }}
+        </div>
+      {% endfor %}
+    </div>
+  {% empty %}
+    <div style="font-size:13px;color:var(--color-text-secondary);">No changes recorded yet.</div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,38 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Testimonials{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Testimonials</div>
+    <div class="page-subtitle">Only approved testimonials with the student's consent appear on the homepage</div>
+  </div>
+  <a href="{% url 'dashboard_testimonial_create' %}" class="btn-add"><i class="ti ti-plus"></i> New testimonial</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Exam</th><th>Quote</th><th>Consent</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for t in testimonials %}
+      <tr>
+        <td><strong>{{ t.name }}</strong><div style="font-size:11px;color:var(--color-text-secondary)">{{ t.city }}</div></td>
+        <td>{{ t.exam|default:"—" }}</td>
+        <td style="max-width:360px;white-space:normal;font-size:12px;color:var(--color-text-secondary)">{{ t.quote|truncatechars:140 }}</td>
+        <td>{% if t.consent_confirmed %}<span class="badge badge-green">Yes</span>{% else %}<span class="badge badge-amber">Missing</span>{% endif %}</td>
+        <td>{% if t.is_approved %}<span class="badge badge-blue">Live</span>{% else %}<span class="badge">Hidden</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          <a href="{% url 'dashboard_testimonial_edit' t.pk %}" class="action-btn">Edit</a>
+          <form method="post" action="{% url 'dashboard_testimonial_delete' t.pk %}" style="display:inline" id="del-tm-{{ t.pk }}">{% csrf_token %}
+            <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete this testimonial?', function(){ document.getElementById('del-tm-{{ t.pk }}').submit(); }, 'Delete testimonial');return false;">Delete</a>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;color:var(--color-text-secondary)">No testimonials yet. The homepage hides the section until you approve one.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

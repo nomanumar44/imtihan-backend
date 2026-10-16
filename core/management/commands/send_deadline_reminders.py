@@ -12,7 +12,9 @@ from datetime import datetime, time, timedelta
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from core.models import ApplicationRequest, Notification
+from django.conf import settings
+
+from core.models import ApplicationRequest, JobApplication, Notification
 from core.signals import _create_notification, _send_email
 
 
@@ -87,3 +89,35 @@ class Command(BaseCommand):
             ))
 
         self.stdout.write(self.style.SUCCESS(f'\nTotal reminders sent: {sent}'))
+
+        # Saved jobs (job tracker): one reminder per job when its last date is today or tomorrow.
+        tracked = JobApplication.objects.filter(
+            status__in=[JobApplication.Status.SAVED, JobApplication.Status.APPLIED],
+            reminder_sent=False,
+            job__last_date__gte=window_start,
+            job__last_date__lte=window_end,
+        ).select_related('user', 'job')
+        saved_sent = 0
+        for app in tracked:
+            job = app.job
+            when = 'today' if job.last_date == today else 'tomorrow'
+            if app.status == JobApplication.Status.SAVED:
+                msg = f"Last date to apply for {job.title} is {when} ({job.last_date:%d %b %Y})."
+            else:
+                msg = f"{job.title} closes {when} ({job.last_date:%d %b %Y}). Check your application is complete."
+            Notification.objects.create(
+                user=app.user,
+                notification_type=Notification.NotificationType.JOB_POSTED,
+                message=msg,
+                link=f'/jobs/{job.id}',
+            )
+            if app.user.email:
+                _send_email(
+                    f"Deadline {when}: {job.title}",
+                    f"Hi {app.user.username},\n\n{msg}\n\n{settings.FRONTEND_URL}/jobs/{job.id}\n\n— ImtihanHub Team",
+                    app.user.email,
+                )
+            app.reminder_sent = True
+            app.save(update_fields=['reminder_sent'])
+            saved_sent += 1
+        self.stdout.write(self.style.SUCCESS(f'Saved-job reminders sent: {saved_sent}'))

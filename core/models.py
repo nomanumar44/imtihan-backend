@@ -221,6 +221,12 @@ class MCQ(models.Model):
         MEDIUM = 'medium', 'Medium'
         HARD = 'hard', 'Hard'
 
+    class Origin(models.TextChoices):
+        MANUAL = 'manual', 'Added by staff'
+        UPLOAD = 'upload', 'Bulk upload'
+        SCRAPED = 'scraped', 'Scraped'
+        AI = 'ai', 'AI-generated'
+
     question_text = models.TextField()
     option_a = models.CharField(max_length=500)
     option_b = models.CharField(max_length=500)
@@ -250,6 +256,10 @@ class MCQ(models.Model):
         help_text='Topic within the subject, e.g. "Mughal Empire" or "Synonyms".'
     )
     difficulty = models.CharField(max_length=10, choices=Difficulty.choices, blank=True, default='')
+    origin = models.CharField(
+        max_length=10, choices=Origin.choices, default=Origin.MANUAL, db_index=True,
+        help_text='Where the question came from; AI-generated ones always start as drafts.'
+    )
     event_date = models.DateField(
         null=True, blank=True,
         help_text='Current affairs only: when the event happened.'
@@ -306,6 +316,9 @@ class PastPaper(models.Model):
         null=True, blank=True, db_index=True
     )
     year = models.PositiveIntegerField(default=0)
+    post_name = models.CharField(
+        max_length=200, blank=True, default='', help_text='Post the paper was for, e.g. "Sub Inspector".'
+    )
     pdf_file = models.FileField(upload_to='past_papers/', blank=True, null=True)
     source_url = models.URLField(max_length=500, blank=True, default='')
     status = models.CharField(
@@ -1403,3 +1416,78 @@ class Testimonial(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.exam})"
+
+
+# ─── Study planner ───
+
+class SyllabusTopic(models.Model):
+    """One topic of a syllabus, linked to the MCQs that practise it."""
+    syllabus = models.ForeignKey(Syllabus, on_delete=models.CASCADE, related_name='topics')
+    name = models.CharField(max_length=200)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='syllabus_topics')
+    mcq_topic = models.CharField(
+        max_length=120, blank=True, default='',
+        help_text='MCQ topic tag that practises this topic (leave blank to practise the whole subject).'
+    )
+    weight = models.PositiveSmallIntegerField(null=True, blank=True, help_text='Share of marks in %, if known.')
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['syllabus', 'order', 'id']
+
+    def __str__(self):
+        return f"{self.syllabus.title}: {self.name}"
+
+
+class StudyPlan(models.Model):
+    """A student's plan to cover one syllabus before their exam date."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='study_plan')
+    syllabus = models.ForeignKey(Syllabus, on_delete=models.CASCADE, related_name='study_plans')
+    exam_date = models.DateField()
+    hours_per_week = models.PositiveSmallIntegerField(default=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} → {self.syllabus.title} by {self.exam_date}"
+
+
+class TopicProgress(models.Model):
+    class Status(models.TextChoices):
+        NOT_STARTED = 'not_started', 'Not started'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        DONE = 'done', 'Done'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='topic_progress')
+    topic = models.ForeignKey(SyllabusTopic, on_delete=models.CASCADE, related_name='progress')
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.NOT_STARTED)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'topic']
+
+
+# ─── Flashcards (spaced repetition) ───
+
+class Flashcard(models.Model):
+    """A revision card scheduled with the SM-2 spaced-repetition algorithm."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='flashcards')
+    mcq = models.ForeignKey(MCQ, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcards')
+    front = models.TextField()
+    back = models.TextField()
+    ease = models.FloatField(default=2.5)
+    interval_days = models.PositiveIntegerField(default=0)
+    repetitions = models.PositiveIntegerField(default=0)
+    lapses = models.PositiveIntegerField(default=0)
+    due_date = models.DateField(db_index=True)
+    last_reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['due_date', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'mcq'], condition=models.Q(mcq__isnull=False), name='one_card_per_mcq'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.front[:40]}"

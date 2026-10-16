@@ -1,0 +1,39 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Mock tests{% endblock %}
+{% block content %}
+<div class="top-bar">
+  <div>
+    <div class="page-title">Mock tests</div>
+    <div class="page-subtitle">Duration, negative marking and subject mix for each full-length mock test</div>
+  </div>
+  <a href="{% url 'dashboard_mock_template_create' %}" class="btn-add"><i class="ti ti-plus"></i> New mock test</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Board</th><th>Questions</th><th>Duration</th><th>Negative marking</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for t in templates %}
+      <tr>
+        <td><strong>{{ t.title }}</strong><div style="font-size:11px;color:var(--color-text-secondary)">/mcq-tests/mock/{{ t.slug }}</div></td>
+        <td>{{ t.exam.name|default:"—" }}</td>
+        <td>{{ t.total_questions }}</td>
+        <td>{{ t.duration_minutes }} min</td>
+        <td>{% if t.negative_marking %}−{{ t.negative_marking }} per wrong answer{% else %}None{% endif %}</td>
+        <td>{% if t.is_active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge">Hidden</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          <a href="{% url 'dashboard_mock_template_edit' t.pk %}" class="action-btn">Edit</a>
+          <form method="post" action="{% url 'dashboard_mock_template_delete' t.pk %}" style="display:inline" id="del-mock-{{ t.pk }}">{% csrf_token %}
+            <a href="#" class="action-btn danger" onclick="showConfirmModal('Delete {{ t.title|escapejs }}?', function(){ document.getElementById('del-mock-{{ t.pk }}').submit(); }, 'Delete mock test');return false;">Delete</a>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" style="text-align:center;color:var(--color-text-secondary)">No mock tests yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

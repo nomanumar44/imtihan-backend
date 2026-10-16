@@ -201,12 +201,13 @@ def find_eligible_jobs(user: User):
     return results
 
 
-def get_eligibility_badge(user: User, job: JobListing) -> dict:
+def get_eligibility_badge(user: User, job: JobListing, result: dict | None = None) -> dict:
     """
-    Quick badge info for frontend display.
+    Quick badge info for frontend display; pass an existing check_eligibility
+    result to avoid running the check twice.
     Returns: { badge: 'eligible' | 'not_eligible' | 'incomplete', text: str }
     """
-    result = check_eligibility(user, job)
+    result = result or check_eligibility(user, job)
     if result['missing_info']:
         return {
             'badge': 'incomplete',
